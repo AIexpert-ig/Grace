@@ -42,14 +42,12 @@ jobs:
       run: |
         pylint $(git ls-files '*.py') || true
     
-    - name: Test with pytest and coverage
-      run: |
-        pytest --cov=app --cov-report=xml --cov-report=term-missing --cov-fail-under=100
-    
-    - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v3
-      with:
-        file: ./coverage.xml
-        flags: unittests
-        name: codecov-umbrella
-        fail_ci_if_error: true
+        - name: Test with pytest and coverage
+        env:
+          TELEGRAM_BOT_TOKEN: test_token
+          TELEGRAM_CHAT_ID: test_chat_id
+          HMAC_SECRET: test_hmac_secret_key_for_integration_tests
+          DATABASE_URL: postgresql+asyncpg://test:test@localhost:5432/test_db
+          TEST_DATABASE_URL: postgresql+asyncpg://test:test@localhost:5432/grace_test_db
+        run: |
+          pytest --cov=app --cov-report=xml --cov-report=term-missing --cov-fail-under=100
