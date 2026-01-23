@@ -2,14 +2,14 @@
 from pydantic import BaseModel
 
 
-class RateCheckRequest(BaseModel):
+class RateCheckRequest(BaseModel):  # pylint: disable=too-few-public-methods
     """Request model for checking hotel rates."""
 
     check_in_date: str
     room_type: str = "standard"
 
 
-class CallSummaryRequest(BaseModel):
+class CallSummaryRequest(BaseModel):  # pylint: disable=too-few-public-methods
     """Request model for call summary webhook."""
 
     caller_name: str

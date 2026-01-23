@@ -21,7 +21,7 @@ async def check_rates(data: RateCheckRequest):
     rate_info = RATE_DB.get(data.check_in_date)
     if not rate_info:
         return {"rate": "N/A", "availability": "None"}
-    
+
     price = rate_info.get(data.room_type.lower(), rate_info["standard"])
     return {"rate": str(price), "currency": "AED", "availability": rate_info["availability"]}
 
@@ -31,7 +31,7 @@ async def post_call_webhook(data: CallSummaryRequest, background_tasks: Backgrou
     """Process call summary webhook and send alerts for high/medium urgency calls."""
     if data.urgency.lower() in ["high", "medium"]:
         background_tasks.add_task(
-            telegram_service.send_alert, 
+            telegram_service.send_alert,
             f"High urgency call from {data.caller_name}. Summary: {data.summary}"
         )
     return {"status": "processed"}

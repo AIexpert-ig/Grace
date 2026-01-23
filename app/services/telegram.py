@@ -3,7 +3,7 @@
 # from ..core.config import settings
 
 
-class TelegramService:
+class TelegramService:  # pylint: disable=too-few-public-methods
     """Service for sending alerts via Telegram."""
 
     async def send_alert(self, message: str):
