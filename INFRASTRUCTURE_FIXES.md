@@ -2,6 +2,41 @@
 
 This document outlines the critical infrastructure fixes implemented to address production readiness gaps.
 
+## ⚠️ CRITICAL FIXES (Post-Initial Implementation)
+
+### Fix 1: Property Timezone Validation ✅
+**Problem**: Using UTC for date validation causes failures for physical hotel operations.
+- At 2:00 AM Dubai time (Jan 24), UTC is 10:00 PM (Jan 23)
+- Guest booking "today" at front desk would be rejected as "past date"
+
+**Solution**: 
+- Added `PROPERTY_TIMEZONE` configuration (default: "Asia/Dubai")
+- Date validation now uses property's local timezone via `pytz`
+- Validation: `datetime.now(property_tz).date()` instead of UTC
+
+### Fix 2: Multi-Worker Connection Pool Calculation ✅
+**Problem**: Connection pool size doesn't account for multiple worker processes.
+- Each worker creates its own pool: `(pool_size + max_overflow) * num_workers`
+- With 4 workers and pool_size=20, max_overflow=10: 120 connections!
+- PostgreSQL default max_connections: 100 → **Connection exhaustion**
+
+**Solution**:
+- Reduced default pool_size from 20 to 5, max_overflow from 10 to 2
+- Added `NUM_WORKERS` and `POSTGRES_MAX_CONNECTIONS` configuration
+- Added warning system that alerts when total connections > 80% of PostgreSQL limit
+- Formula: `(DB_POOL_SIZE + DB_MAX_OVERFLOW) * NUM_WORKERS < POSTGRES_MAX_CONNECTIONS`
+
+### Fix 3: HMAC Body Stream Consumption ✅
+**Problem**: FastAPI request body stream can only be read once.
+- HMAC dependency reads body → stream consumed
+- Pydantic tries to read body → empty, causing 422 errors
+
+**Solution**:
+- HMAC dependency caches body in `request.state.body`
+- Created `HMACVerifiedRoute` custom route class
+- Route handler uses cached body if available
+- Body can be read multiple times without errors
+
 ## 1. Database Connection Pooling ✅
 
 ### Problem
@@ -117,12 +152,22 @@ No visibility into connection pool status for monitoring and debugging.
 ```bash
 HMAC_SECRET=your_hmac_secret_key_here
 DATABASE_URL=postgresql+asyncpg://user:password@host:5432/dbname
+PROPERTY_TIMEZONE=Asia/Dubai  # IANA timezone name for the hotel location
+```
+
+### Critical Configuration
+```bash
+# Connection Pool Settings (per worker!)
+# Total connections = (DB_POOL_SIZE + DB_MAX_OVERFLOW) * NUM_WORKERS
+# Example: pool_size=5, max_overflow=2, 4 workers = (5+2)*4 = 28 connections
+DB_POOL_SIZE=5  # Reduced from 20 for multi-worker safety
+DB_MAX_OVERFLOW=2  # Reduced from 10
+NUM_WORKERS=4  # Number of Uvicorn/Gunicorn workers
+POSTGRES_MAX_CONNECTIONS=100  # Your PostgreSQL max_connections setting
 ```
 
 ### Optional (with defaults)
 ```bash
-DB_POOL_SIZE=20
-DB_MAX_OVERFLOW=10
 DB_POOL_TIMEOUT=30
 DB_POOL_RECYCLE=3600
 DB_POOL_PRE_PING=true
@@ -146,13 +191,31 @@ pytest tests/
 
 ## Deployment Checklist
 
+### Critical Steps
+- [ ] Set `PROPERTY_TIMEZONE` to hotel's IANA timezone (e.g., "Asia/Dubai")
+- [ ] Set `NUM_WORKERS` to match your Uvicorn/Gunicorn worker count
+- [ ] Calculate: `(DB_POOL_SIZE + DB_MAX_OVERFLOW) * NUM_WORKERS < POSTGRES_MAX_CONNECTIONS`
+- [ ] Set `POSTGRES_MAX_CONNECTIONS` to your actual PostgreSQL setting
+- [ ] Verify startup warnings don't indicate connection exhaustion risk
+
+### Standard Steps
 - [ ] Set `HMAC_SECRET` environment variable
 - [ ] Configure `DATABASE_URL` with production credentials
-- [ ] Set `DB_POOL_SIZE` based on expected load
 - [ ] Set `IS_SERVERLESS=true` if deploying to serverless platform
-- [ ] Verify connection pool limits don't exceed PostgreSQL `max_connections`
 - [ ] Monitor `/health` endpoint for pool status
 - [ ] Set up database connection monitoring/alerts
+
+### Connection Pool Calculation Example
+```python
+# For 4 workers with PostgreSQL max_connections=100:
+# Safe calculation: (5 + 2) * 4 = 28 connections (well under 100)
+# Leave room for: admin connections, other apps, maintenance
+
+# If you need more connections per worker:
+# Option 1: Reduce NUM_WORKERS
+# Option 2: Use PgBouncer for connection pooling
+# Option 3: Increase PostgreSQL max_connections (with caution)
+```
 
 ## Security Notes
 

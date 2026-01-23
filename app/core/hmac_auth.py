@@ -1,4 +1,4 @@
-"""HMAC signature validation with request body reading."""
+"""HMAC signature validation with request body caching."""
 import hashlib
 import hmac
 import json
@@ -11,11 +11,11 @@ from .config import settings
 
 
 async def verify_hmac_signature(request: Request) -> dict[str, Any]:
-    """Verify HMAC signature and return parsed body.
+    """Verify HMAC signature and cache body for Pydantic parsing.
     
-    This dependency reads the request body, verifies the HMAC signature,
-    and returns the parsed JSON body. This prevents the endpoint from
-    needing to read the body again.
+    CRITICAL: FastAPI request body stream can only be read once.
+    This function reads the body, verifies HMAC, then caches it in
+    request.state so Pydantic can parse it again.
     
     Args:
         request: FastAPI request object
@@ -52,9 +52,13 @@ async def verify_hmac_signature(request: Request) -> dict[str, Any]:
             detail="Request timestamp is too old or too far in the future"
         )
     
-    # Read request body
+    # Read request body (this consumes the stream)
     body_bytes = await request.body()
     body_str = body_bytes.decode('utf-8')
+    
+    # Cache the body in request.state so it can be read again by Pydantic
+    request.state.body = body_bytes
+    request.state.body_str = body_str
     
     # Compute expected signature: HMAC-SHA256(secret, timestamp + body)
     message = f"{timestamp}{body_str}"

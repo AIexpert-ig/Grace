@@ -1,9 +1,25 @@
 """Database connection and session management with proper connection pooling."""
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
-from sqlalchemy.pool import NullPool, QueuePool
-from sqlalchemy.orm import declarative_base
+import warnings
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker  # pyright: ignore[reportMissingImports]
+from sqlalchemy.pool import NullPool, QueuePool  # pyright: ignore[reportMissingImports]
+from sqlalchemy.orm import declarative_base  # pyright: ignore[reportMissingImports]
 
 from .config import settings
+
+# Calculate total connections per worker
+connections_per_worker = settings.DB_POOL_SIZE + settings.DB_MAX_OVERFLOW
+total_connections = connections_per_worker * settings.NUM_WORKERS
+
+# Warn if connection pool configuration might exhaust PostgreSQL
+if not settings.IS_SERVERLESS and total_connections > settings.POSTGRES_MAX_CONNECTIONS * 0.8:
+    warnings.warn(
+        f"WARNING: Connection pool configuration may exhaust PostgreSQL connections!\n"
+        f"  Per-worker: {settings.DB_POOL_SIZE} + {settings.DB_MAX_OVERFLOW} = {connections_per_worker}\n"
+        f"  Total ({settings.NUM_WORKERS} workers): {total_connections} connections\n"
+        f"  PostgreSQL max_connections: {settings.POSTGRES_MAX_CONNECTIONS}\n"
+        f"  Recommendation: Reduce DB_POOL_SIZE or DB_MAX_OVERFLOW, or use PgBouncer for connection pooling.",
+        UserWarning
+    )
 
 # Determine pool class based on environment
 # NullPool: For serverless (no connection pooling, new connection per request)

@@ -1,8 +1,11 @@
 """Pydantic models for request validation."""
-from datetime import date, datetime, timezone
+from datetime import date, datetime
 from enum import Enum
 
+import pytz  # pyright: ignore[reportMissingModuleSource]
 from pydantic import BaseModel, Field, field_validator
+
+from .core.config import settings
 
 
 class RoomType(str, Enum):
@@ -29,14 +32,32 @@ class RateCheckRequest(BaseModel):  # pylint: disable=too-few-public-methods
     @field_validator("check_in_date")
     @classmethod
     def validate_check_in_date(cls, v: date) -> date:
-        """Validate that check-in date is not in the past (timezone-aware).
+        """Validate that check-in date is not in the past (property timezone-aware).
         
-        Uses UTC timezone to ensure consistent validation regardless of server location.
+        Uses the property's local timezone (e.g., Asia/Dubai) to validate dates.
+        This ensures that a guest booking "today" at the front desk is valid,
+        regardless of where the server is located or what UTC time it is.
+        
+        Example: At 2:00 AM Dubai time (Jan 24), UTC is 10:00 PM (Jan 23).
+        A booking for Jan 24 should be valid because it's "today" in Dubai.
         """
-        # Get current date in UTC to avoid timezone issues
-        today_utc = datetime.now(timezone.utc).date()
-        if v < today_utc:
-            raise ValueError(f"Check-in date cannot be in the past. Today (UTC): {today_utc}, Provided: {v}")
+        try:
+            property_tz = pytz.timezone(settings.PROPERTY_TIMEZONE)
+        except pytz.exceptions.UnknownTimeZoneError:
+            raise ValueError(
+                f"Invalid timezone '{settings.PROPERTY_TIMEZONE}'. "
+                "Use IANA timezone name (e.g., Asia/Dubai, America/New_York)"
+            )
+        
+        # Get current date in property's local timezone
+        now_property = datetime.now(property_tz)
+        today_property = now_property.date()
+        
+        if v < today_property:
+            raise ValueError(
+                f"Check-in date cannot be in the past. "
+                f"Today ({settings.PROPERTY_TIMEZONE}): {today_property}, Provided: {v}"
+            )
         return v
 
 

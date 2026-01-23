@@ -1,5 +1,5 @@
 """SQLAlchemy database models."""
-from sqlalchemy import Column, Date, Integer, String
+from sqlalchemy import Column, Date, Integer, String  # pyright: ignore[reportMissingImports]
 
 from .core.database import Base
 from .models import RoomType

@@ -1,12 +1,13 @@
 """FastAPI application for Grace AI Infrastructure."""
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select  # pyright: ignore[reportMissingImports]
+from sqlalchemy.ext.asyncio import AsyncSession  # pyright: ignore[reportMissingImports]
 from fastapi import FastAPI, BackgroundTasks, Depends, HTTPException, status
 from .models import RateCheckRequest, CallSummaryRequest, RoomType, UrgencyLevel
 from .services.telegram import TelegramService
 from .core.config import settings
 from .core.database import get_db, get_pool_status
 from .core.hmac_auth import verify_hmac_signature
+from .core.routes import HMACVerifiedRoute
 from .db_models import Rate
 
 app = FastAPI(title=settings.PROJECT_NAME)
@@ -70,18 +71,21 @@ async def check_rates(
 
     return rate.to_dict(data.room_type)
 
-
-@app.post("/post-call-webhook")
+  # pyright: ignore[reportUndefinedVariable]
+@app.post("/post-call-webhook", route_class=HMACVerifiedRoute)
 async def post_call_webhook(
     background_tasks: BackgroundTasks,
     body_data: dict = Depends(verify_hmac_signature)
 ):
     """Process call summary webhook with HMAC signature validation.
     
-    The request body is read and verified by the HMAC dependency.
-    HMAC signature prevents tampering and replay attacks.
+    The request body is read and verified by the HMAC dependency, which
+    caches it in request.state. The HMACVerifiedRoute ensures the cached
+    body can be accessed if needed. HMAC signature prevents tampering
+    and replay attacks.
     """
     # Parse the verified body data into the model
+    # body_data is already parsed JSON from verify_hmac_signature
     data = CallSummaryRequest(**body_data)
     
     if data.urgency in [UrgencyLevel.HIGH, UrgencyLevel.MEDIUM]:

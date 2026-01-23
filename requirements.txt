@@ -8,3 +8,4 @@ pytest-cov
 sqlalchemy[asyncio]
 asyncpg
 alembic
+pytz
