@@ -1,17 +1,43 @@
 """FastAPI application for Grace AI Infrastructure."""
-from sqlalchemy import select  # pyright: ignore[reportMissingImports]
+import logging
+
 from sqlalchemy.ext.asyncio import AsyncSession  # pyright: ignore[reportMissingImports]
 from fastapi import FastAPI, BackgroundTasks, Depends, HTTPException, status
-from .models import RateCheckRequest, CallSummaryRequest, RoomType, UrgencyLevel
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
+
+from .models import RateCheckRequest, CallSummaryRequest, UrgencyLevel
+from .services.rate_service import RateService
 from .services.telegram import TelegramService
 from .core.config import settings
 from .core.database import get_db, get_pool_status
 from .core.hmac_auth import verify_hmac_signature
-from .core.routes import HMACVerifiedRoute
-from .db_models import Rate
+from .core.validators import validate_check_in_date_not_past
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title=settings.PROJECT_NAME)
 telegram_service = TelegramService()
+rate_service = RateService()
+
+# Security middleware
+app.add_middleware(
+    TrustedHostMiddleware,
+    allowed_hosts=["*"]  # Configure with actual allowed hosts in production
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Configure with actual origins in production
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.on_event("startup")
@@ -46,33 +72,30 @@ async def check_rates(
 ):
     """Check hotel rates for a given check-in date and room type."""
     # CRITICAL: Returns raw numbers. No Math.
-    # Query database for rate
-    stmt = select(Rate).where(Rate.check_in_date == data.check_in_date)
-    result = await db.execute(stmt)
-    rate = result.scalar_one_or_none()
-
-    if not rate:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"No rates available for check-in date: {data.check_in_date.isoformat()}"
-        )
-
-    # Validate room type exists
-    if data.room_type == RoomType.STANDARD and not rate.standard_rate:
+    # Validate date is not in the past (property timezone-aware)
+    try:
+        validate_check_in_date_not_past(data.check_in_date)
+    except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Room type '{data.room_type.value}' not available for this date"
+            detail=str(e)
         )
-    if data.room_type == RoomType.SUITE and not rate.suite_rate:
+    
+    # Get rate from service layer
+    try:
+        return await rate_service.get_rate_by_date(db, data.check_in_date, data.room_type)
+    except ValueError as e:
+        if "No rates available" in str(e):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=str(e)
+            )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Room type '{data.room_type.value}' not available for this date"
+            detail=str(e)
         )
 
-    return rate.to_dict(data.room_type)
-
-  # pyright: ignore[reportUndefinedVariable]
-@app.post("/post-call-webhook", route_class=HMACVerifiedRoute)
+@app.post("/post-call-webhook")
 async def post_call_webhook(
     background_tasks: BackgroundTasks,
     body_data: dict = Depends(verify_hmac_signature)
@@ -80,8 +103,7 @@ async def post_call_webhook(
     """Process call summary webhook with HMAC signature validation.
     
     The request body is read and verified by the HMAC dependency, which
-    caches it in request.state. The HMACVerifiedRoute ensures the cached
-    body can be accessed if needed. HMAC signature prevents tampering
+    returns the parsed JSON body. HMAC signature prevents tampering
     and replay attacks.
     """
     # Parse the verified body data into the model

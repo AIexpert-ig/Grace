@@ -10,7 +10,6 @@ class Settings(BaseSettings):  # pylint: disable=too-few-public-methods
     PROJECT_NAME: str = "Grace AI Infrastructure"
     TELEGRAM_BOT_TOKEN: str  # Required - no default
     TELEGRAM_CHAT_ID: str  # Required - no default
-    API_KEY: str  # Required for webhook authentication (deprecated - use HMAC_SECRET)
     HMAC_SECRET: str  # Required for HMAC signature validation
     DATABASE_URL: str  # Required - PostgreSQL connection string
     
