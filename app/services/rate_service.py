@@ -1,60 +1,30 @@
-"""Rate service for database operations."""
-import logging
+"""Service layer for rate-related database operations."""
 from datetime import date
-
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..db_models import Rate
-from ..models import RoomType
+from app.db_models import Rate
+from app.models import RoomType
 
-logger = logging.getLogger(__name__)
-
-
-class RateService:  # pylint: disable=too-few-public-methods
-    """Service for rate-related database operations."""
+class RateService:
+    """Service for handling hotel rate queries."""
 
     @staticmethod
-    async def get_rate_by_date(
-        db: AsyncSession,
-        check_in_date: date,
-        room_type: RoomType
-    ) -> dict:
-        """Get rate information for a specific check-in date and room type.
+    async def get_rate_for_date(db: AsyncSession, check_in_date: date) -> Rate | None:
+        """Fetch rate information for a specific date from the database.
         
         Args:
-            db: Database session
-            check_in_date: Check-in date
-            room_type: Type of room (standard or suite)
+            db: The async database session
+            check_in_date: The date to check rates for
             
         Returns:
-            dict: Rate information with rate, currency, and availability
-            
-        Raises:
-            ValueError: If rate not found or room type not available
+            Rate object if found, None otherwise
         """
         stmt = select(Rate).where(Rate.check_in_date == check_in_date)
         result = await db.execute(stmt)
-        rate = result.scalar_one_or_none()
+        return result.scalar_one_or_none()
 
-        if not rate:
-            logger.warning(
-                "Rate not found for date",
-                extra={"check_in_date": check_in_date.isoformat()}
-            )
-            raise ValueError(f"No rates available for check-in date: {check_in_date.isoformat()}")
-
-        # Validate room type exists
-        if room_type == RoomType.STANDARD and not rate.standard_rate:
-            raise ValueError(f"Room type '{room_type.value}' not available for this date")
-        if room_type == RoomType.SUITE and not rate.suite_rate:
-            raise ValueError(f"Room type '{room_type.value}' not available for this date")
-
-        logger.info(
-            "Rate retrieved successfully",
-            extra={
-                "check_in_date": check_in_date.isoformat(),
-                "room_type": room_type.value
-            }
-        )
+    @staticmethod
+    def format_rate_response(rate: Rate, room_type: RoomType) -> dict:
+        """Format the database rate object into the API response dictionary."""
         return rate.to_dict(room_type)
