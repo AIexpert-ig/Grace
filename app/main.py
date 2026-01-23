@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException, BackgroundTasks
-from app.models import RateCheckRequest, CallSummaryRequest
-from app.services.telegram import TelegramService
-from app.core.config import settings
+from .models import RateCheckRequest, CallSummaryRequest
+from .services.telegram import TelegramService
+from .core.config import settings
 
 # MOCK DB (Goal: Replace with real logic later)
 RATE_DB = {
