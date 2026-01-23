@@ -1,0 +1,35 @@
+import pytest
+from httpx import ASGITransport, AsyncClient
+from app.main import app
+from unittest.mock import AsyncMock, patch
+
+@pytest.mark.asyncio
+async def test_post_call_webhook_high_urgency():
+    with patch("app.main.telegram_service.send_alert", new_callable=AsyncMock) as mock_send_alert:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+            response = await ac.post("/post-call-webhook", json={
+                "caller_name": "John Doe",
+                "room_number": "101",
+                "callback_number": "+123456789",
+                "summary": "Guest is unhappy",
+                "urgency": "High"
+            })
+        
+        assert response.status_code == 200
+        mock_send_alert.assert_called_once()
+        assert "John Doe" in mock_send_alert.call_args[0][0]
+
+@pytest.mark.asyncio
+async def test_post_call_webhook_low_urgency():
+    with patch("app.main.telegram_service.send_alert", new_callable=AsyncMock) as mock_send_alert:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+            response = await ac.post("/post-call-webhook", json={
+                "caller_name": "Jane Doe",
+                "room_number": "102",
+                "callback_number": "+987654321",
+                "summary": "Just asking about breakfast",
+                "urgency": "Low"
+            })
+        
+        assert response.status_code == 200
+        mock_send_alert.assert_not_called()
