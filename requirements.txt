@@ -4,3 +4,7 @@ httpx
 pydantic-settings
 pytest
 pytest-asyncio
+pytest-cov
+sqlalchemy[asyncio]
+asyncpg
+alembic
