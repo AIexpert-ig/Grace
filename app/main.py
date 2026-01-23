@@ -1,11 +1,12 @@
 """FastAPI application for Grace AI Infrastructure."""
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from fastapi import FastAPI, BackgroundTasks, Depends, Header, HTTPException, status
+from fastapi import FastAPI, BackgroundTasks, Depends, HTTPException, status
 from .models import RateCheckRequest, CallSummaryRequest, RoomType, UrgencyLevel
 from .services.telegram import TelegramService
 from .core.config import settings
-from .core.database import get_db
+from .core.database import get_db, get_pool_status
+from .core.hmac_auth import verify_hmac_signature
 from .db_models import Rate
 
 app = FastAPI(title=settings.PROJECT_NAME)
@@ -14,9 +15,10 @@ telegram_service = TelegramService()
 
 @app.on_event("startup")
 async def startup_event():
-    """Initialize database connection on startup."""
-    # Database connection is handled by the engine
-    pass
+    """Initialize database connection pool on startup."""
+    # Verify connection pool is ready
+    pool_status = get_pool_status()
+    app.state.pool_status = pool_status
 
 
 @app.on_event("shutdown")
@@ -26,14 +28,14 @@ async def shutdown_event():
     await engine.dispose()
 
 
-async def verify_api_key(x_api_key: str = Header(..., alias="X-API-Key")):
-    """Dependency to verify API key for protected endpoints."""
-    if x_api_key != settings.API_KEY:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid API Key"
-        )
-    return x_api_key
+@app.get("/health")
+async def health_check():
+    """Health check endpoint with connection pool status."""
+    pool_status = get_pool_status()
+    return {
+        "status": "healthy",
+        "pool": pool_status
+    }
 
 
 @app.post("/check-rates")
@@ -71,11 +73,17 @@ async def check_rates(
 
 @app.post("/post-call-webhook")
 async def post_call_webhook(
-    data: CallSummaryRequest,
     background_tasks: BackgroundTasks,
-    _api_key: str = Depends(verify_api_key)
+    body_data: dict = Depends(verify_hmac_signature)
 ):
-    """Process call summary webhook and send alerts for high/medium urgency calls."""
+    """Process call summary webhook with HMAC signature validation.
+    
+    The request body is read and verified by the HMAC dependency.
+    HMAC signature prevents tampering and replay attacks.
+    """
+    # Parse the verified body data into the model
+    data = CallSummaryRequest(**body_data)
+    
     if data.urgency in [UrgencyLevel.HIGH, UrgencyLevel.MEDIUM]:
         urgency_label = data.urgency.value.capitalize()
         background_tasks.add_task(

@@ -1,5 +1,5 @@
 """Pydantic models for request validation."""
-from datetime import date
+from datetime import date, datetime, timezone
 from enum import Enum
 
 from pydantic import BaseModel, Field, field_validator
@@ -29,9 +29,14 @@ class RateCheckRequest(BaseModel):  # pylint: disable=too-few-public-methods
     @field_validator("check_in_date")
     @classmethod
     def validate_check_in_date(cls, v: date) -> date:
-        """Validate that check-in date is not in the past."""
-        if v < date.today():
-            raise ValueError("Check-in date cannot be in the past")
+        """Validate that check-in date is not in the past (timezone-aware).
+        
+        Uses UTC timezone to ensure consistent validation regardless of server location.
+        """
+        # Get current date in UTC to avoid timezone issues
+        today_utc = datetime.now(timezone.utc).date()
+        if v < today_utc:
+            raise ValueError(f"Check-in date cannot be in the past. Today (UTC): {today_utc}, Provided: {v}")
         return v
 
 
