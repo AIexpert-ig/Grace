@@ -1,12 +1,12 @@
 """Database connection and session management with proper connection pooling."""
 import warnings
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
-from sqlalchemy.pool import NullPool
+from sqlalchemy.pool import NullPool, QueuePool
 from sqlalchemy.orm import declarative_base
 
 from .config import settings
 
-# FIX: UPPER_CASE for module-level constants
+# Calculate connections to ensure PostgreSQL max_connections is not exhausted
 CONNECTIONS_PER_WORKER = settings.DB_POOL_SIZE + settings.DB_MAX_OVERFLOW
 TOTAL_CONNECTIONS = CONNECTIONS_PER_WORKER * settings.NUM_WORKERS
 
@@ -18,8 +18,11 @@ if not settings.IS_SERVERLESS and TOTAL_CONNECTIONS > settings.POSTGRES_MAX_CONN
         UserWarning
     )
 
-# FIX: UPPER_CASE for module-level constants
+# Use NullPool for serverless. 
+# Use None for standard deployment (SQLAlchemy auto-selects AsyncAdaptedQueuePool).
 POOL_CLASS = NullPool if settings.IS_SERVERLESS else None
+
+# Create async engine with proper connection pooling
 engine = create_async_engine(
     settings.DATABASE_URL,
     echo=False,
@@ -38,7 +41,7 @@ engine = create_async_engine(
     }
 )
 
-# FIX: UPPER_CASE for module-level constants
+# Create async session factory
 ASYNC_SESSION_LOCAL = async_sessionmaker(
     engine,
     class_=AsyncSession,
@@ -64,6 +67,7 @@ async def get_db() -> AsyncSession:
 def get_pool_status() -> dict:
     """Get current connection pool status for monitoring."""
     pool = engine.pool
+    # QueuePool check is valid here for monitoring, even in async contexts.
     if isinstance(pool, QueuePool):
         return {
             "pool_type": "QueuePool",
@@ -71,13 +75,14 @@ def get_pool_status() -> dict:
             "checked_out": pool.checkedout(),
             "overflow": pool.overflow(),
             "checked_in": pool.checkedin(),
-            # FIX: Tell Pylint to ignore protected access for this specific line
-            "max_overflow": pool._max_overflow,  # pylint: disable=protected-access
+            # pylint: disable=protected-access
+            "max_overflow": pool._max_overflow,
         }
-    # FIX: Removed unnecessary `elif` (R1705)
+    
     if isinstance(pool, NullPool):
         return {
             "pool_type": "NullPool",
             "note": "No connection pooling (serverless mode)",
         }
+        
     return {"pool_type": "Unknown"}
