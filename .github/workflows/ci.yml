@@ -38,16 +38,13 @@ jobs:
         # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
         flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
     
-    - name: Lint with pylint
+    # THIS IS CORRECT: 'env:' is at the same level as 'name:' and 'run:'
+    - name: Test with pytest and coverage
+      env:
+        TELEGRAM_BOT_TOKEN: test_token
+        TELEGRAM_CHAT_ID: test_chat_id
+        HMAC_SECRET: test_hmac_secret_key_for_integration_tests
+        DATABASE_URL: postgresql+asyncpg://test:test@localhost:5432/grace_test_db
+        TEST_DATABASE_URL: postgresql+asyncpg://test:test@localhost:5432/grace_test_db
       run: |
-        pylint $(git ls-files '*.py') || true
-    
-        - name: Test with pytest and coverage
-        env:
-          TELEGRAM_BOT_TOKEN: test_token
-          TELEGRAM_CHAT_ID: test_chat_id
-          HMAC_SECRET: test_hmac_secret_key_for_integration_tests
-          DATABASE_URL: postgresql+asyncpg://test:test@localhost:5432/test_db
-          TEST_DATABASE_URL: postgresql+asyncpg://test:test@localhost:5432/grace_test_db
-        run: |
-          pytest --cov=app --cov-report=xml --cov-report=term-missing --cov-fail-under=100
+        pytest --cov=app --cov-report=xml --cov-report=term-missing --cov-fail-under=100
