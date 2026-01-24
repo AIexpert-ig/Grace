@@ -1,9 +1,5 @@
 [tool.poetry]
-[tool.poetry]
 package-mode = false
-name = "grace"
-version = "0.1.0"
-# ... everything else stays the same
 name = "grace"
 version = "0.1.0"
 description = "Grace Telegram Bot"
