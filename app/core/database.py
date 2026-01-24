@@ -1,7 +1,7 @@
 """Database connection and session management with proper connection pooling."""
 import warnings
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
-from sqlalchemy.pool import NullPool, QueuePool
+from sqlalchemy.pool import NullPool
 from sqlalchemy.orm import declarative_base
 
 from .config import settings
@@ -19,8 +19,7 @@ if not settings.IS_SERVERLESS and TOTAL_CONNECTIONS > settings.POSTGRES_MAX_CONN
     )
 
 # FIX: UPPER_CASE for module-level constants
-POOL_CLASS = NullPool if settings.IS_SERVERLESS else QueuePool
-
+POOL_CLASS = NullPool if settings.IS_SERVERLESS else None
 engine = create_async_engine(
     settings.DATABASE_URL,
     echo=False,
