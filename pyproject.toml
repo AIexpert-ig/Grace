@@ -1,2 +1,8 @@
+```toml
+[tool.poetry]
+name = "grace"
+version = "0.1.0"
+
 [tool.pylint.MASTER]
 ignore-paths = ["^tests/.*$"]
+```
