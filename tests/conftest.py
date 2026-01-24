@@ -96,10 +96,10 @@ async def test_client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, N
 @pytest.fixture
 async def sample_rate(db_session: AsyncSession) -> Rate:
     """Create a sample rate in the test database."""
-    from datetime import date
+    from datetime import date, timedelta
     
     rate = Rate(
-        check_in_date=date(2026, 1, 22),
+        check_in_date=date.today() + timedelta(days=5),
         standard_rate=500,
         suite_rate=950,
         availability="High"
