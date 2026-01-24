@@ -22,7 +22,7 @@ jobs:
         poetry install
         - name: Run tests
         run: poetry run pytest
-        env: # <--- ADD THIS SECTION
+        env:
           TELEGRAM_BOT_TOKEN: "test_bot_token"
           TELEGRAM_CHAT_ID: "123456789"
           HMAC_SECRET: "test_hmac_secret_key"
