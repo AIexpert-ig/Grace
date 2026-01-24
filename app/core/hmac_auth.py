@@ -11,7 +11,7 @@ from .config import settings
 
 
 async def verify_hmac_signature(request: Request) -> dict[str, Any]:
-    """Verify HMAC signature and return parsed body.
+    """Verify API key and HMAC signature, returning the parsed body.
     
     This dependency reads the request body once, verifies the HMAC signature,
     and returns the parsed JSON body. FastAPI dependencies handle the body
@@ -24,8 +24,15 @@ async def verify_hmac_signature(request: Request) -> dict[str, Any]:
         dict: Parsed JSON body from the request
         
     Raises:
-        HTTPException: If signature is invalid or timestamp is invalid
+        HTTPException: If API key, signature, or timestamp is invalid
     """
+    api_key = request.headers.get("X-API-Key")
+    if api_key != settings.API_KEY:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid API Key"
+        )
+
     # Get signature and timestamp from headers
     signature = request.headers.get("X-Signature")
     timestamp_str = request.headers.get("X-Timestamp")

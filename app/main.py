@@ -47,8 +47,11 @@ async def startup_event():
 @app.on_event("shutdown")
 async def shutdown_event():
     """Close database connections on shutdown."""
-    from .core.database import engine
-    await engine.dispose()
+    from .core import database
+    if database.engine is None:
+        logger.info("Database connections were not initialized.")
+        return
+    await database.engine.dispose()
     logger.info("Database connections closed.")
 
 @app.get("/health")

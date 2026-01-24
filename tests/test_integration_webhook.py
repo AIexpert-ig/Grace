@@ -39,6 +39,7 @@ async def test_webhook_integration_high_urgency(test_client):
             "/post-call-webhook",
             json=body,
             headers={
+                "X-API-Key": settings.API_KEY,
                 "X-Signature": signature,
                 "X-Timestamp": str(timestamp)
             }
@@ -68,6 +69,7 @@ async def test_webhook_integration_low_urgency(test_client):
             "/post-call-webhook",
             json=body,
             headers={
+                "X-API-Key": settings.API_KEY,
                 "X-Signature": signature,
                 "X-Timestamp": str(timestamp)
             }
@@ -94,6 +96,7 @@ async def test_webhook_integration_invalid_signature(test_client):
         "/post-call-webhook",
         json=body,
         headers={
+            "X-API-Key": settings.API_KEY,
             "X-Signature": "invalid_signature",
             "X-Timestamp": str(timestamp)
         }
@@ -117,7 +120,10 @@ async def test_webhook_integration_missing_signature(test_client):
     response = await test_client.post(
         "/post-call-webhook",
         json=body,
-        headers={"X-Timestamp": str(int(time.time()))}
+        headers={
+            "X-API-Key": settings.API_KEY,
+            "X-Timestamp": str(int(time.time()))
+        }
     )
     
     assert response.status_code == 401
@@ -142,6 +148,7 @@ async def test_webhook_integration_replay_attack(test_client):
         "/post-call-webhook",
         json=body,
         headers={
+            "X-API-Key": settings.API_KEY,
             "X-Signature": signature,
             "X-Timestamp": str(old_timestamp)
         }

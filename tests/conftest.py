@@ -19,21 +19,8 @@ TEST_DATABASE_URL = os.getenv(
     "postgresql+asyncpg://test:test@localhost:5432/grace_test_db"
 )
 
-# Create test engine with NullPool for isolation
-test_engine = create_async_engine(
-    TEST_DATABASE_URL,
-    echo=False,
-    poolclass=NullPool,  # No connection pooling for tests
-    future=True
-)
-
-TestSessionLocal = async_sessionmaker(
-    test_engine,
-    class_=AsyncSession,
-    expire_on_commit=False,
-    autocommit=False,
-    autoflush=False
-)
+def _requires_asyncpg(url: str) -> bool:
+    return url.startswith("postgresql+asyncpg")
 
 
 @pytest.fixture(scope="session")
@@ -44,13 +31,44 @@ def event_loop():
     loop.close()
 
 
+@pytest.fixture(scope="session")
+def test_engine(event_loop):
+    """Create a test engine with NullPool for isolation."""
+    if _requires_asyncpg(TEST_DATABASE_URL):
+        pytest.importorskip("asyncpg")
+
+    engine = create_async_engine(
+        TEST_DATABASE_URL,
+        echo=False,
+        poolclass=NullPool,  # No connection pooling for tests
+        future=True
+    )
+    yield engine
+    event_loop.run_until_complete(engine.dispose())
+
+
+@pytest.fixture(scope="session")
+def session_maker(test_engine):
+    """Create a session factory bound to the test engine."""
+    return async_sessionmaker(
+        test_engine,
+        class_=AsyncSession,
+        expire_on_commit=False,
+        autocommit=False,
+        autoflush=False
+    )
+
+
 @pytest.fixture(scope="function")
-async def db_session() -> AsyncGenerator[AsyncSession, None]:
+async def db_session(
+    test_engine,
+    session_maker
+) -> AsyncGenerator[AsyncSession, None]:
     """Create a test database session."""
     async with test_engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     
-    async with TestSessionLocal() as session:
+    async with session_maker() as session:
         yield session
         await session.rollback()
     
