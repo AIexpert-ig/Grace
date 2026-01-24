@@ -11,5 +11,5 @@ pytz==2024.1
 
 # Testing dependencies
 pytest==8.0.2
-pytest-asyncio==0.23.3
+pytest-asyncio>=0.23.5
 pytest-cov==4.1.0
