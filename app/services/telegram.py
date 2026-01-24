@@ -1,5 +1,6 @@
 """Telegram service for sending alerts."""
 import logging
+from typing import Any
 
 import httpx
 
@@ -10,6 +11,11 @@ logger = logging.getLogger(__name__)
 
 class TelegramService:  # pylint: disable=too-few-public-methods
     """Service for sending alerts via Telegram."""
+
+    async def process_update(self, update: dict[str, Any]) -> None:
+        """Process a Telegram webhook update payload."""
+        update_id = update.get("update_id")
+        logger.info("Received Telegram update", extra={"update_id": update_id})
 
     async def send_alert(self, message: str):
         """Send an alert message via Telegram.

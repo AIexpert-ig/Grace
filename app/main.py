@@ -1,6 +1,6 @@
 """FastAPI application for Grace AI Infrastructure."""
 import logging
-from fastapi import FastAPI, BackgroundTasks, Depends, HTTPException, status
+from fastapi import FastAPI, BackgroundTasks, Depends, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -114,3 +114,11 @@ async def post_call_webhook(
         background_tasks.add_task(telegram_service.send_alert, message)
         
     return {"status": "processed"}
+
+
+@app.post("/telegram-webhook")
+async def telegram_webhook(request: Request):
+    """Process Telegram webhook updates separately from voice AI."""
+    data = await request.json()
+    await telegram_service.process_update(data)
+    return {"ok": True}
