@@ -1,7 +1,7 @@
 """Service layer for rate-related database operations."""
 from datetime import date
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select  # pyright: ignore[reportMissingImports]
+from sqlalchemy.ext.asyncio import AsyncSession  # pyright: ignore[reportMissingImports]
 
 from app.db_models import Rate
 from app.models import RoomType

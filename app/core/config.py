@@ -1,5 +1,5 @@
 """Configuration settings for the Grace AI Infrastructure application."""
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, SettingsConfigDict  # pyright: ignore[reportMissingImports]
 
 
 class Settings(BaseSettings):  # pylint: disable=too-few-public-methods
