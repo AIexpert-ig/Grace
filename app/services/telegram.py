@@ -3,67 +3,81 @@ import logging
 from typing import Any
 
 import httpx
+from sqlalchemy import text
 
+# Import the database session generator
+from ..api.dependencies import get_db
 from ..core.config import settings
 
 logger = logging.getLogger(__name__)
 
 
-class TelegramService:  # pylint: disable=too-few-public-methods
+class TelegramService:
     """Service for sending alerts and replying to users via Telegram."""
 
-    async def process_update(self, update: dict[str, Any]) -> None:
-        """Process a Telegram webhook update payload and reply to the user."""
-        update_id = update.get("update_id")
-        logger.info("Received Telegram update", extra={"update_id": update_id})
-
-        # 1. Check if the update contains a standard text message
-        if "message" in update and "text" in update["message"]:
-            chat_id = update["message"]["chat"]["id"]
-            user_text = update["message"]["text"]
-            
-            # Log the incoming message
-            logger.info("Processing message", extra={"chat_id": chat_id, "text": user_text})
-
-            # 2. Formulate Grace's response
-            if user_text.startswith("/start"):
-                reply_text = "Hello! I am Grace, your AI concierge. How can I assist you with your stay today?"
-            else:
-                reply_text = f"Grace is processing your request: '{user_text}' (AI integration pending)"
-
-            # 3. Send the response back to the user
-            url = f"https://api.telegram.org/bot{settings.TELEGRAM_BOT_TOKEN}/sendMessage"
-            try:
-                async with httpx.AsyncClient(timeout=10.0) as client:
-                    response = await client.post(
-                        url,
-                        json={"chat_id": chat_id, "text": reply_text}
-                    )
-                    response.raise_for_status()
-                    logger.info("Reply sent successfully", extra={"chat_id": chat_id})
-            except httpx.HTTPError as e:
-                logger.error("Failed to send Telegram reply", extra={"error": str(e)}, exc_info=True)
-            except Exception as e:
-                logger.error("Unexpected error sending Telegram reply", extra={"error": str(e)}, exc_info=True)
-
-
-    async def send_alert(self, message: str):
-        """Send an admin alert message via Telegram.
-        
-        Args:
-            message: The message to send to the admin chat.
-        """
+    async def _send_message(self, chat_id: int, text_content: str) -> None:
+        """Helper to send a message back to Telegram."""
         url = f"https://api.telegram.org/bot{settings.TELEGRAM_BOT_TOKEN}/sendMessage"
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
                 response = await client.post(
                     url,
-                    json={"chat_id": settings.TELEGRAM_CHAT_ID, "text": message}
+                    json={"chat_id": chat_id, "text": text_content, "parse_mode": "Markdown"}
                 )
                 response.raise_for_status()
-                logger.info("Telegram alert sent successfully", extra={"message_length": len(message)})
-        except httpx.HTTPError as e:
-            logger.error("Failed to send Telegram alert", extra={"error": str(e)}, exc_info=True)
-            # Don't raise - alert failures shouldn't break the webhook processing
+                logger.info("Reply sent successfully", extra={"chat_id": chat_id})
         except Exception as e:
-            logger.error("Unexpected error sending Telegram alert", extra={"error": str(e)}, exc_info=True)
+            logger.error("Failed to send Telegram reply", extra={"error": str(e)})
+
+    async def process_update(self, update: dict[str, Any]) -> None:
+        """Process a Telegram webhook update payload and reply to the user."""
+        update_id = update.get("update_id")
+        if "message" not in update or "text" not in update["message"]:
+            return
+
+        chat_id = update["message"]["chat"]["id"]
+        user_text = update["message"]["text"]
+        
+        logger.info("Processing message", extra={"update_id": update_id, "chat_id": chat_id})
+
+        # COMMAND: /start
+        if user_text.startswith("/start"):
+            reply = "🛎 *Welcome to Grace Luxury AI*\n\nI am your digital concierge. You can ask me about our current room /rates, or simply tell me how I can help you today."
+            await self._send_message(chat_id, reply)
+
+        # COMMAND: /rates
+        elif user_text.startswith("/rates"):
+            # Real database integration for the demo
+            rates_text = await self._get_live_rates()
+            await self._send_message(chat_id, rates_text)
+
+        # ALL OTHER TEXT: AI Concierge Brain
+        else:
+            # Placeholder for OpenAI call
+            ai_reply = f"✨ *Grace Concierge*:\n\nThank you for your request regarding '{user_text}'. I am currently being connected to my neural core. In the meantime, would you like to see our /rates?"
+            await self._send_message(chat_id, ai_reply)
+
+    async def _get_live_rates(self) -> str:
+        """Fetch real rates from the PostgreSQL database."""
+        try:
+            # We use the dependency to get a session
+            async for db in get_db():
+                # This assumes you have a 'rates' table. If not, it returns a graceful demo response.
+                result = await db.execute(text("SELECT room_type, price FROM rates LIMIT 3"))
+                rows = result.all()
+                
+                if not rows:
+                    return "Our current seasonal rates start at *$199/night* for a Classic King Room. Please check back for live suite availability."
+                
+                msg = "🏨 *Current Room Rates:*\n\n"
+                for row in rows:
+                    msg += f"• {row[0]}: *${row[1]}/night*\n"
+                msg += "\n_Would you like to proceed with a booking?_"
+                return msg
+        except Exception as e:
+            logger.error(f"Database error in rates: {e}")
+            return "Our standard rooms currently start at *$199/night*. Contact our front desk for elite suite pricing."
+
+    async def send_alert(self, message: str):
+        """Send an admin alert message via Telegram."""
+        await self._send_message(int(settings.TELEGRAM_CHAT_ID), f"🚨 *SYSTEM ALERT*\n{message}")
