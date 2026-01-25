@@ -1,3 +1,5 @@
+from app.services.openai_service import OpenAIService
+openai_service = OpenAIService()
 """Telegram service for sending alerts and processing bot messages."""
 import logging
 from typing import Any

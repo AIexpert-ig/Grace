@@ -20,6 +20,9 @@ class Settings(BaseSettings):  # pylint: disable=too-few-public-methods
     HMAC_SECRET: str = ""
     DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/grace"
     
+    # --- AI INTEGRATION ---
+    OPENAI_API_KEY: str = ""  # Add this for Grace's Neural Core
+    
     # Property timezone - CRITICAL: Must match the physical location of the hotel
     PROPERTY_TIMEZONE: str = "Asia/Dubai"
     
