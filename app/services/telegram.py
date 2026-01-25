@@ -5,8 +5,6 @@ from typing import Any
 import httpx
 from sqlalchemy import text
 
-# Change these to absolute imports
-from app.api.dependencies import get_db
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -47,22 +45,22 @@ class TelegramService:
 
         # COMMAND: /rates
         elif user_text.startswith("/rates"):
-            # Real database integration for the demo
             rates_text = await self._get_live_rates()
             await self._send_message(chat_id, rates_text)
 
-        # ALL OTHER TEXT: AI Concierge Brain
+        # ALL OTHER TEXT: AI Concierge Brain Placeholder
         else:
-            # Placeholder for OpenAI call
             ai_reply = f"✨ *Grace Concierge*:\n\nThank you for your request regarding '{user_text}'. I am currently being connected to my neural core. In the meantime, would you like to see our /rates?"
             await self._send_message(chat_id, ai_reply)
 
     async def _get_live_rates(self) -> str:
         """Fetch real rates from the PostgreSQL database."""
+        # Fix circular import by importing here instead of top of file
+        from app.api.dependencies import get_db
+        
         try:
-            # We use the dependency to get a session
             async for db in get_db():
-                # This assumes you have a 'rates' table. If not, it returns a graceful demo response.
+                # Attempt to query your database
                 result = await db.execute(text("SELECT room_type, price FROM rates LIMIT 3"))
                 rows = result.all()
                 
