@@ -70,14 +70,30 @@ async def verify_hmac_signature(request: Request) -> dict[str, Any]:
         message.encode('utf-8'),
         hashlib.sha256
     ).hexdigest()
-    
+
     # Use constant-time comparison to prevent timing attacks
     if not hmac.compare_digest(expected_signature, signature):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid HMAC signature"
-        )
-    
+        try:
+            parsed_body = json.loads(body_str)
+        except json.JSONDecodeError:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid HMAC signature"
+            )
+        canonical_body = json.dumps(parsed_body, separators=(",", ":"), ensure_ascii=False)
+        canonical_message = f"{timestamp}{canonical_body}"
+        canonical_signature = hmac.new(
+            settings.HMAC_SECRET.encode('utf-8'),
+            canonical_message.encode('utf-8'),
+            hashlib.sha256
+        ).hexdigest()
+        if not hmac.compare_digest(canonical_signature, signature):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid HMAC signature"
+            )
+        return parsed_body
+
     # Parse and return the body
     try:
         return json.loads(body_str)
