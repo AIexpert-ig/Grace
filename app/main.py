@@ -1,8 +1,11 @@
 """FastAPI application for Grace AI Infrastructure."""
 import logging
+from pathlib import Path
+
 from fastapi import FastAPI, BackgroundTasks, Depends, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .models import RateCheckRequest, CallSummaryRequest, UrgencyLevel
@@ -122,3 +125,7 @@ async def telegram_webhook(request: Request):
     data = await request.json()
     await telegram_service.process_update(data)
     return {"ok": True}
+
+
+STATIC_DIR = Path(__file__).resolve().parent / "static"
+app.mount("/", StaticFiles(directory=STATIC_DIR, html=True), name="static")
