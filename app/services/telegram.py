@@ -5,9 +5,9 @@ from typing import Any
 import httpx
 from sqlalchemy import text
 
-# Import the database session generator
-from ..api.dependencies import get_db
-from ..core.config import settings
+# Change these to absolute imports
+from app.api.dependencies import get_db
+from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
