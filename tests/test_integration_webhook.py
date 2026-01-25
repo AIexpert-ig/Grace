@@ -9,16 +9,22 @@ import pytest
 from app.core.config import settings
 
 
-def generate_hmac_signature(body: dict, timestamp: int) -> str:
-    """Generate HMAC signature for test requests."""
-    body_str = json.dumps(body, separators=(",", ":"), ensure_ascii=False)
-    message = f"{timestamp}{body_str}"
+def build_signed_request(body: dict, timestamp: int) -> tuple[dict[str, str], str]:
+    """Build signed webhook headers and JSON body for tests."""
+    body_json = json.dumps(body, separators=(",", ":"), ensure_ascii=False)
+    message = f"{timestamp}{body_json}"
     signature = hmac.new(
         settings.HMAC_SECRET.encode('utf-8'),
         message.encode('utf-8'),
         hashlib.sha256
     ).hexdigest()
-    return signature
+    headers = {
+        "X-API-Key": settings.API_KEY,
+        "X-Signature": signature,
+        "X-Timestamp": str(timestamp),
+        "Content-Type": "application/json",
+    }
+    return headers, body_json
 
 
 @pytest.mark.asyncio
@@ -32,17 +38,12 @@ async def test_webhook_integration_high_urgency(test_client):
         "urgency": "high"
     }
     timestamp = int(time.time())
-    signature = generate_hmac_signature(body, timestamp)
-    
     with patch("app.main.telegram_service.send_alert", new_callable=AsyncMock) as mock_send_alert:
+        headers, body_json = build_signed_request(body, timestamp)
         response = await test_client.post(
             "/post-call-webhook",
-            json=body,
-            headers={
-                "X-API-Key": settings.API_KEY,
-                "X-Signature": signature,
-                "X-Timestamp": str(timestamp)
-            }
+            content=body_json,
+            headers=headers
         )
     
     assert response.status_code == 200
@@ -62,17 +63,12 @@ async def test_webhook_integration_low_urgency(test_client):
         "urgency": "low"
     }
     timestamp = int(time.time())
-    signature = generate_hmac_signature(body, timestamp)
-    
     with patch("app.main.telegram_service.send_alert", new_callable=AsyncMock) as mock_send_alert:
+        headers, body_json = build_signed_request(body, timestamp)
         response = await test_client.post(
             "/post-call-webhook",
-            json=body,
-            headers={
-                "X-API-Key": settings.API_KEY,
-                "X-Signature": signature,
-                "X-Timestamp": str(timestamp)
-            }
+            content=body_json,
+            headers=headers
         )
     
     assert response.status_code == 200
@@ -92,14 +88,12 @@ async def test_webhook_integration_invalid_signature(test_client):
     }
     timestamp = int(time.time())
     
+    headers, body_json = build_signed_request(body, timestamp)
+    headers["X-Signature"] = "invalid_signature"
     response = await test_client.post(
         "/post-call-webhook",
-        json=body,
-        headers={
-            "X-API-Key": settings.API_KEY,
-            "X-Signature": "invalid_signature",
-            "X-Timestamp": str(timestamp)
-        }
+        content=body_json,
+        headers=headers
     )
     
     assert response.status_code == 401
@@ -117,13 +111,13 @@ async def test_webhook_integration_missing_signature(test_client):
         "urgency": "high"
     }
     
+    timestamp = int(time.time())
+    headers, body_json = build_signed_request(body, timestamp)
+    headers.pop("X-Signature", None)
     response = await test_client.post(
         "/post-call-webhook",
-        json=body,
-        headers={
-            "X-API-Key": settings.API_KEY,
-            "X-Timestamp": str(int(time.time()))
-        }
+        content=body_json,
+        headers=headers
     )
     
     assert response.status_code == 401
@@ -142,16 +136,11 @@ async def test_webhook_integration_replay_attack(test_client):
     }
     # Use timestamp from 10 minutes ago
     old_timestamp = int(time.time()) - 600
-    signature = generate_hmac_signature(body, old_timestamp)
-    
+    headers, body_json = build_signed_request(body, old_timestamp)
     response = await test_client.post(
         "/post-call-webhook",
-        json=body,
-        headers={
-            "X-API-Key": settings.API_KEY,
-            "X-Signature": signature,
-            "X-Timestamp": str(old_timestamp)
-        }
+        content=body_json,
+        headers=headers
     )
     
     assert response.status_code == 401
