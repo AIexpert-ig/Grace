@@ -11,7 +11,7 @@ from app.core.config import settings
 
 def generate_hmac_signature(body: dict, timestamp: int) -> str:
     """Generate HMAC signature for test requests."""
-    body_str = json.dumps(body)
+    body_str = json.dumps(body, separators=(",", ":"), ensure_ascii=False)
     message = f"{timestamp}{body_str}"
     signature = hmac.new(
         settings.HMAC_SECRET.encode('utf-8'),

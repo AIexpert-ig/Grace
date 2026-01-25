@@ -1,0 +1,13 @@
+fastapi
+uvicorn
+sqlalchemy[asyncio]
+asyncpg
+aiosqlite
+alembic
+python-telegram-bot
+pydantic
+pydantic-settings
+httpx
+tenacity
+pytz
+openai

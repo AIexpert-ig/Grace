@@ -1,5 +1,3 @@
-from app.services.openai_service import OpenAIService
-openai_service = OpenAIService()
 """Telegram service for sending alerts and processing bot messages."""
 import logging
 from typing import Any
@@ -8,6 +6,7 @@ import httpx
 from sqlalchemy import text
 
 from app.core.config import settings
+from app.core.database import get_db
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +36,7 @@ class TelegramService:
 
         chat_id = update["message"]["chat"]["id"]
         user_text = update["message"]["text"]
-        
+
         logger.info("Processing message", extra={"update_id": update_id, "chat_id": chat_id})
 
         # COMMAND: /start
@@ -57,27 +56,25 @@ class TelegramService:
 
     async def _get_live_rates(self) -> str:
         """Fetch real rates from the PostgreSQL database."""
-        # Fix circular import by importing here instead of top of file
-        from app.api.dependencies import get_db
-        
         try:
             async for db in get_db():
                 # Attempt to query your database
                 result = await db.execute(text("SELECT room_type, price FROM rates LIMIT 3"))
                 rows = result.all()
-                
+
                 if not rows:
                     return "Our current seasonal rates start at *$199/night* for a Classic King Room. Please check back for live suite availability."
-                
+
                 msg = "🏨 *Current Room Rates:*\n\n"
                 for row in rows:
                     msg += f"• {row[0]}: *${row[1]}/night*\n"
                 msg += "\n_Would you like to proceed with a booking?_"
                 return msg
-        except Exception as e:
-            logger.error(f"Database error in rates: {e}")
+        except Exception as exc:
+            logger.error("Database error in rates: %s", exc)
             return "Our standard rooms currently start at *$199/night*. Contact our front desk for elite suite pricing."
+        return "Our standard rooms currently start at *$199/night*. Contact our front desk for elite suite pricing."
 
-    async def send_alert(self, message: str):
+    async def send_alert(self, message: str) -> None:
         """Send an admin alert message via Telegram."""
         await self._send_message(int(settings.TELEGRAM_CHAT_ID), f"🚨 *SYSTEM ALERT*\n{message}")
