@@ -2,6 +2,7 @@
 from datetime import date, timedelta
 
 import pytest
+from httpx import Response
 from app.db_models import Rate
 
 
@@ -16,7 +17,7 @@ PAST_DATE = (date.today() - timedelta(days=5)).isoformat()
 @pytest.mark.asyncio
 async def test_check_rates_integration_standard(test_client, sample_rate):
     """Integration test: Check rates for standard room with real database."""
-    response = await test_client.post(
+    response: Response = await test_client.post(
         "/check-rates",
         json={"check_in_date": FUTURE_DATE, "room_type": "standard"}
     )
@@ -31,7 +32,7 @@ async def test_check_rates_integration_standard(test_client, sample_rate):
 @pytest.mark.asyncio
 async def test_check_rates_integration_suite(test_client, sample_rate):
     """Integration test: Check rates for suite room with real database."""
-    response = await test_client.post(
+    response: Response = await test_client.post(
         "/check-rates",
         json={"check_in_date": FUTURE_DATE, "room_type": "suite"}
     )
@@ -46,7 +47,7 @@ async def test_check_rates_integration_suite(test_client, sample_rate):
 @pytest.mark.asyncio
 async def test_check_rates_integration_not_found(test_client):
     """Integration test: 404 when rate doesn't exist in database."""
-    response = await test_client.post(
+    response: Response = await test_client.post(
         "/check-rates",
         json={"check_in_date": FUTURE_DATE, "room_type": "standard"}
     )
@@ -58,13 +59,13 @@ async def test_check_rates_integration_not_found(test_client):
 @pytest.mark.asyncio
 async def test_check_rates_integration_past_date(test_client):
     """Integration test: Validation error for past date."""
-    response = await test_client.post(
+    response: Response = await test_client.post(
         "/check-rates",
         json={"check_in_date": PAST_DATE, "room_type": "standard"}
     )
     
-    assert response.status_code == 422  # Validation error
-    assert "past" in response.json()["detail"][0]["msg"].lower()
+    assert response.status_code == 400  # Validation error
+    assert "past" in response.json()["detail"].lower()
 
 
 @pytest.mark.asyncio
@@ -90,7 +91,7 @@ async def test_check_rates_integration_multiple_rates(test_client, db_session):
     await db_session.commit()
     
     # Test first rate
-    response1 = await test_client.post(
+    response1: Response = await test_client.post(
         "/check-rates",
         json={"check_in_date": FUTURE_DATE, "room_type": "standard"}
     )
@@ -98,7 +99,7 @@ async def test_check_rates_integration_multiple_rates(test_client, db_session):
     assert response1.json()["rate"] == "500"
     
     # Test second rate
-    response2 = await test_client.post(
+    response2: Response = await test_client.post(
         "/check-rates",
         json={"check_in_date": FUTURE_DATE_2, "room_type": "suite"}
     )
