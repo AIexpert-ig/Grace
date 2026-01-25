@@ -1,12 +1,12 @@
 {
-    "include": [
-        "app"
-    ],
+    "include": ["app"],
+    "exclude": ["**/node_modules", "**/__pycache__", ".venv"],
+    "venvPath": ".",
+    "venv": ".venv",
     "executionEnvironments": [
         {
-            "root": "."
+            "root": ".",
+            "extraPaths": ["."]
         }
-    ],
-    "reportMissingImports": true,
-    "typeCheckingMode": "basic"
+    ]
 }
