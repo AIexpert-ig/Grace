@@ -21,14 +21,12 @@ def trigger_lab_escalation():
     body_json = json.dumps(payload)
     message = f"{timestamp}.{body_json}".encode()
     
-    # 2. Generate the HMAC-SHA256 signature
     signature = hmac.new(
         SECRET_KEY.encode(),
         message,
         hashlib.sha256
     ).hexdigest()
     
-    # 3. Execute the authenticated request
     headers = {
         "x-grace-signature": signature,
         "x-grace-timestamp": timestamp,
