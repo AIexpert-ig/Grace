@@ -1,19 +1,36 @@
-# app/routers/staff.py
+import os
+import httpx
 from fastapi import APIRouter, Depends
 from app.auth import verify_hmac_signature
-from app.templates.notifications import StaffAlertTemplate # Use the template we moved
+from app.templates.notifications import StaffAlertTemplate
 
 router = APIRouter()
 
+# Load credentials from Railway Variables
+BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+STAFF_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
+
 @router.post("/escalate", dependencies=[Depends(verify_hmac_signature)])
 async def trigger_escalation(data: dict):
-    # This turns the raw data into a world-class alert
+    # 1. Generate the world-class UI message
     formatted_msg = StaffAlertTemplate.format_urgent_escalation(
-        data.get('guest_name', 'Unknown'),
+        data.get('guest_name', 'Unknown Guest'),
         data.get('room_number', 'N/A'),
         data.get('issue', 'General Assistance')
     )
-    return {
-        "status": "success", 
-        "message_preview": formatted_msg # Now returns the high-end UI
+
+    # 2. Transmit to Telegram Staff Channel
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+    payload = {
+        "chat_id": STAFF_CHAT_ID,
+        "text": formatted_msg,
+        "parse_mode": "MarkdownV2"
     }
+
+    async with httpx.AsyncClient() as client:
+        response = await client.post(url, json=payload)
+    
+    if response.status_code == 200:
+        return {"status": "dispatched", "target": "Staff Group"}
+    else:
+        return {"status": "error", "detail": response.text}
