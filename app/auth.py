@@ -1,11 +1,11 @@
 import hmac
 import hashlib
 import time
-import os
 from fastapi import Request, HTTPException, Header
+from app.core.config import settings
 
-# Load from Railway environment variable
-API_SECRET_KEY = os.getenv("HMAC_SECRET")
+# Load from configuration (reads .env file automatically)
+API_SECRET_KEY = settings.HMAC_SECRET
 
 async def verify_hmac_signature(
     request: Request,
