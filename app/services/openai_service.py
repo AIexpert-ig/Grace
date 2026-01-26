@@ -1,19 +1,24 @@
-"""OpenAI service for Grace's neural core."""
+"""OpenAI service for Grace's neural core using OpenRouter Free Models."""
 import logging
 from openai import AsyncOpenAI
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-# Initialize OpenAI Client
-client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
+# Initialize the Client pointing to OpenRouter
+# We use settings.OPENAI_API_KEY so you can manage the key in Railway
+client = AsyncOpenAI(
+    base_url="https://openrouter.ai/api/v1",
+    api_key=settings.OPENAI_API_KEY,
+)
 
 class OpenAIService:
     async def get_concierge_response(self, user_message: str) -> str:
-        """Generate a luxury concierge response using GPT-4."""
+        """Generate a luxury concierge response using a free high-end model via OpenRouter."""
         try:
             response = await client.chat.completions.create(
-                model="gpt-4-turbo-preview",
+                # Use a high-quality FREE model from OpenRouter
+                model="google/gemini-2.0-flash-exp:free",
                 messages=[
                     {
                         "role": "system", 
@@ -27,9 +32,12 @@ class OpenAIService:
                     {"role": "user", "content": user_message}
                 ],
                 temperature=0.7,
-                max_tokens=200
+                max_tokens=300
             )
             return response.choices[0].message.content
         except Exception as e:
-            logger.error(f"OpenAI Core Error: {e}")
-            return "I apologize, but I am having a moment of reflection. How else may I assist you?"
+            logger.error(f"OpenAI/OpenRouter Core Error: {e}")
+            return (
+                "I apologize, I am currently attending to another guest's request. "
+                "May I assist you with our /rates or something else in the meantime?"
+            )

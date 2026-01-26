@@ -1,5 +1,6 @@
 """Database connection and session management with proper connection pooling."""
 import warnings
+from typing import AsyncGenerator
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.pool import NullPool, QueuePool
 from sqlalchemy.orm import declarative_base
@@ -74,7 +75,7 @@ def get_session_factory():
 
 Base = declarative_base()
 
-async def get_db() -> AsyncSession:
+async def get_db() -> AsyncGenerator[AsyncSession, None]:
     """Dependency to get database session from connection pool."""
     session_factory = get_session_factory()
     async with session_factory() as session:
