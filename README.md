@@ -1,18 +1,15 @@
-### Grace AI Infrastructure Architecture
-
-```mermaid
 %%{init: {
   'theme': 'base',
-  'flowchart': { 'curve': 'basis', 'padding': 12, 'nodeSpacing': 55, 'rankSpacing': 70 },
+  'flowchart': { 'curve': 'basis', 'padding': 25, 'nodeSpacing': 65, 'rankSpacing': 90, 'useMaxWidth': false },
   'themeVariables': {
-    'fontFamily': 'Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial',
-    'fontSize': '18px',
-    'lineColor': '#2B2F3A',
-    'textColor': '#121826',
-    'primaryColor': '#F7F8FC',
-    'primaryTextColor': '#121826',
-    'primaryBorderColor': '#2B2F3A',
-    'tertiaryColor': '#FFFFFF'
+    'fontFamily': 'Inter, system-ui, sans-serif',
+    'fontSize': '19px',
+    'lineColor': '#475569',
+    'textColor': '#1e293b',
+    'primaryColor': '#f8fafc',
+    'primaryTextColor': '#0f172a',
+    'primaryBorderColor': '#94a3b8',
+    'tertiaryColor': '#ffffff'
   }
 }}%%
 
@@ -21,78 +18,76 @@ flowchart LR
   %% ----------------------------
   %% LAYERS
   %% ----------------------------
-  subgraph CX["Guest Experience Layer"]
+  subgraph CX["GUEST INTERFACE"]
     direction LR
-    U((Guest))
+    U(((Guest)))
   end
 
-  subgraph EDGE["Channel + Gateway"]
+  subgraph EDGE["ORCHESTRATION GATEWAY"]
     direction LR
-    TG["Telegram"]
-    API["FastAPI Gateway<br/><span style='font-size:13px;opacity:.85'>Routing • Auth • Context Builder</span>"]
+    TG[Telegram Bot]
+    API[["FastAPI Core<br/><span style='font-size:14px;opacity:.8'>Auth • Logic • Routing</span>"]]
   end
 
-  subgraph DATA["Data Layer"]
+  subgraph BRAIN["NEURAL ENGINE"]
     direction LR
-    DB[(PostgreSQL)]
+    LLM["OpenRouter / Gemini 2.0<br/><span style='font-size:14px;opacity:.8'>Reasoning & Persona</span>"]
+    MEM[(Guest History<br/>Redis Cache)]
   end
 
-  subgraph AI["AI Orchestration"]
+  subgraph DATA["KNOWLEDGE BASE"]
     direction LR
-    LLM["OpenRouter / Gemini 2.0<br/><span style='font-size:13px;opacity:.85'>Reasoning • Tone • Response</span>"]
+    DB[(PostgreSQL<br/>Rates & Inventory)]
   end
 
-  subgraph OPS["Operations & Escalations"]
+  subgraph OPS["SECURITY & STAFF"]
     direction LR
-    SYS["External Voice AI"]
+    SHIELD{{HMAC Validator}}
     STAFF((Hotel Staff))
   end
 
   %% ----------------------------
-  %% FLOWS (Primary)
+  %% THE "SMART" FLOW
   %% ----------------------------
-  U -- "Message" --> TG
-  TG -- "Inbound API Call" --> API
-  API -- "Query" --> DB
-  DB -- "Rates / Info" --> API
-  API -- "Context + Data" --> LLM
-  LLM -- "Persona + Draft" --> API
-  API -- "Final Response" --> TG
+  U -- "Inquiry" --> TG
+  TG -- "Secure Request" --> API
+  
+  %% Parallel Smart Check
+  API -- "Verify Identity" --> SHIELD
+  API -- "Fetch Context" --> MEM
+  API -- "Check Inventory" --> DB
+  
+  %% Synthesis
+  API -- "Enriched Context" --> LLM
+  LLM -- "Polished Response" --> API
+  
+  API -- "Personalized Reply" --> TG
   TG -- "Delivered" --> U
 
-  %% ----------------------------
-  %% FLOWS (Ops)
-  %% ----------------------------
-  SYS -- "HMAC-signed webhook" --> API
-  API -- "Urgent alert" --> STAFF
+  %% Escalation Path
+  SHIELD -- "Valid Alert" --> API
+  API -- "Staff Dispatch" --> STAFF
 
   %% ----------------------------
-  %% STYLES
+  %% STYLING (The "Luxury" Look)
   %% ----------------------------
-  classDef guest fill:#0B1220,stroke:#0B1220,color:#FFFFFF,stroke-width:3px;
-  classDef channel fill:#FFFFFF,stroke:#CBD5E1,color:#0F172A,stroke-width:2px;
-  classDef gateway fill:#EEF2FF,stroke:#4F46E5,color:#111827,stroke-width:3px;
-  classDef data fill:#ECFDF5,stroke:#10B981,color:#064E3B,stroke-width:3px;
-  classDef ai fill:#EFF6FF,stroke:#2563EB,color:#0B1B3A,stroke-width:3px;
-  classDef ops fill:#FFF7ED,stroke:#F97316,color:#7C2D12,stroke-width:3px;
-  classDef staff fill:#FFFBEB,stroke:#F59E0B,color:#78350F,stroke-width:3px;
+  classDef guest fill:#0f172a,stroke:#0f172a,color:#fff,stroke-width:4px;
+  classDef core fill:#eef2ff,stroke:#6366f1,color:#1e1b4b,stroke-width:4px;
+  classDef brain fill:#f0f9ff,stroke:#0ea5e9,color:#0c4a6e,stroke-width:4px;
+  classDef knowledge fill:#f0fdf4,stroke:#22c55e,color:#052e16,stroke-width:3px;
+  classDef security fill:#fff7ed,stroke:#f97316,color:#7c2d12,stroke-width:3px;
 
   class U guest;
-  class TG channel;
-  class API gateway;
-  class DB data;
-  class LLM ai;
-  class SYS ops;
-  class STAFF staff;
+  class API,TG core;
+  class LLM,MEM brain;
+  class DB knowledge;
+  class SHIELD,STAFF security;
 
-  %% Subgraph styling (soft cards)
-  style CX fill:#F8FAFC,stroke:#E2E8F0,stroke-width:2px,rx:16,ry:16;
-  style EDGE fill:#F8FAFC,stroke:#E2E8F0,stroke-width:2px,rx:16,ry:16;
-  style DATA fill:#F8FAFC,stroke:#E2E8F0,stroke-width:2px,rx:16,ry:16;
-  style AI fill:#F8FAFC,stroke:#E2E8F0,stroke-width:2px,rx:16,ry:16;
-  style OPS fill:#F8FAFC,stroke:#E2E8F0,stroke-width:2px,rx:16,ry:16;
+  style CX fill:#f8fafc,stroke:#e2e8f0,rx:20,ry:20;
+  style EDGE fill:#f8fafc,stroke:#e2e8f0,rx:20,ry:20;
+  style BRAIN fill:#f8fafc,stroke:#e2e8f0,rx:20,ry:20;
+  style DATA fill:#f8fafc,stroke:#e2e8f0,rx:20,ry:20;
+  style OPS fill:#f8fafc,stroke:#e2e8f0,rx:20,ry:20;
 
-  %% Emphasis on primary path
-  linkStyle 0,1,2,3,4,5,6,7 stroke:#111827,stroke-width:3px;
-  %% Ops path
-  linkStyle 8,9 stroke:#F97316,stroke-width:3px,stroke-dasharray:6 4;
+  linkStyle default stroke:#64748b,stroke-width:2px;
+  linkStyle 9,10 stroke:#f97316,stroke-width:3px,stroke-dasharray: 8 5;
