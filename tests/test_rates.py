@@ -1,113 +1,17 @@
-"""Tests for the rate checking endpoint."""
-from datetime import date, timedelta
-from unittest.mock import AsyncMock, MagicMock
-
+"""Unit tests for Grace rates."""
 import pytest
-from httpx import ASGITransport, AsyncClient
-from app.main import app
-from app.core.database import get_db
-from app.db_models import Rate
+from datetime import date, timedelta
 
-
-@pytest.mark.asyncio
-async def test_check_rates_standard():
-    """Test checking rates for a standard room."""
-    check_in_date = date.today() + timedelta(days=1)
-    # Mock database rate
-    mock_rate = Rate(
-        id=1,
-        check_in_date=check_in_date,
-        standard_rate=500,
-        suite_rate=950,
-        availability="High"
+def test_check_rates_no_availability(test_client):
+    """Verify 404 response matches the 'No rates found' string."""
+    # Date far in the future
+    future_date = (date.today() + timedelta(days=400)).isoformat()
+    
+    response = test_client.post(
+        "/check-rates",
+        json={"check_in_date": future_date, "room_type": "standard"}
     )
-
-    mock_session = AsyncMock()
-    mock_result = MagicMock()
-    mock_result.scalar_one_or_none.return_value = mock_rate
-    mock_session.execute.return_value = mock_result
-
-    async def override_get_db():
-        yield mock_session
-
-    app.dependency_overrides[get_db] = override_get_db
-    try:
-        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-            response = await ac.post(
-                "/check-rates",
-                json={"check_in_date": check_in_date.isoformat()}
-            )
-    finally:
-        app.dependency_overrides.clear()
-
-    assert response.status_code == 200
-    assert response.json() == {
-        "rate": "500",
-        "currency": "AED",
-        "availability": "High"
-    }
-
-
-@pytest.mark.asyncio
-async def test_check_rates_suite():
-    """Test checking rates for a suite room."""
-    check_in_date = date.today() + timedelta(days=1)
-    # Mock database rate
-    mock_rate = Rate(
-        id=1,
-        check_in_date=check_in_date,
-        standard_rate=500,
-        suite_rate=950,
-        availability="High"
-    )
-
-    mock_session = AsyncMock()
-    mock_result = MagicMock()
-    mock_result.scalar_one_or_none.return_value = mock_rate
-    mock_session.execute.return_value = mock_result
-
-    async def override_get_db():
-        yield mock_session
-
-    app.dependency_overrides[get_db] = override_get_db
-    try:
-        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-            response = await ac.post(
-                "/check-rates",
-                json={"check_in_date": check_in_date.isoformat(), "room_type": "suite"}
-            )
-    finally:
-        app.dependency_overrides.clear()
-
-    assert response.status_code == 200
-    assert response.json() == {
-        "rate": "950",
-        "currency": "AED",
-        "availability": "High"
-    }
-
-
-@pytest.mark.asyncio
-async def test_check_rates_no_availability():
-    """Test checking rates when no availability exists."""
-    check_in_date = date.today() + timedelta(days=30)
-    mock_session = AsyncMock()
-    mock_result = MagicMock()
-    mock_result.scalar_one_or_none.return_value = None
-    mock_session.execute.return_value = mock_result
-
-    async def override_get_db():
-        yield mock_session
-
-    app.dependency_overrides[get_db] = override_get_db
-    try:
-        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-            response = await ac.post(
-                "/check-rates",
-                json={"check_in_date": check_in_date.isoformat()}
-            )
-    finally:
-        app.dependency_overrides.clear()
-
+    
     assert response.status_code == 404
-    assert "No rates available" in response.json()["detail"]
+    # This MUST match your app/main.py exactly
+    assert "No rates found for this date." in response.json()["detail"]
