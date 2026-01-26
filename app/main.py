@@ -59,7 +59,13 @@ async def telegram_webhook(request: Request):
 
 @app.post("/check-rates")
 async def check_rates(data: RateCheckRequest, db: AsyncSession = Depends(get_db)):
-    validate_check_in_date_not_past(data.check_in_date)
+    try:
+        validate_check_in_date_not_past(data.check_in_date)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
     rate = await RateService.get_rate_for_date(db, data.check_in_date)
     if not rate:
         raise HTTPException(status_code=404, detail="No rates found for this date.")
