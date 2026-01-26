@@ -14,14 +14,14 @@ class Settings(BaseSettings):  # pylint: disable=too-few-public-methods
     PROJECT_NAME: str = "Grace AI Infrastructure"
     
     # Defaults provided to prevent CI/Demo crashes
-    TELEGRAM_BOT_TOKEN: str = ""
-    TELEGRAM_CHAT_ID: str = ""
-    API_KEY: str = ""
-    HMAC_SECRET: str = ""
+    TELEGRAM_BOT_TOKEN: str = "8534606686:AAHwAHq_zxuJJD66e85TC63kXosVO3bmM74"
+    TELEGRAM_CHAT_ID: str = "8569555761"
+    API_KEY: str = "grace_prod_key_99"
+    HMAC_SECRET: str = "grace_hmac_secret_99"
     DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/grace"
     
     # --- AI INTEGRATION ---
-    OPENAI_API_KEY: str = ""  # Add this for Grace's Neural Core
+    OPENAI_API_KEY: str = "grace_prod_key_99"  # Add this for Grace's Neural Core
     
     # Property timezone - CRITICAL: Must match the physical location of the hotel
     PROPERTY_TIMEZONE: str = "Asia/Dubai"
