@@ -2,9 +2,7 @@
 from datetime import date
 from enum import Enum
 
-from pydantic import BaseModel, Field, field_validator
-
-from .core.validators import validate_check_in_date_not_past
+from pydantic import BaseModel, Field
 
 
 class RoomType(str, Enum):
@@ -27,13 +25,6 @@ class RateCheckRequest(BaseModel):  # pylint: disable=too-few-public-methods
 
     check_in_date: date = Field(..., description="Check-in date in YYYY-MM-DD format")
     room_type: RoomType = Field(default=RoomType.STANDARD, description="Type of room")
-
-    @field_validator("check_in_date")
-    @classmethod
-    def check_date_not_past(cls, value: date) -> date:
-        """Ensure check-in date is not in the past."""
-        validate_check_in_date_not_past(value)
-        return value
 
 
 class CallSummaryRequest(BaseModel):  # pylint: disable=too-few-public-methods

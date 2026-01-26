@@ -6,7 +6,6 @@ from app.core.config import settings
 logger = logging.getLogger(__name__)
 
 # Initialize the Client pointing to OpenRouter
-# We use settings.OPENAI_API_KEY so you can manage the key in Railway
 client = AsyncOpenAI(
     base_url="https://openrouter.ai/api/v1",
     api_key=settings.OPENAI_API_KEY,
@@ -17,7 +16,6 @@ class OpenAIService:
         """Generate a luxury concierge response using a free high-end model via OpenRouter."""
         try:
             response = await client.chat.completions.create(
-                # Use a high-quality FREE model from OpenRouter
                 model="google/gemini-2.0-flash-exp:free",
                 messages=[
                     {
@@ -25,18 +23,22 @@ class OpenAIService:
                         "content": (
                             "You are Grace, a world-class AI concierge for an ultra-luxury hotel. "
                             "Your tone is sophisticated, warm, and highly professional. "
-                            "You anticipate needs and speak with elegance. Keep responses concise "
-                            "but high-end. If asked about rates, suggest they use the /rates command."
+                            "Keep responses concise but high-end. "
+                            "If asked about rates, suggest they use the /rates command."
                         )
                     },
                     {"role": "user", "content": user_message}
                 ],
+                extra_headers={
+                    "HTTP-Referer": "https://railway.app",
+                    "X-Title": "Grace AI Concierge",
+                },
                 temperature=0.7,
                 max_tokens=300
             )
             return response.choices[0].message.content
         except Exception as e:
-            logger.error(f"OpenAI/OpenRouter Core Error: {e}")
+            logger.error(f"OpenRouter Connection Error: {str(e)}")
             return (
                 "I apologize, I am currently attending to another guest's request. "
                 "May I assist you with our /rates or something else in the meantime?"

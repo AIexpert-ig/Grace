@@ -14,6 +14,7 @@ from .services.rate_service import RateService
 from .core.config import settings
 from .core.database import get_db, get_pool_status
 from .core.hmac_auth import verify_hmac_signature
+from .core.validators import validate_check_in_date_not_past
 
 # Configure standard Python logging for production
 logging.basicConfig(
@@ -70,7 +71,16 @@ async def check_rates(
     db: AsyncSession = Depends(get_db)
 ):
     """Check hotel rates for a given check-in date and room type."""
-    # 1. Fetch from Service Layer (No SQL here!)
+    # 1. Deterministic Timezone Validation
+    try:
+        validate_check_in_date_not_past(data.check_in_date)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+
+    # 2. Fetch from Service Layer (No SQL here!)
     rate = await RateService.get_rate_for_date(db, data.check_in_date)
 
     if not rate:
@@ -80,14 +90,14 @@ async def check_rates(
             detail=f"No rates available for check-in date: {data.check_in_date.isoformat()}"
         )
 
-    # 2. Validate Room Type Availability
+    # 3. Validate Room Type Availability
     if not getattr(rate, f"{data.room_type.value}_rate"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Room type '{data.room_type.value}' not available for this date"
         )
 
-    # 3. Format and Return
+    # 4. Format and Return
     return RateService.format_rate_response(rate, data.room_type)
 
 # Notice: route_class=HMACVerifiedRoute has been removed!
