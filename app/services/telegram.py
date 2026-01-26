@@ -1,4 +1,8 @@
-"""Telegram service for sending alerts and processing bot messages."""
+# Ensure these are at the TOP of the file
+from app.services.openai_service import OpenAIService
+openai_service = OpenAIService()
+
+# No code belongs here - remove this stray/incorrect block.
 import logging
 from typing import Any
 
@@ -7,10 +11,8 @@ from sqlalchemy import text
 
 from app.core.config import settings
 from app.core.database import get_db
-from app.services.openai_service import OpenAIService
 
 logger = logging.getLogger(__name__)
-openai_service = OpenAIService()
 
 
 class TelegramService:
@@ -51,10 +53,9 @@ class TelegramService:
             rates_text = await self._get_live_rates()
             await self._send_message(chat_id, rates_text)
 
-        # ALL OTHER TEXT: AI Concierge Brain
+        # ALL OTHER TEXT: AI Concierge Brain Placeholder
         else:
-            # Use real OpenAI logic
-            ai_reply = await openai_service.get_concierge_response(user_text)
+            ai_reply = f"✨ *Grace Concierge*:\n\nThank you for your request regarding '{user_text}'. I am currently being connected to my neural core. In the meantime, would you like to see our /rates?"
             await self._send_message(chat_id, ai_reply)
 
     async def _get_live_rates(self) -> str:
