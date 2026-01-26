@@ -5,8 +5,8 @@ import time
 import json
 
 # CONFIGURATION: Ensure these match your live environment
-BASE_URL = "https://your-railway-app-name.railway.app"  # Your Railway URL
-SECRET_KEY = "your_enterprise_secret_key_here"        # Match your .env
+BASE_URL = "https://grace-ai.up.railway.app"  # Your Railway URL
+SECRET_KEY = "grace_hmac_secret_99"        # Match your .env
 ENDPOINT = "/staff/escalate"
 
 def trigger_lab_escalation():
