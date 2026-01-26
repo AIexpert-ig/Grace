@@ -1,3 +1,4 @@
+```mermaid
 %%{init: {
   'theme': 'base',
   'flowchart': { 'curve': 'basis', 'padding': 20, 'nodeSpacing': 50, 'rankSpacing': 80, 'useMaxWidth': false },
@@ -73,3 +74,4 @@ flowchart LR
   style BRAIN fill:#f8fafc,stroke:#e2e8f0,rx:20,ry:20;
   style DATA fill:#f8fafc,stroke:#e2e8f0,rx:20,ry:20;
   style OPS fill:#f8fafc,stroke:#e2e8f0,rx:20,ry:20;
+```
