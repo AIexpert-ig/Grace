@@ -1,38 +1,35 @@
 %%{init: {
   'theme': 'base',
-  'flowchart': { 'curve': 'basis', 'padding': 25, 'nodeSpacing': 65, 'rankSpacing': 90, 'useMaxWidth': false },
+  'flowchart': { 'curve': 'basis', 'padding': 20, 'nodeSpacing': 50, 'rankSpacing': 80, 'useMaxWidth': false },
   'themeVariables': {
     'fontFamily': 'Inter, system-ui, sans-serif',
-    'fontSize': '19px',
-    'lineColor': '#475569',
+    'fontSize': '18px',
+    'lineColor': '#334155',
     'textColor': '#1e293b',
     'primaryColor': '#f8fafc',
     'primaryTextColor': '#0f172a',
-    'primaryBorderColor': '#94a3b8',
-    'tertiaryColor': '#ffffff'
+    'primaryBorderColor': '#94a3b8'
   }
 }}%%
 
 flowchart LR
 
-  %% ----------------------------
-  %% LAYERS
-  %% ----------------------------
+  %% --- LAYERS ---
   subgraph CX["GUEST INTERFACE"]
     direction LR
     U(((Guest)))
   end
 
-  subgraph EDGE["ORCHESTRATION GATEWAY"]
+  subgraph GATEWAY["INTELLIGENT GATEWAY"]
     direction LR
     TG[Telegram Bot]
-    API[["FastAPI Core<br/><span style='font-size:14px;opacity:.8'>Auth • Logic • Routing</span>"]]
+    API[["FastAPI Core<br/><span style='font-size:13px;opacity:.8'>Logic • Auth • Routing</span>"]]
   end
 
-  subgraph BRAIN["NEURAL ENGINE"]
+  subgraph BRAIN["NEURAL ORCHESTRATOR"]
     direction LR
-    LLM["OpenRouter / Gemini 2.0<br/><span style='font-size:14px;opacity:.8'>Reasoning & Persona</span>"]
-    MEM[(Guest History<br/>Redis Cache)]
+    LLM["OpenRouter / Gemini 2.0<br/><span style='font-size:13px;opacity:.8'>Reasoning & Persona</span>"]
+    MEM[(Guest Context<br/>Redis Cache)]
   end
 
   subgraph DATA["KNOWLEDGE BASE"]
@@ -46,31 +43,26 @@ flowchart LR
     STAFF((Hotel Staff))
   end
 
-  %% ----------------------------
-  %% THE "SMART" FLOW
-  %% ----------------------------
+  %% --- THE SMART FLOW ---
   U -- "Inquiry" --> TG
   TG -- "Secure Request" --> API
   
-  %% Parallel Smart Check
-  API -- "Verify Identity" --> SHIELD
-  API -- "Fetch Context" --> MEM
-  API -- "Check Inventory" --> DB
+  %% Parallel Enrichment
+  API -. "Verify" .-> SHIELD
+  API -. "Fetch context" .-> MEM
+  API -- "Query rates" --> DB
   
   %% Synthesis
-  API -- "Enriched Context" --> LLM
+  API -- "Enriched Payload" --> LLM
   LLM -- "Polished Response" --> API
   
   API -- "Personalized Reply" --> TG
   TG -- "Delivered" --> U
 
   %% Escalation Path
-  SHIELD -- "Valid Alert" --> API
-  API -- "Staff Dispatch" --> STAFF
+  SHIELD -- "Urgent Alert" --> STAFF
 
-  %% ----------------------------
-  %% STYLING (The "Luxury" Look)
-  %% ----------------------------
+  %% --- STYLING ---
   classDef guest fill:#0f172a,stroke:#0f172a,color:#fff,stroke-width:4px;
   classDef core fill:#eef2ff,stroke:#6366f1,color:#1e1b4b,stroke-width:4px;
   classDef brain fill:#f0f9ff,stroke:#0ea5e9,color:#0c4a6e,stroke-width:4px;
@@ -84,10 +76,7 @@ flowchart LR
   class SHIELD,STAFF security;
 
   style CX fill:#f8fafc,stroke:#e2e8f0,rx:20,ry:20;
-  style EDGE fill:#f8fafc,stroke:#e2e8f0,rx:20,ry:20;
+  style GATEWAY fill:#f8fafc,stroke:#e2e8f0,rx:20,ry:20;
   style BRAIN fill:#f8fafc,stroke:#e2e8f0,rx:20,ry:20;
   style DATA fill:#f8fafc,stroke:#e2e8f0,rx:20,ry:20;
   style OPS fill:#f8fafc,stroke:#e2e8f0,rx:20,ry:20;
-
-  linkStyle default stroke:#64748b,stroke-width:2px;
-  linkStyle 9,10 stroke:#f97316,stroke-width:3px,stroke-dasharray: 8 5;
