@@ -4,8 +4,8 @@ import time
 import os
 from fastapi import Request, HTTPException, Header
 
-# CRITICAL FIX: Match your Railway variable name 'HMAC_SECRET'
-API_SECRET_KEY = os.getenv("grace_hmac_secret_99")
+# Load from Railway environment variable
+API_SECRET_KEY = os.getenv("HMAC_SECRET")
 
 async def verify_hmac_signature(
     request: Request,
