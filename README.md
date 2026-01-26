@@ -1,3 +1,6 @@
+### Grace AI Infrastructure Architecture
+
+```mermaid
 %%{init: {
   'theme': 'base',
   'flowchart': { 'curve': 'basis', 'padding': 12, 'nodeSpacing': 55, 'rankSpacing': 70 },
@@ -36,7 +39,7 @@ flowchart LR
 
   subgraph AI["AI Orchestration"]
     direction LR
-    LLM["OpenRouter / Gemini 2.0<br/><span style='font-size:13px;opacity:.85'>Reasoning • Tone • Responseúss</span>"]
+    LLM["OpenRouter / Gemini 2.0<br/><span style='font-size:13px;opacity:.85'>Reasoning • Tone • Response</span>"]
   end
 
   subgraph OPS["Operations & Escalations"]
@@ -90,6 +93,6 @@ flowchart LR
   style OPS fill:#F8FAFC,stroke:#E2E8F0,stroke-width:2px,rx:16,ry:16;
 
   %% Emphasis on primary path
-  linkStyle 0,1,2,3,4,5,6,7,8 stroke:#111827,stroke-width:3px;
+  linkStyle 0,1,2,3,4,5,6,7 stroke:#111827,stroke-width:3px;
   %% Ops path
-  linkStyle 9,10 stroke:#F97316,stroke-width:3px,stroke-dasharray:6 4;
+  linkStyle 8,9 stroke:#F97316,stroke-width:3px,stroke-dasharray:6 4;
