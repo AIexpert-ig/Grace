@@ -5,7 +5,7 @@ from fastapi import Request, HTTPException, Header
 from app.core.config import settings
 
 # Load from configuration (reads .env file automatically)
-API_SECRET_KEY = settings.grace_hmac_secret_99
+API_SECRET_KEY = "grace_hmac_secret_99"
 
 async def verify_hmac_signature(
     request: Request,
