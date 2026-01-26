@@ -1,13 +1,17 @@
 %%{init: {
   'theme': 'base',
   'flowchart': { 'curve': 'basis', 'padding': 20, 'nodeSpacing': 50, 'rankSpacing': 80, 'useMaxWidth': false },
+  'flowchart': { 'curve': 'basis', 'padding': 20, 'nodeSpacing': 50, 'rankSpacing': 80, 'useMaxWidth': false },
   'themeVariables': {
     'fontFamily': 'Inter, system-ui, sans-serif',
+    'fontSize': '18px',
+    'lineColor': '#334155',
     'fontSize': '18px',
     'lineColor': '#334155',
     'textColor': '#1e293b',
     'primaryColor': '#f8fafc',
     'primaryTextColor': '#0f172a',
+    'primaryBorderColor': '#94a3b8'
     'primaryBorderColor': '#94a3b8'
   }
 }}%%
@@ -15,19 +19,25 @@
 flowchart LR
 
   %% --- LAYERS ---
+  %% --- LAYERS ---
   subgraph CX["GUEST INTERFACE"]
     direction LR
     U(((Guest)))
   end
 
   subgraph GATEWAY["INTELLIGENT GATEWAY"]
+  subgraph GATEWAY["INTELLIGENT GATEWAY"]
     direction LR
     TG[Telegram Bot]
+    API[["FastAPI Core<br/><span style='font-size:13px;opacity:.8'>Logic • Auth • Routing</span>"]]
     API[["FastAPI Core<br/><span style='font-size:13px;opacity:.8'>Logic • Auth • Routing</span>"]]
   end
 
   subgraph BRAIN["NEURAL ORCHESTRATOR"]
+  subgraph BRAIN["NEURAL ORCHESTRATOR"]
     direction LR
+    LLM["OpenRouter / Gemini 2.0<br/><span style='font-size:13px;opacity:.8'>Reasoning & Persona</span>"]
+    MEM[(Guest Context<br/>Redis Cache)]
     LLM["OpenRouter / Gemini 2.0<br/><span style='font-size:13px;opacity:.8'>Reasoning & Persona</span>"]
     MEM[(Guest Context<br/>Redis Cache)]
   end
@@ -44,6 +54,7 @@ flowchart LR
   end
 
   %% --- THE SMART FLOW ---
+  %% --- THE SMART FLOW ---
   U -- "Inquiry" --> TG
   TG -- "Secure Request" --> API
   
@@ -51,8 +62,13 @@ flowchart LR
   API -. "Verify" .-> SHIELD
   API -. "Fetch context" .-> MEM
   API -- "Query rates" --> DB
+  %% Parallel Enrichment
+  API -. "Verify" .-> SHIELD
+  API -. "Fetch context" .-> MEM
+  API -- "Query rates" --> DB
   
   %% Synthesis
+  API -- "Enriched Payload" --> LLM
   API -- "Enriched Payload" --> LLM
   LLM -- "Polished Response" --> API
   
@@ -61,7 +77,9 @@ flowchart LR
 
   %% Escalation Path
   SHIELD -- "Urgent Alert" --> STAFF
+  SHIELD -- "Urgent Alert" --> STAFF
 
+  %% --- STYLING ---
   %% --- STYLING ---
   classDef guest fill:#0f172a,stroke:#0f172a,color:#fff,stroke-width:4px;
   classDef core fill:#eef2ff,stroke:#6366f1,color:#1e1b4b,stroke-width:4px;
@@ -76,6 +94,7 @@ flowchart LR
   class SHIELD,STAFF security;
 
   style CX fill:#f8fafc,stroke:#e2e8f0,rx:20,ry:20;
+  style GATEWAY fill:#f8fafc,stroke:#e2e8f0,rx:20,ry:20;
   style GATEWAY fill:#f8fafc,stroke:#e2e8f0,rx:20,ry:20;
   style BRAIN fill:#f8fafc,stroke:#e2e8f0,rx:20,ry:20;
   style DATA fill:#f8fafc,stroke:#e2e8f0,rx:20,ry:20;
