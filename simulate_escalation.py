@@ -38,7 +38,10 @@ def trigger_lab_escalation():
     
     if response.status_code == 200:
         print(f"SUCCESS: 200 OK")
-        print(f"GRACE RESPONSE: {response.json().get('status')}")
+        resp_data = response.json()
+        print(f"GRACE RESPONSE: {resp_data.get('status')}")
+        if resp_data.get('status') == 'error':
+            print(f"ERROR DETAILS: {resp_data}")
     else:
         print(f"FAILED: {response.status_code}")
         print(f"REASON: {response.text}")

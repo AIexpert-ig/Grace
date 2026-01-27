@@ -29,7 +29,7 @@ async def trigger_escalation(request: Request):
     payload = {
         "chat_id": STAFF_CHAT_ID,
         "text": formatted_msg,
-        "parse_mode": "MarkdownV2"
+        "parse_mode": "HTML"
     }
 
     async with httpx.AsyncClient() as client:
@@ -38,4 +38,8 @@ async def trigger_escalation(request: Request):
     if response.status_code == 200:
         return {"status": "dispatched", "target": "Staff Group"}
     else:
-        return {"status": "error", "detail": response.text}
+        return {
+            "status": "error", 
+            "telegram_status": response.status_code,
+            "detail": response.text
+        }
