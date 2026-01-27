@@ -20,8 +20,8 @@ class Settings(BaseSettings):  # pylint: disable=too-few-public-methods
     API_KEY: str = "grace_prod_key_99"
     HMAC_SECRET: str = "grace_hmac_secret_99"
     
-    # Use validation_alias to map DATABASE_URL env var to _database_url_raw field
-    _database_url_raw: str = Field(
+    # Use validation_alias to map DATABASE_URL env var to database_url_raw field
+    database_url_raw: str = Field(
         default="postgresql+asyncpg://postgres:postgres@localhost:5432/grace",
         validation_alias="DATABASE_URL"
     )
@@ -29,7 +29,7 @@ class Settings(BaseSettings):  # pylint: disable=too-few-public-methods
     @property
     def DATABASE_URL(self) -> str:
         """Transform Railway's postgresql:// to postgresql+asyncpg:// for async compatibility."""
-        url = self._database_url_raw
+        url = self.database_url_raw
         if url.startswith("postgresql://"):
             return url.replace("postgresql://", "postgresql+asyncpg://", 1)
         elif url.startswith("postgres://"):
