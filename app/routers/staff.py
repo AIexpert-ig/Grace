@@ -1,6 +1,6 @@
 import os
 import httpx
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from app.auth import verify_hmac_signature
 from app.templates.notifications import StaffAlertTemplate
 
@@ -14,7 +14,9 @@ BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 STAFF_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
 @router.post("/escalate", dependencies=[Depends(verify_hmac_signature)])
-async def trigger_escalation(data: dict):
+async def trigger_escalation(request: Request):
+    # Parse the JSON body
+    data = await request.json()
     # 1. Generate the world-class UI message
     formatted_msg = StaffAlertTemplate.format_urgent_escalation(
         data.get('guest_name', 'Unknown Guest'),
