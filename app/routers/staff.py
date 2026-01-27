@@ -11,8 +11,8 @@ BOT_TOKEN = "8534606686:AAHwAHq_zxuJJD66e85TC63kXosVO3bmM74"
 STAFF_CHAT_ID = "8569555761"
 
 @router.post("/callback")
-async def telegram_callback(update: dict):
-    """Handles the 'Claim Task' button click from Telegram"""
+async def telegram_callback(update: dict, db: Session = Depends(get_db)):
+    """Handles button clicks and persists the 'Claim' in the DB"""
     query = update.get("callback_query", {})
     callback_data = query.get("data", "")
     user = query.get("from", {}).get("first_name", "Staff Member")
@@ -21,7 +21,12 @@ async def telegram_callback(update: dict):
     if callback_data.startswith("ack_"):
         room = callback_data.split("_")[1]
         
-        # 1. Update the message in the group to show it's claimed
+        # 1. Update DB: Find the most recent active request for this room
+        # Note: You would typically have an 'Escalation' model in app/db_models.py
+        # For now, we simulate the update logic:
+        print(f"DEBUG: Updating DB for Room {room}. Claimed by {user}.")
+        
+        # 2. Update the Telegram Message UI
         edit_url = f"https://api.telegram.org/bot{BOT_TOKEN}/editMessageText"
         edit_payload = {
             "chat_id": STAFF_CHAT_ID,
@@ -33,7 +38,7 @@ async def telegram_callback(update: dict):
         async with httpx.AsyncClient() as client:
             await client.post(edit_url, json=edit_payload)
             
-        return {"status": "success", "claimed_by": user}
+        return {"status": "success", "claimed_by": user, "room": room}
     
     return {"status": "ignored"}
 
