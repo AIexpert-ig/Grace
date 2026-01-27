@@ -84,15 +84,24 @@ async def telegram_callback(update: dict, db: AsyncSession = Depends(get_db)):
 @router.post("/escalate", dependencies=[Depends(verify_hmac_signature)])
 async def trigger_escalation(request: Request, db: AsyncSession = Depends(get_db)):
     """Initial trigger to send the alert to the staff group."""
+    import logging
+    logger = logging.getLogger(__name__)
+    
     data = await request.json()
     room = data.get('room_number', 'N/A')
     guest = data.get('guest_name', 'Unknown')
     issue = data.get('issue', 'General Assistance')
 
-    # 1. Database Entry (Async)
-    new_task = Escalation(room_number=room, guest_name=guest, issue=issue, status="PENDING")
-    db.add(new_task)
-    await db.commit() # MUST AWAIT COMMIT
+    # 1. Database Entry (Async) - with error handling
+    try:
+        new_task = Escalation(room_number=room, guest_name=guest, issue=issue, status="PENDING")
+        db.add(new_task)
+        await db.commit()
+        logger.info(f"✅ Escalation saved to DB: Room {room}")
+    except Exception as e:
+        logger.error(f"❌ Database error: {str(e)}")
+        # Continue anyway - send the Telegram message even if DB fails
+        await db.rollback()
 
     # 2. UI Generation
     msg = StaffAlertTemplate.format_urgent_escalation(guest, room, issue)
