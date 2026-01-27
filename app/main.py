@@ -14,7 +14,7 @@ from .core.config import settings
 from .core.database import get_db, get_pool_status
 from .core.hmac_auth import verify_hmac_signature
 from .core.validators import validate_check_in_date_not_past
-from .routers import staff
+from .routers.staff import telegram_callback # Import the logic handler
 
 # 1. Standardized Logging
 logging.basicConfig(
@@ -26,36 +26,37 @@ logger = logging.getLogger(__name__)
 # 2. Global Services
 telegram_service = TelegramService()
 
-# 3. Modern Lifespan Manager (Replaces @app.on_event)
+# 3. Modern Lifespan Manager
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Verify system integrity on boot and handle shutdown."""
-    logger.info("🚀 GRACE AI Infrastructure Starting Up")
-    
-    # DB Check
+    """Verify system integrity on boot."""
+    logger.info("🚀 GRACE AI Infrastructure Online")
     logger.info(f"💾 DB Pool Status: {get_pool_status()}")
-    
-    # AI Audit
-    key = settings.OPENAI_API_KEY
-    if not key:
-        logger.error("❌ CRITICAL: OPENAI_API_KEY is missing!")
-    else:
-        logger.info(f"✅ AI CORE ACTIVE: Key verified ({key[:12]}...)")
-        
     yield
-    
-    logger.info("💤 GRACE AI Infrastructure Shutting Down")
+    logger.info("💤 GRACE AI Infrastructure Offline")
 
-# 4. Single App Initialization
+# 4. App Initialization
 app = FastAPI(title=settings.PROJECT_NAME, lifespan=lifespan)
 
-# 5. Middleware
+# 5. Middleware & Routers
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
-
-# 6. Register Routers
 app.include_router(staff.router, prefix="/staff")
 
 # --- ENDPOINTS ---
+
+@app.post("/telegram-webhook")
+async def telegram_webhook(request: Request, db: AsyncSession = Depends(get_db)):
+    """Entry point for all Telegram signals (Buttons & Text)."""
+    data = await request.json()
+    
+    # HANDLER 1: Interactive Button Clicks (callback_query)
+    if "callback_query" in data:
+        logger.info("🔘 Button click detected. Routing to staff callback.")
+        return await telegram_callback(data, db)
+    
+    # HANDLER 2: Standard AI/Text Processing
+    await telegram_service.process_update(data)
+    return {"ok": True}
 
 @app.get("/")
 async def root():
@@ -64,12 +65,6 @@ async def root():
 @app.get("/health")
 async def health():
     return {"status": "online", "key_loaded": bool(settings.OPENAI_API_KEY)}
-
-@app.post("/telegram-webhook")
-async def telegram_webhook(request: Request):
-    data = await request.json()
-    await telegram_service.process_update(data)
-    return {"ok": True}
 
 @app.post("/check-rates")
 async def check_rates(data: RateCheckRequest, db: AsyncSession = Depends(get_db)):
@@ -91,7 +86,7 @@ async def post_call_webhook(background_tasks: BackgroundTasks, body_data: dict =
         background_tasks.add_task(telegram_service.send_alert, msg)
     return {"status": "processed"}
 
-# 7. Static Files (Handled last)
+# 6. Static Files
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 if STATIC_DIR.exists():
     app.mount("/", StaticFiles(directory=STATIC_DIR, html=True), name="static")
