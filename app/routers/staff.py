@@ -10,8 +10,8 @@ router = APIRouter()
 # app/routers/staff.py
 
 # This tells Python: "Go to Railway and find the value stored under these names"
-BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-STAFF_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
+BOT_TOKEN = "8534606686:AAHwAHq_zxuJJD66e85TC63kXosVO3bmM74"
+STAFF_CHAT_ID = "8569555761"
 
 @router.post("/escalate", dependencies=[Depends(verify_hmac_signature)])
 async def trigger_escalation(request: Request):
