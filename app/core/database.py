@@ -32,9 +32,15 @@ def _initialize_engine() -> None:
     global engine, ASYNC_SESSION_LOCAL
     if engine is not None:
         return
+    
+    import logging
+    logger = logging.getLogger(__name__)
+    db_url = settings.DATABASE_URL
+    logger.info(f"🔧 Initializing database engine")
+    logger.info(f"📍 DB URL (first 60 chars): {db_url[:60]}...")
 
     engine = create_async_engine(
-        settings.DATABASE_URL,
+        db_url,
         echo=False,
         future=True,
         poolclass=POOL_CLASS,
