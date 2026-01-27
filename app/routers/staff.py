@@ -82,7 +82,7 @@ async def telegram_callback(update: dict, db: AsyncSession = Depends(get_db)):
     return {"status": "unhandled"}
 
 @router.post("/escalate", dependencies=[Depends(verify_hmac_signature)])
-async def trigger_escalation(request: Request, db: AsyncSession = Depends(get_db)):
+async def trigger_escalation(request: Request):  # TEMPORARILY REMOVED db: AsyncSession = Depends(get_db)
     """Initial trigger to send the alert to the staff group."""
     import logging
     logger = logging.getLogger(__name__)
@@ -92,16 +92,15 @@ async def trigger_escalation(request: Request, db: AsyncSession = Depends(get_db
     guest = data.get('guest_name', 'Unknown')
     issue = data.get('issue', 'General Assistance')
 
-    # 1. Database Entry (Async) - with error handling
-    try:
-        new_task = Escalation(room_number=room, guest_name=guest, issue=issue, status="PENDING")
-        db.add(new_task)
-        await db.commit()
-        logger.info(f"✅ Escalation saved to DB: Room {room}")
-    except Exception as e:
-        logger.error(f"❌ Database error: {str(e)}")
-        # Continue anyway - send the Telegram message even if DB fails
-        await db.rollback()
+    # # 1. Database Entry (Async) - TEMPORARILY DISABLED
+    # try:
+    #     new_task = Escalation(room_number=room, guest_name=guest, issue=issue, status="PENDING")
+    #     db.add(new_task)
+    #     await db.commit()
+    #     logger.info(f"✅ Escalation saved to DB: Room {room}")
+    # except Exception as e:
+    #     logger.error(f"❌ Database error: {str(e)}")
+    #     await db.rollback()
 
     # 2. UI Generation
     msg = StaffAlertTemplate.format_urgent_escalation(guest, room, issue)
@@ -114,4 +113,5 @@ async def trigger_escalation(request: Request, db: AsyncSession = Depends(get_db
     async with httpx.AsyncClient() as client:
         response = await client.post(url, json=payload)
     
+    logger.info(f"📤 Telegram response: {response.status_code}")
     return {"status": "dispatched" if response.status_code == 200 else "error"}
