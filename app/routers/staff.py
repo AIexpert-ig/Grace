@@ -6,17 +6,41 @@ from app.templates.notifications import StaffAlertTemplate
 
 router = APIRouter()
 
-# Load credentials from Railway Variables
-# app/routers/staff.py
-
-# This tells Python: "Go to Railway and find the value stored under these names"
+# Global Credentials (Hardcoded for your specific bot)
 BOT_TOKEN = "8534606686:AAHwAHq_zxuJJD66e85TC63kXosVO3bmM74"
 STAFF_CHAT_ID = "8569555761"
 
+@router.post("/callback")
+async def telegram_callback(update: dict):
+    """Handles the 'Claim Task' button click from Telegram"""
+    query = update.get("callback_query", {})
+    callback_data = query.get("data", "")
+    user = query.get("from", {}).get("first_name", "Staff Member")
+    message_id = query.get("message", {}).get("message_id")
+
+    if callback_data.startswith("ack_"):
+        room = callback_data.split("_")[1]
+        
+        # 1. Update the message in the group to show it's claimed
+        edit_url = f"https://api.telegram.org/bot{BOT_TOKEN}/editMessageText"
+        edit_payload = {
+            "chat_id": STAFF_CHAT_ID,
+            "message_id": message_id,
+            "text": f"✅ <b>Room {room} Claimed</b>\nStaff: {user}\nStatus: <i>In Progress</i>",
+            "parse_mode": "HTML"
+        }
+        
+        async with httpx.AsyncClient() as client:
+            await client.post(edit_url, json=edit_payload)
+            
+        return {"status": "success", "claimed_by": user}
+    
+    return {"status": "ignored"}
+
 @router.post("/escalate", dependencies=[Depends(verify_hmac_signature)])
 async def trigger_escalation(request: Request):
-    # Parse the JSON body
     data = await request.json()
+    
     # 1. Generate the world-class UI message
     formatted_msg = StaffAlertTemplate.format_urgent_escalation(
         data.get('guest_name', 'Unknown Guest'),
@@ -24,12 +48,17 @@ async def trigger_escalation(request: Request):
         data.get('issue', 'General Assistance')
     )
 
-    # 2. Transmit to Telegram Staff Channel
+    # 2. Transmit to Telegram with an Interactive Button
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
     payload = {
         "chat_id": STAFF_CHAT_ID,
         "text": formatted_msg,
-        "parse_mode": "HTML"
+        "parse_mode": "HTML",
+        "reply_markup": {
+            "inline_keyboard": [[
+                {"text": "✅ Acknowledge & Claim", "callback_data": f"ack_{data.get('room_number')}"}
+            ]]
+        }
     }
 
     async with httpx.AsyncClient() as client:
@@ -38,8 +67,4 @@ async def trigger_escalation(request: Request):
     if response.status_code == 200:
         return {"status": "dispatched", "target": "Staff Group"}
     else:
-        return {
-            "status": "error", 
-            "telegram_status": response.status_code,
-            "detail": response.text
-        }
+        return {"status": "error", "detail": response.text}
