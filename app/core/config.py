@@ -8,7 +8,10 @@ class Settings(BaseSettings):  # pylint: disable=too-few-public-methods
         env_file=".env", 
         env_file_encoding="utf-8", 
         case_sensitive=False,
-        extra="ignore"  # Prevents crashing if extra variables are in .env
+        extra="ignore",  # Prevents crashing if extra variables are in .env
+        fields={
+            '_DATABASE_URL': {'env': 'DATABASE_URL'}  # Map DATABASE_URL env var to _DATABASE_URL field
+        }
     )
 
     PROJECT_NAME: str = "Grace AI Infrastructure"
@@ -18,7 +21,17 @@ class Settings(BaseSettings):  # pylint: disable=too-few-public-methods
     TELEGRAM_CHAT_ID: str = "8569555761"
     API_KEY: str = "grace_prod_key_99"
     HMAC_SECRET: str = "grace_hmac_secret_99"
-    DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/grace"
+    _DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/grace"
+    
+    @property
+    def DATABASE_URL(self) -> str:
+        """Transform Railway's postgresql:// to postgresql+asyncpg:// for async compatibility."""
+        url = self._DATABASE_URL
+        if url.startswith("postgresql://"):
+            return url.replace("postgresql://", "postgresql+asyncpg://", 1)
+        elif url.startswith("postgres://"):
+            return url.replace("postgres://", "postgresql+asyncpg://", 1)
+        return url
     
     # --- AI INTEGRATION ---
     OPENAI_API_KEY: str = "grace_prod_key_99"  # Add this for Grace's Neural Core
