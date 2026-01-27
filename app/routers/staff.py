@@ -1,6 +1,7 @@
 import httpx
 from datetime import datetime
-from sqlalchemy.orm import Session
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import APIRouter, Depends, Request
 
 from app.auth import verify_hmac_signature
@@ -30,9 +31,8 @@ async def update_telegram_ui(message_id: int, text: str, reply_markup: dict = No
         await client.post(url, json=payload)
 
 @router.post("/callback")
-async def telegram_callback(update: dict, db: Session = Depends(get_db)):
-    """Handles the full interactive lifecycle: Claim -> Resolve."""
-    # Support both nested and direct update formats
+async def telegram_callback(update: dict, db: AsyncSession = Depends(get_db)):
+    """Handles the full interactive lifecycle using ASYNC patterns."""
     query = update.get("callback_query", update)
     callback_data = query.get("data", "")
     user = query.get("from", {}).get("first_name", "Staff")
@@ -45,15 +45,18 @@ async def telegram_callback(update: dict, db: Session = Depends(get_db)):
     # --- PHASE 1: CLAIMING THE TASK ---
     if callback_data.startswith("ack_"):
         room = callback_data.split("_")[1]
-        task = db.query(Escalation).filter(Escalation.room_number == room, Escalation.status == "PENDING").first()
+        
+        # Async Selection
+        stmt = select(Escalation).filter(Escalation.room_number == room, Escalation.status == "PENDING")
+        result = await db.execute(stmt)
+        task = result.scalars().first()
 
         if task:
             task.status = "IN_PROGRESS"
             task.claimed_by = user
             task.claimed_at = datetime.utcnow()
-            db.commit()
+            await db.commit() # MUST AWAIT COMMIT
 
-            # Change button to "Resolve"
             new_text = f"🚧 <b>In Progress: Room {room}</b>\nClaimed by: {user}\n<i>Assisting guest now...</i>"
             markup = {"inline_keyboard": [[{"text": "🏁 Mark as Resolved", "callback_data": f"res_{room}"}]]}
             await update_telegram_ui(message_id, new_text, markup)
@@ -62,13 +65,16 @@ async def telegram_callback(update: dict, db: Session = Depends(get_db)):
     # --- PHASE 2: RESOLVING THE TASK ---
     if callback_data.startswith("res_"):
         room = callback_data.split("_")[1]
-        task = db.query(Escalation).filter(Escalation.room_number == room, Escalation.status == "IN_PROGRESS").first()
+        
+        # Async Selection
+        stmt = select(Escalation).filter(Escalation.room_number == room, Escalation.status == "IN_PROGRESS")
+        result = await db.execute(stmt)
+        task = result.scalars().first()
 
         if task:
             task.status = "RESOLVED"
-            db.commit()
+            await db.commit() # MUST AWAIT COMMIT
 
-            # Final clean UI (Remove all buttons)
             final_text = f"✅ <b>Resolved: Room {room}</b>\nHandled by: {user}\nStatus: <i>Completed</i>"
             await update_telegram_ui(message_id, final_text)
             return {"status": "resolved"}
@@ -76,17 +82,17 @@ async def telegram_callback(update: dict, db: Session = Depends(get_db)):
     return {"status": "unhandled"}
 
 @router.post("/escalate", dependencies=[Depends(verify_hmac_signature)])
-async def trigger_escalation(request: Request, db: Session = Depends(get_db)):
+async def trigger_escalation(request: Request, db: AsyncSession = Depends(get_db)):
     """Initial trigger to send the alert to the staff group."""
     data = await request.json()
     room = data.get('room_number', 'N/A')
     guest = data.get('guest_name', 'Unknown')
     issue = data.get('issue', 'General Assistance')
 
-    # 1. Database Entry
+    # 1. Database Entry (Async)
     new_task = Escalation(room_number=room, guest_name=guest, issue=issue, status="PENDING")
     db.add(new_task)
-    db.commit()
+    await db.commit() # MUST AWAIT COMMIT
 
     # 2. UI Generation
     msg = StaffAlertTemplate.format_urgent_escalation(guest, room, issue)
