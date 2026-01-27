@@ -14,7 +14,8 @@ from .core.config import settings
 from .core.database import get_db, get_pool_status
 from .core.hmac_auth import verify_hmac_signature
 from .core.validators import validate_check_in_date_not_past
-from .routers.staff import telegram_callback # Import the logic handler
+from .routers import staff
+from .routers.staff import telegram_callback
 
 # 1. Standardized Logging
 logging.basicConfig(
