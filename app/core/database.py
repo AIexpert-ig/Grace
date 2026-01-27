@@ -1,23 +1,16 @@
 """Database connection and session management with proper connection pooling."""
 import os
-import warnings
-from typing import AsyncGenerator
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
-from sqlalchemy.pool import NullPool, QueuePool
-from sqlalchemy.orm import declarative_base
-
-from .config import settings
-
-# Get DATABASE_URL directly from environment
+# Railway provides DATABASE_URL
 DATABASE_URL = os.getenv("DATABASE_URL")
 
-if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
-    # Fix for Railway/Heroku style URLs
-    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+asyncpg://", 1)
-elif DATABASE_URL and DATABASE_URL.startswith("postgresql://"):
-    DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://", 1)
+if DATABASE_URL:
+    # Force the async driver (asyncpg) for SQLAlchemy
+    if DATABASE_URL.startswith("postgres://"):
+        DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+asyncpg://", 1)
+    elif DATABASE_URL.startswith("postgresql://"):
+        DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://", 1)
 else:
-    # Fallback to local only if NO variable is found
+    # Local fallback
     DATABASE_URL = "postgresql+asyncpg://postgres:postgres@localhost:5432/grace"
 
 # Calculate connections to ensure PostgreSQL max_connections is not exhausted
