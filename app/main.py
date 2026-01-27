@@ -32,6 +32,17 @@ telegram_service = TelegramService()
 async def lifespan(app: FastAPI):
     """Verify system integrity on boot."""
     logger.info("🚀 GRACE AI Infrastructure Online")
+    
+    # Auto-create database tables if they don't exist
+    try:
+        from app.core.database import Base, get_engine
+        engine = get_engine()
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        logger.info("✅ Database tables verified/created")
+    except Exception as e:
+        logger.error(f"❌ Database initialization failed: {e}")
+    
     logger.info(f"💾 DB Pool Status: {get_pool_status()}")
     yield
     logger.info("💤 GRACE AI Infrastructure Offline")
