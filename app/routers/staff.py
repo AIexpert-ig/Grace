@@ -17,28 +17,60 @@ STAFF_CHAT_ID = "8569555761"
 
 @router.post("/callback")
 async def telegram_callback(update: dict, db: Session = Depends(get_db)):
-    """Processes the 'Claim' button click: Updates DB and UI"""
     query = update.get("callback_query", {})
     callback_data = query.get("data", "")
-    user = query.get("from", {}).get("first_name", "Staff Member")
+    user = query.get("from", {}).get("first_name", "Staff")
     message_id = query.get("message", {}).get("message_id")
 
+    # --- PHASE 1: CLAIMING THE TASK ---
     if callback_data.startswith("ack_"):
         room = callback_data.split("_")[1]
-        
-        # 1. DATABASE PERSISTENCE: Record who claimed it and when
-        escalation = db.query(Escalation).filter(
-            Escalation.room_number == room, 
-            Escalation.status == "PENDING"
-        ).first()
+        escalation = db.query(Escalation).filter(Escalation.room_number == room, Escalation.status == "PENDING").first()
 
         if escalation:
             escalation.status = "IN_PROGRESS"
             escalation.claimed_by = user
             escalation.claimed_at = datetime.utcnow()
             db.commit()
-            print(f"DEBUG: Room {room} permanently claimed by {user} in DB.")
 
+            # Update UI with a "Mark Resolved" button
+            edit_url = f"https://api.telegram.org/bot{BOT_TOKEN}/editMessageText"
+            payload = {
+                "chat_id": STAFF_CHAT_ID,
+                "message_id": message_id,
+                "text": f"🚧 <b>In Progress: Room {room}</b>\nClaimed by: {user}\n<i>Please tap below once the guest is assisted.</i>",
+                "parse_mode": "HTML",
+                "reply_markup": {
+                    "inline_keyboard": [[
+                        {"text": "🏁 Mark as Resolved", "callback_data": f"res_{room}"}
+                    ]]
+                }
+            }
+            async with httpx.AsyncClient() as client:
+                await client.post(edit_url, json=payload)
+        return {"status": "claimed"}
+
+    # --- PHASE 2: RESOLVING THE TASK ---
+    if callback_data.startswith("res_"):
+        room = callback_data.split("_")[1]
+        escalation = db.query(Escalation).filter(Escalation.room_number == room, Escalation.status == "IN_PROGRESS").first()
+
+        if escalation:
+            escalation.status = "RESOLVED"
+            # Logic for final timestamp if you add 'resolved_at' to your model later
+            db.commit()
+
+            # Final UI Update (Remove all buttons)
+            edit_url = f"https://api.telegram.org/bot{BOT_TOKEN}/editMessageText"
+            payload = {
+                "chat_id": STAFF_CHAT_ID,
+                "message_id": message_id,
+                "text": f"✅ <b>Resolved: Room {room}</b>\nHandled by: {user}\nStatus: <i>Completed</i>",
+                "parse_mode": "HTML"
+            }
+            async with httpx.AsyncClient() as client:
+                await client.post(edit_url, json=payload)
+        return {"status": "resolved"}
         # 2. TELEGRAM UI UPDATE: Change the message to show the claim
         edit_url = f"https://api.telegram.org/bot{BOT_TOKEN}/editMessageText"
         edit_payload = {
