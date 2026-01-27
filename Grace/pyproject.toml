@@ -1,0 +1,16 @@
+[tool.poetry]
+name = "grace"
+version = "0.1.0"
+description = ""
+package-mode = false
+
+[tool.poetry.dependencies]
+python = "^3.10"
+
+[tool.poetry.scripts]
+start = "uvicorn app.main:app --host 0.0.0.0 --port 8080"
+migrate = "alembic upgrade head"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
