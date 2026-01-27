@@ -7,8 +7,11 @@ from app.templates.notifications import StaffAlertTemplate
 router = APIRouter()
 
 # Load credentials from Railway Variables
-BOT_TOKEN = os.getenv("8534606686:AAHwAHq_zxuJJD66e85TC63kXosVO3bmM74")
-STAFF_CHAT_ID = os.getenv("8569555761")
+# app/routers/staff.py
+
+# This tells Python: "Go to Railway and find the value stored under these names"
+BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+STAFF_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
 @router.post("/escalate", dependencies=[Depends(verify_hmac_signature)])
 async def trigger_escalation(data: dict):
