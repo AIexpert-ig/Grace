@@ -1,20 +1,22 @@
-"""SQLAlchemy database models."""
-from sqlalchemy import Column, Date, Integer, String  # pyright: ignore[reportMissingImports]
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
+from sqlalchemy.sql import func
+from app.core.database import Base
 
-from .core.database import Base
-from .models import RoomType
-
-
-class Rate(Base):  # pylint: disable=too-few-public-methods
-    """Database model for hotel rates."""
-
-    __tablename__ = "rates"
+class Escalation(Base):
+    __tablename__ = "escalations"
 
     id = Column(Integer, primary_key=True, index=True)
-    check_in_date = Column(Date, nullable=False, index=True, unique=True)
-    standard_rate = Column(Integer, nullable=False)
-    suite_rate = Column(Integer, nullable=False)
-    availability = Column(String(50), nullable=False, default="High")
+    room_number = Column(String, index=True)
+    guest_name = Column(String)
+    issue = Column(String)
+    
+    # Timeline for performance tracking
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    claimed_at = Column(DateTime(timezone=True), nullable=True)
+    
+    # Staff Identity
+    claimed_by = Column(String, nullable=True)
+    status = Column(String, default="PENDING") # PENDING -> IN_PROGRESS -> RESOLVED
 
     def to_dict(self, room_type: RoomType) -> dict:
         """Convert rate to dictionary for API response."""
