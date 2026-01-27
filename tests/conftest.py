@@ -12,40 +12,30 @@ from app.core.database import Base, get_db
 from app.main import app
 from app.db_models import Rate
 
-
-# Test database URL - use a separate test database
+# Test database URL
 TEST_DATABASE_URL = os.getenv(
     "TEST_DATABASE_URL",
     "postgresql+asyncpg://test:test@localhost:5432/grace_test_db"
 )
 
-def _requires_asyncpg(url: str) -> bool:
-    return url.startswith("postgresql+asyncpg")
-
-
 @pytest.fixture(scope="session")
 def event_loop():
-    """Create an instance of the default event loop for the test session."""
-    loop = asyncio.get_event_loop_policy().new_event_loop()
+    """Create a modern instance of the event loop for the test session."""
+    loop = asyncio.new_event_loop()
     yield loop
     loop.close()
 
-
 @pytest.fixture(scope="session")
-def test_engine(event_loop):
-    """Create a test engine with NullPool for isolation."""
-    if _requires_asyncpg(TEST_DATABASE_URL):
-        pytest.importorskip("asyncpg")
-
+async def test_engine():
+    """Create the async engine for the test database."""
     engine = create_async_engine(
         TEST_DATABASE_URL,
         echo=False,
-        poolclass=NullPool,  # No connection pooling for tests
+        poolclass=NullPool,
         future=True
     )
     yield engine
-    event_loop.run_until_complete(engine.dispose())
-
+    await engine.dispose()
 
 @pytest.fixture(scope="session")
 def session_maker(test_engine):
@@ -58,13 +48,9 @@ def session_maker(test_engine):
         autoflush=False
     )
 
-
 @pytest.fixture(scope="function")
-async def db_session(
-    test_engine,
-    session_maker
-) -> AsyncGenerator[AsyncSession, None]:
-    """Create a test database session."""
+async def db_session(test_engine, session_maker) -> AsyncGenerator[AsyncSession, None]:
+    """Create a test database session with automatic cleanup."""
     async with test_engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     
@@ -72,15 +58,12 @@ async def db_session(
         yield session
         await session.rollback()
     
-    # Clean up: drop all tables
     async with test_engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
-
 
 @pytest.fixture(scope="function")
 async def test_client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
     """Create a test client with database override."""
-    # Override the get_db dependency
     async def override_get_db():
         yield db_session
     
@@ -89,20 +72,20 @@ async def test_client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, N
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         yield client
     
-    # Clean up
     app.dependency_overrides.clear()
-
 
 @pytest.fixture
 async def sample_rate(db_session: AsyncSession) -> Rate:
     """Create a sample rate in the test database."""
-    from datetime import date, timedelta
+    from datetime import datetime, timedelta
     
     rate = Rate(
-        check_in_date=date.today() + timedelta(days=5),
-        standard_rate=500,
-        suite_rate=950,
-        availability="High"
+        check_in_date=datetime.utcnow() + timedelta(days=5),
+        check_out_date=datetime.utcnow() + timedelta(days=6),
+        room_type="Standard",
+        rate=500.0,
+        currency="USD",
+        is_available=True
     )
     db_session.add(rate)
     await db_session.commit()
