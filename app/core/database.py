@@ -2,18 +2,15 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker, declarative_base
 import os
 
-# Get individual keys
 user = os.getenv("POSTGRES_USER")
 password = os.getenv("POSTGRES_PASSWORD")
 host = os.getenv("PGHOST", "localhost")
 port = os.getenv("PGPORT", "5432")
 db = os.getenv("POSTGRES_DB")
 
-# Build the Async URL: postgresql+asyncpg://user:pass@host:port/db
 if all([user, password, host, db]):
     DATABASE_URL = f"postgresql+asyncpg://{user}:{password}@{host}:{port}/{db}"
 else:
-    # Fallback to the full URL if keys are missing
     raw_url = os.getenv("DATABASE_URL", "postgresql://user:pass@localhost/grace_db")
     DATABASE_URL = raw_url.replace("postgresql://", "postgresql+asyncpg://")
 
