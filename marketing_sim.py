@@ -1,6 +1,5 @@
 import asyncio
 import httpx
-from datetime import datetime, timedelta
 
 # The "Brain" address
 API_URL = "https://grace-ai.up.railway.app/staff/escalate"
@@ -25,14 +24,13 @@ async def seed_marketing_data():
                 "urgency": data["urg"]
             }
             try:
-                # We skip HMAC for this local demo script to ensure it works
                 await client.post(API_URL, json=payload, timeout=10.0)
                 print(f"✅ Dispatched: Room {data['room']} ({data['guest']})")
             except Exception as e:
                 print(f"❌ Handshake failed: {e}")
             await asyncio.sleep(1)
 
-    print("\n🚀 DEMO READY. Open http://localhost:3000 to see the magic.")
+    print("\n�� DEMO READY. Check: https://grace-dashboard-production.up.railway.app")
 
 if __name__ == "__main__":
     asyncio.run(seed_marketing_data())
