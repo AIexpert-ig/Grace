@@ -2,15 +2,12 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker, declarative_base
 import os
 
-# Try DATABASE_URL first (Railway default), then DATABASE_PUBLIC_URL
+# Database URL adjustment
 raw_url = os.getenv("DATABASE_URL") or os.getenv("DATABASE_PUBLIC_URL")
 
 if not raw_url:
-    print("❌ ERROR: No Database URL found in environment variables!")
-    # Use a dummy URL to prevent the parsing crash, though the app will still fail later
     DATABASE_URL = "postgresql+asyncpg://user:pass@localhost/dbname"
 else:
-    # SQLAlchemy Async requires the +asyncpg driver
     DATABASE_URL = raw_url.replace("postgresql://", "postgresql+asyncpg://")
 
 engine = create_async_engine(DATABASE_URL, echo=True)
@@ -23,3 +20,7 @@ def get_engine():
 async def get_db():
     async with AsyncSessionLocal() as session:
         yield session
+
+# This is the missing piece main.py wants
+def get_pool_status():
+    return engine.pool.status()
