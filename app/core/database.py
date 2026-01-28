@@ -2,12 +2,19 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker, declarative_base
 import os
 
-# Database URL adjustment
-raw_url = os.getenv("DATABASE_URL") or os.getenv("DATABASE_PUBLIC_URL")
+# Get individual keys
+user = os.getenv("POSTGRES_USER")
+password = os.getenv("POSTGRES_PASSWORD")
+host = os.getenv("PGHOST", "localhost")
+port = os.getenv("PGPORT", "5432")
+db = os.getenv("POSTGRES_DB")
 
-if not raw_url:
-    DATABASE_URL = "postgresql+asyncpg://user:pass@localhost/dbname"
+# Build the Async URL: postgresql+asyncpg://user:pass@host:port/db
+if all([user, password, host, db]):
+    DATABASE_URL = f"postgresql+asyncpg://{user}:{password}@{host}:{port}/{db}"
 else:
+    # Fallback to the full URL if keys are missing
+    raw_url = os.getenv("DATABASE_URL", "postgresql://user:pass@localhost/grace_db")
     DATABASE_URL = raw_url.replace("postgresql://", "postgresql+asyncpg://")
 
 engine = create_async_engine(DATABASE_URL, echo=True)
@@ -21,6 +28,5 @@ async def get_db():
     async with AsyncSessionLocal() as session:
         yield session
 
-# This is the missing piece main.py wants
 def get_pool_status():
     return engine.pool.status()
