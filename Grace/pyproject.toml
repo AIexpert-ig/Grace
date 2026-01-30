@@ -2,7 +2,6 @@
 name = "grace"
 version = "0.1.0"
 description = "Grace AI Infrastructure"
-authors = ["Ahmed Backer <ahmed.backer@raynatours.com>"]
 package-mode = false
 
 [tool.poetry.dependencies]
