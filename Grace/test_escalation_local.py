@@ -5,7 +5,7 @@ import time
 import json
 
 # LOCAL TESTING CONFIGURATION
-BASE_URL = "http://localhost:8000" 
+BASE_URL = "https://grace-ai.up.railway.app" 
 SECRET_KEY = "grace_hmac_secret_99"
 ENDPOINT = "/staff/escalate"
 
