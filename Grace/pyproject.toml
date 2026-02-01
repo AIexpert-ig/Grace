@@ -3,8 +3,7 @@ name = "grace-ai"
 version = "0.1.0"
 description = "Grace AI Backend"
 authors = ["Your Name"]
-package-mode = false  # <--- MUST BE EXACTLY THISe the code is to avoid the 'No file/folder found' error
-packages = [{ include = "app" }]
+package-mode = false  # <--- MUST BE EXACTLY THIS to force application mode
 
 [tool.poetry.dependencies]
 python = "^3.10"
