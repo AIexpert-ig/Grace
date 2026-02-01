@@ -3,7 +3,7 @@ name = "grace-ai"
 version = "0.1.0"
 description = "Grace AI Backend"
 authors = ["Your Name"]
-# We tell Poetry specifically where the code is to avoid the 'No file/folder found' error
+package-mode = false  # <--- MUST BE EXACTLY THISe the code is to avoid the 'No file/folder found' error
 packages = [{ include = "app" }]
 
 [tool.poetry.dependencies]
