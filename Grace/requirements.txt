@@ -12,3 +12,4 @@ tenacity
 pytz
 openai
 asyncpg# Dubai Force Rebuild v14
+google-generativeai
