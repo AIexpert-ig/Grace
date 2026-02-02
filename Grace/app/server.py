@@ -1,3 +1,4 @@
+from .llm import analyze_escalation
 import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, Depends
