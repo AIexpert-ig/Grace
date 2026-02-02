@@ -11,3 +11,4 @@ httpx
 tenacity
 pytz
 openai
+google-generativeai
