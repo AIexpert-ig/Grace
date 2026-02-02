@@ -30,10 +30,8 @@ telegram_service = TelegramService()
 # 3. Modern Lifespan Manager
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Verify system integrity on boot."""
-    logger.info("🚀 GRACE AI Infrastructure Online")
-    
-    # Auto-create database tables if they don't exist
+    # DIRECT GITHUB INJECTION - V15
+    logger.info("🚀 GRACE AI Infrastructure Online [V15.0-CLOUD-INJECTED]")
     try:
         from app.core.database import Base, get_engine
         engine = get_engine()
@@ -42,8 +40,6 @@ async def lifespan(app: FastAPI):
         logger.info("✅ Database tables verified/created")
     except Exception as e:
         logger.error(f"❌ Database initialization failed: {e}")
-    
-    logger.info(f"💾 DB Pool Status: {get_pool_status()}")
     yield
     logger.info("💤 GRACE AI Infrastructure Offline")
 
