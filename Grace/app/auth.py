@@ -41,4 +41,4 @@ async def verify_hmac_signature(request: Request):
 async def get_api_key(auth: HTTPAuthorizationCredentials = Security(security)):
     if auth.credentials != settings.API_KEY:
         raise HTTPException(status_code=401, detail="Invalid API Key")
-    return auth.credentials
+    return auth.credentials# Force Sync: Mon Feb  2 10:46:05 +04 2026
