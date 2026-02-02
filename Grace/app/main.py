@@ -12,7 +12,7 @@ from .services.telegram import TelegramService
 from .services.rate_service import RateService
 from .core.config import settings
 from .core.database import get_db, get_pool_status
-from .core.hmac_auth import verify_hmac_signature
+from .auth import verify_hmac_signature
 from .core.validators import validate_check_in_date_not_past
 from .routers import staff
 from .routers.staff import telegram_callback
@@ -31,10 +31,14 @@ telegram_service = TelegramService()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Verify system integrity on boot."""
-    logger.info("🚀 GRACE AI Infrastructure Online")
-    
+    logger.info("🚀 GRACE AI Infrastructure Online [V2.0-SYNCED-DUBAI]")  
+    logger.info("🔑 API Key: " + settings.API_KEY)
+    logger.info("🔑 HMAC Secret: " + settings.HMAC_SECRET)
+   logger.info("🔑 OpenAI API Key: " + settings.OPENAI_API_KEY)
+    logger.info("🔑 Telegram Bot Token: " + settings.TELEGRAM_BOT_TOKEN)    
     # Auto-create database tables if they don't exist
-    try:
+    logger.info("🔑 Database Tables: " + settings.DATABASE_URL)
+    try:    
         from app.core.database import Base, get_engine
         engine = get_engine()
         async with engine.begin() as conn:
