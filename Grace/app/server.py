@@ -2,6 +2,7 @@ from .llm import analyze_escalation
 import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, Depends
+from fastapi.middleware.cors import CORSMiddleware
 from .auth import verify_hmac_signature
 
 logger = logging.getLogger("app.main")
@@ -14,6 +15,21 @@ async def lifespan(app: FastAPI):
     yield
 
 app = FastAPI(lifespan=lifespan)
+
+# CORS Configuration - Allow frontend to communicate with this API
+origins = [
+    "https://grace-dxb.up.railway.app",  # Production frontend URL
+    "http://localhost:3000",              # Local development
+    "http://127.0.0.1:3000",              # Local development
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.post("/staff/escalate")
 async def escalate(request: Request, authenticated: bool = Depends(verify_hmac_signature)):
