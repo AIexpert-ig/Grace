@@ -1,100 +1,123 @@
-"""Grace AI Infrastructure - Core API."""
+import os
 import logging
-from pathlib import Path
-from contextlib import asynccontextmanager
-from fastapi import FastAPI, BackgroundTasks, Depends, HTTPException, Request, status
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import FastAPI, Request, HTTPException, Depends
+from sqlalchemy import create_engine, text
+import json
+import time
+import hmac
+import hashlib
 
-from .models import RateCheckRequest, CallSummaryRequest, UrgencyLevel
-from .services.telegram import TelegramService
-from .services.rate_service import RateService
-from .core.config import settings
-from .core.database import get_db, get_pool_status
-from .core.hmac_auth import verify_hmac_signature
-from .core.validators import validate_check_in_date_not_past
-from .routers import staff
-from .routers.staff import telegram_callback
+# --- 1. SETUP LOGGING ---
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("app.main")
 
-# 1. Standardized Logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-)
-logger = logging.getLogger(__name__)
+# --- 2. IMPORT THE BRAIN (LLM) ---
+try:
+    from app.core.llm import analyze_escalation
+except ImportError:
+    from .llm import analyze_escalation
 
-# 2. Global Services
-telegram_service = TelegramService()
+app = FastAPI()
 
-# 3. Modern Lifespan Manager
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    # DIRECT GITHUB INJECTION - V15
-    logger.info("🚀 GRACE AI Infrastructure Online [V15.0-CLOUD-INJECTED]")
+# --- 3. DATABASE SETUP & MIGRATION ---
+DATABASE_URL = os.getenv("DATABASE_URL")
+SECRET_KEY = os.getenv("SECRET_KEY", "grace_prod_key_99")
+
+def get_engine():
+    if not DATABASE_URL:
+        raise ValueError("DATABASE_URL is not set")
+    return create_engine(DATABASE_URL)
+
+@app.on_event("startup")
+def startup_db_check():
+    """
+    The 'Doctor' function: Checks DB health and adds missing columns automatically.
+    """
     try:
-        from app.core.database import Base, get_engine
         engine = get_engine()
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
-        logger.info("✅ Database tables verified/created")
+        with engine.begin() as conn:
+            # 1. Create table if it doesn't exist
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS escalations (
+                    id SERIAL PRIMARY KEY,
+                    guest_name VARCHAR NOT NULL,
+                    room_number VARCHAR,
+                    issue TEXT,
+                    status VARCHAR DEFAULT 'PENDING',
+                    created_at TIMESTAMP DEFAULT NOW()
+                );
+            """))
+            
+            # 2. Add 'sentiment' column if missing (The Fix)
+            conn.execute(text("ALTER TABLE escalations ADD COLUMN IF NOT EXISTS sentiment VARCHAR;"))
+            
+            logger.info("✅ Database Schema Verified (Sentiment Column Added)")
     except Exception as e:
-        logger.error(f"❌ Database initialization failed: {e}")
-    yield
-    logger.info("💤 GRACE AI Infrastructure Offline")
+        logger.error(f"⚠️ DB Migration Warning: {e}")
 
-# 4. App Initialization
-app = FastAPI(title=settings.PROJECT_NAME, lifespan=lifespan)
-
-# 5. Middleware & Routers
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
-app.include_router(staff.router, prefix="/staff")
-
-# --- ENDPOINTS ---
-
-@app.post("/telegram-webhook")
-async def telegram_webhook(request: Request, db: AsyncSession = Depends(get_db)):
-    """Entry point for all Telegram signals (Buttons & Text)."""
-    data = await request.json()
+# --- 4. SECURITY (HMAC) ---
+async def verify_hmac_signature(request: Request):
+    signature = request.headers.get("x-grace-signature")
+    timestamp = request.headers.get("x-grace-timestamp")
     
-    # HANDLER 1: Interactive Button Clicks (callback_query)
-    if "callback_query" in data:
-        logger.info("🔘 Button click detected. Routing to staff callback.")
-        return await telegram_callback(data, db)
+    if not signature or not timestamp:
+        raise HTTPException(status_code=401, detail="Missing security headers")
     
-    # HANDLER 2: Standard AI/Text Processing
-    await telegram_service.process_update(data)
-    return {"ok": True}
-
-@app.get("/")
-async def root():
-    return {"message": "Grace Gateway Online"}
-
-@app.get("/health")
-async def health():
-    return {"status": "online", "key_loaded": bool(settings.OPENAI_API_KEY)}
-
-@app.post("/check-rates")
-async def check_rates(data: RateCheckRequest, db: AsyncSession = Depends(get_db)):
+    body = await request.body()
     try:
-        validate_check_in_date_not_past(data.check_in_date)
-    except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
-    
-    rate = await RateService.get_rate_for_date(db, data.check_in_date)
-    if not rate:
-        raise HTTPException(status_code=404, detail="No rates found for this date.")
-    return RateService.format_rate_response(rate, data.room_type)
+        data = json.loads(body)
+        canonical_body = json.dumps(data, separators=(",", ":"), sort_keys=True)
+    except:
+        canonical_body = body.decode()
 
-@app.post("/post-call-webhook")
-async def post_call_webhook(background_tasks: BackgroundTasks, body_data: dict = Depends(verify_hmac_signature)):
-    data = CallSummaryRequest(**body_data)
-    if data.urgency in [UrgencyLevel.HIGH, UrgencyLevel.MEDIUM]:
-        msg = f"🛎 *{data.urgency.value.upper()} URGENCY*\nGuest: {data.caller_name}\nSummary: {data.summary}"
-        background_tasks.add_task(telegram_service.send_alert, msg)
-    return {"status": "processed"}
+    payload = f"{timestamp}.{canonical_body}"
+    expected_signature = hmac.new(
+        SECRET_KEY.encode(), 
+        payload.encode(), 
+        hashlib.sha256
+    ).hexdigest()
 
-# 6. Static Files
-STATIC_DIR = Path(__file__).resolve().parent / "static"
-if STATIC_DIR.exists():
-    app.mount("/", StaticFiles(directory=STATIC_DIR, html=True), name="static")
+    if not hmac.compare_digest(signature, expected_signature):
+        raise HTTPException(status_code=401, detail="Invalid HMAC signature")
+    return True
+
+# --- 5. THE AI ENDPOINT ---
+@app.post("/staff/escalate")
+async def escalate(request: Request, authenticated: bool = Depends(verify_hmac_signature)):
+    data = await request.json()
+    guest = data.get("guest_name", "Unknown")
+    issue = data.get("issue", "No issue provided")
+
+    # 🧠 ACTIVATE THE BRAIN
+    logger.info(f"🧠 AI Analyzing issue for {guest}...")
+    ai_result = await analyze_escalation(guest, issue)
+
+    # Log the Verdict
+    logger.info(f"🤖 AI VERDICT: {ai_result.get('priority', 'UNKNOWN')}")
+    logger.info(f"📝 ACTION PLAN: {ai_result.get('action_plan', 'None')}")
+
+    # Save to Database
+    try:
+        engine = get_engine()
+        with engine.begin() as conn:
+            # Combine issue + plan for storage
+            enhanced_issue = f"{issue} || [AI PLAN: {ai_result.get('action_plan')}]"
+            
+            conn.execute(text(
+                "INSERT INTO escalations (guest_name, room_number, issue, status, sentiment) VALUES (:g, :r, :i, :s, :sent)"
+            ), {
+                "g": guest,
+                "r": data.get("room_number"),
+                "i": enhanced_issue,
+                "s": "OPEN",
+                "sent": ai_result.get('sentiment', 'NEUTRAL')
+            })
+    except Exception as e:
+        logger.error(f"DB Error: {e}")
+        # Return success to client even if DB fails, but warn them
+        return {"status": "partial_success", "message": "AI worked, but DB failed", "error": str(e), "ai_analysis": ai_result}
+
+    return {
+        "status": "dispatched", 
+        "ai_analysis": ai_result
+    }
