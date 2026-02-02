@@ -7,8 +7,9 @@ logger = logging.getLogger("app.main")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # If you see this in Railway logs, the Brain is finally synced.
-    logger.info("🚀 GRACE AI Infrastructure Online [V2.0-SYNCED-DUBAI]")
+    # STRUCTURAL CHANGE: Assign to variable to break build cache
+    msg = "🚀 GRACE AI Infrastructure Online [V2.0-SYNCED-DUBAI]"
+    logger.info(msg)
     yield
 
 app = FastAPI(lifespan=lifespan)
