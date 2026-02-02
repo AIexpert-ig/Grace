@@ -7,9 +7,9 @@ logger = logging.getLogger("app.main")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # STRUCTURAL CHANGE: Assign to variable to break build cache
-    msg = "🚀 GRACE AI Infrastructure Online [V2.0-SYNCED-DUBAI]"
-    logger.info(msg)
+    # FORCE SYNC V14.0
+    print("🚀 DUBAI-SYNC-V14: SYSTEM STARTING") # Standard print to force stdout
+    logger.info("🚀 GRACE AI Infrastructure Online [V14.0-DUBAI-MASTER]")
     yield
 
 app = FastAPI(lifespan=lifespan)
