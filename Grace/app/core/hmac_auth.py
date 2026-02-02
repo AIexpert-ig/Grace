@@ -1,104 +1,60 @@
-"""HMAC signature validation with request body caching."""
-import hashlib
+# DUBAI_SYNC_FORCE_02_FEB_1012
+# Force Trigger Deployment - Dubai Sync v1.0
 import hmac
-import json
+import hashlib
 import time
-from typing import Any
+import logging
+from fastapi import Request, HTTPException, Security
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from app.core.config import settings
 
-from fastapi import Request, HTTPException, status
+# Setup "Loud" Logging
+logger = logging.getLogger("app.main")
+security = HTTPBearer()
 
-from .config import settings
-
-
-async def verify_hmac_signature(request: Request) -> dict[str, Any]:
-    """Verify API key and HMAC signature, returning the parsed body.
+async def verify_hmac_signature(request: Request):
+    # 1. Extract Headers
+    x_grace_signature = request.headers.get("x-grace-signature")
+    x_grace_timestamp = request.headers.get("x-grace-timestamp")
     
-    This dependency reads the request body once, verifies the HMAC signature,
-    and returns the parsed JSON body. FastAPI dependencies handle the body
-    stream consumption correctly - the parsed dict is passed to the endpoint.
-    
-    Args:
-        request: FastAPI request object
-        
-    Returns:
-        dict: Parsed JSON body from the request
-        
-    Raises:
-        HTTPException: If API key, signature, or timestamp is invalid
-    """
-    api_key = request.headers.get("X-API-Key")
-    if api_key != settings.API_KEY:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid API Key"
-        )
+    if not x_grace_signature or not x_grace_timestamp:
+        logger.error("HMAC_ERROR: Missing security headers")
+        raise HTTPException(status_code=401, detail="Missing security headers")
 
-    # Get signature and timestamp from headers
-    signature = request.headers.get("X-Signature")
-    timestamp_str = request.headers.get("X-Timestamp")
-    
-    if not signature or not timestamp_str:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Missing X-Signature or X-Timestamp header"
-        )
-    
+    # 2. Prevent Replay Attacks (5 minute window)
     try:
-        timestamp = int(timestamp_str)
+        if abs(time.time() - int(x_grace_timestamp)) > 300:
+            logger.error(f"HMAC_ERROR: Timestamp expired. Server time: {int(time.time())}, Received: {x_grace_timestamp}")
+            raise HTTPException(status_code=401, detail="Timestamp expired")
     except ValueError:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid timestamp format"
-        )
-    
-    # Prevent replay attacks: reject requests older than 5 minutes
-    current_time = int(time.time())
-    if abs(current_time - timestamp) > 300:  # 5 minutes
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Request timestamp is too old or too far in the future"
-        )
-    
-    # Read request body (this consumes the stream)
+        raise HTTPException(status_code=401, detail="Invalid timestamp format")
+
+    # 3. Get the raw body
     body_bytes = await request.body()
-    body_str = body_bytes.decode('utf-8')
+    body_str = body_bytes.decode()
+
+    # 4. THE DOT PROTOCOL Math
+    payload = f"{x_grace_timestamp}.{body_str}"
     
-    # Compute expected signature: HMAC-SHA256(secret, timestamp + body)
-    message = f"{timestamp}{body_str}"
-    expected_signature = hmac.new(
-        settings.HMAC_SECRET.encode('utf-8'),
-        message.encode('utf-8'),
+    expected = hmac.new(
+        settings.HMAC_SECRET.encode(),
+        payload.encode(),
         hashlib.sha256
     ).hexdigest()
 
-    # Use constant-time comparison to prevent timing attacks
-    if not hmac.compare_digest(expected_signature, signature):
-        try:
-            parsed_body = json.loads(body_str)
-        except json.JSONDecodeError:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid HMAC signature"
-            )
-        canonical_body = json.dumps(parsed_body, separators=(",", ":"), ensure_ascii=False)
-        canonical_message = f"{timestamp}{canonical_body}"
-        canonical_signature = hmac.new(
-            settings.HMAC_SECRET.encode('utf-8'),
-            canonical_message.encode('utf-8'),
-            hashlib.sha256
-        ).hexdigest()
-        if not hmac.compare_digest(canonical_signature, signature):
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid HMAC signature"
-            )
-        return parsed_body
+    # 5. FORCED LOGGING - Reveal the truth in Railway logs
+    logger.error(f"HMAC_DEBUG: Payload used: '{payload}'")
+    logger.error(f"HMAC_DEBUG: Expected Sig: {expected}")
+    logger.error(f"HMAC_DEBUG: Received Sig: {x_grace_signature}")
 
-    # Parse and return the body
-    try:
-        return json.loads(body_str)
-    except json.JSONDecodeError:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid JSON in request body"
-        )
+    # 6. Final Validation
+    if not hmac.compare_digest(expected, x_grace_signature):
+        raise HTTPException(status_code=401, detail="Invalid HMAC signature")
+
+    return True
+
+async def get_api_key(auth: HTTPAuthorizationCredentials = Security(security)):
+    if auth.credentials != settings.API_KEY:
+        logger.error(f"AUTH_ERROR: Invalid Bearer Token. Received: {auth.credentials}")
+        raise HTTPException(status_code=401, detail="Invalid API Key")
+    return auth.credentials
