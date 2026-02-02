@@ -11,5 +11,5 @@ httpx
 tenacity
 pytz
 openai
-google-generativeai
+google-genai
 psycopg2-binary
