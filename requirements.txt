@@ -12,4 +12,5 @@ tenacity
 pytz
 openai
 google-genai
+pydantic
 psycopg2-binary
