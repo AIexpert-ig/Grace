@@ -10,11 +10,11 @@ URL = "https://grace-ai.up.railway.app/staff/escalate"
 
 # PAYLOAD
 payload_data = {
-    "guest_name": "Sheikh Ahmed",
-    "room_number": "Royal Suite 1",
-    "issue": "Security Protocol Verified. VIP escalation engine is now online.",
+    "guest_name": "Mr. John Wick",
+    "room_number": "Suite 404",
+    "issue": "There is a leak in the ceiling and my suit is ruined. I need this fixed immediately.",
     "is_vip": True,
-    "sentiment": "CRITICAL"
+    "sentiment": "NEGATIVE"
 }
 
 def generate_signature(secret, timestamp, data_dict):
