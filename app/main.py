@@ -15,12 +15,11 @@ logger = logging.getLogger("app.main")
 try:
     from app.core.llm import analyze_escalation
 except ImportError:
-    # Fallback if file structure is different, try direct import
     from .llm import analyze_escalation
 
 app = FastAPI()
 
-# --- 3. DATABASE SETUP ---
+# --- 3. DATABASE SETUP & MIGRATION ---
 DATABASE_URL = os.getenv("DATABASE_URL")
 SECRET_KEY = os.getenv("SECRET_KEY", "grace_prod_key_99")
 
@@ -28,6 +27,33 @@ def get_engine():
     if not DATABASE_URL:
         raise ValueError("DATABASE_URL is not set")
     return create_engine(DATABASE_URL)
+
+@app.on_event("startup")
+def startup_db_check():
+    """
+    The 'Doctor' function: Checks DB health and adds missing columns automatically.
+    """
+    try:
+        engine = get_engine()
+        with engine.begin() as conn:
+            # 1. Create table if it doesn't exist
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS escalations (
+                    id SERIAL PRIMARY KEY,
+                    guest_name VARCHAR NOT NULL,
+                    room_number VARCHAR,
+                    issue TEXT,
+                    status VARCHAR DEFAULT 'PENDING',
+                    created_at TIMESTAMP DEFAULT NOW()
+                );
+            """))
+            
+            # 2. Add 'sentiment' column if missing (The Fix)
+            conn.execute(text("ALTER TABLE escalations ADD COLUMN IF NOT EXISTS sentiment VARCHAR;"))
+            
+            logger.info("✅ Database Schema Verified (Sentiment Column Added)")
+    except Exception as e:
+        logger.error(f"⚠️ DB Migration Warning: {e}")
 
 # --- 4. SECURITY (HMAC) ---
 async def verify_hmac_signature(request: Request):
@@ -74,7 +100,7 @@ async def escalate(request: Request, authenticated: bool = Depends(verify_hmac_s
     try:
         engine = get_engine()
         with engine.begin() as conn:
-            # We append the plan to the issue text for visibility
+            # Combine issue + plan for storage
             enhanced_issue = f"{issue} || [AI PLAN: {ai_result.get('action_plan')}]"
             
             conn.execute(text(
@@ -88,14 +114,10 @@ async def escalate(request: Request, authenticated: bool = Depends(verify_hmac_s
             })
     except Exception as e:
         logger.error(f"DB Error: {e}")
-        return {"status": "error", "message": str(e)}
+        # Return success to client even if DB fails, but warn them
+        return {"status": "partial_success", "message": "AI worked, but DB failed", "error": str(e), "ai_analysis": ai_result}
 
-    # RETURN THE BRAIN'S ANALYSIS TO THE CLIENT
     return {
         "status": "dispatched", 
         "ai_analysis": ai_result
     }
-
-@app.get("/")
-def health_check():
-    return {"status": "Grace AI V16 (Brain Active)"}
