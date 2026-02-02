@@ -30,13 +30,24 @@ if api_key:
 else:
     logger.warning("GEMINI_API_KEY is missing.")
 
-# 3. Async Analysis Function
+async def _call_model(model_name: str, prompt: str) -> Optional[Dict[str, Any]]:
+    """Helper function to call a specific model version."""
+    logger.info(f"Attempting analysis with model: {model_name}")
+    response = await client.aio.models.generate_content(
+        model=model_name,
+        contents=prompt,
+        config=types.GenerateContentConfig(
+            response_mime_type="application/json",
+            response_schema=EscalationAnalysis,
+        ),
+    )
+    if response.parsed:
+        return response.parsed.model_dump()
+    return json.loads(response.text)
+
+# 3. Async Analysis Function with Fallback Strategy
 async def analyze_escalation(guest_name: str, issue_text: str) -> Optional[Dict[str, Any]]:
-    """
-    Analyzes a guest complaint using Gemini 2.0 Flash (Async).
-    """
     if not client:
-        logger.error("Client not initialized.")
         return None
 
     prompt = (
@@ -46,29 +57,25 @@ async def analyze_escalation(guest_name: str, issue_text: str) -> Optional[Dict[
     )
 
     try:
-        # NOTICE: We use 'client.aio' for asynchronous execution
-        response = await client.aio.models.generate_content(
-            model="gemini-2.0-flash",
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json",
-                response_schema=EscalationAnalysis,
-            ),
-        )
-
-        # Parse valid response
-        if response.parsed:
-            return response.parsed.model_dump()
-        
-        return json.loads(response.text)
+        # ATTEMPT 1: Try the latest model (Gemini 2.0 Flash)
+        return await _call_model("gemini-2.0-flash", prompt)
 
     except Exception as e:
-        # Logs the 429 or 500 error from Google without crashing your app
-        logger.error(f"AI Analysis Failed: {e}")
-        
-        # Return a safe fallback so your frontend doesn't break
+        # Check if it's a Rate Limit error (429) or Resource Exhausted
+        error_msg = str(e)
+        if "429" in error_msg or "RESOURCE_EXHAUSTED" in error_msg:
+            logger.warning(f"Gemini 2.0 rate limited. Falling back to Gemini 1.5 Flash...")
+            try:
+                # ATTEMPT 2: Fallback to the stable model (Gemini 1.5 Flash)
+                return await _call_model("gemini-1.5-flash", prompt)
+            except Exception as e2:
+                logger.error(f"Fallback model also failed: {e2}")
+        else:
+            logger.error(f"Primary model failed with non-rate-limit error: {e}")
+
+        # FINAL FALLBACK: Return safe default values
         return {
-            "reasoning": "AI Service Temporarily Unavailable (Rate Limit Reached).",
+            "reasoning": "AI Service Busy. Automatic analysis skipped.",
             "priority": "Medium",
             "sentiment": "Neutral",
             "action_plan": "Please review this ticket manually."
