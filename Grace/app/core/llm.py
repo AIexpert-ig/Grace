@@ -15,7 +15,8 @@ async def analyze_escalation(guest_name: str, issue_text: str):
         print("⚠️ GEMINI_API_KEY missing. Skipping AI analysis.")
         return {"sentiment": "UNKNOWN", "priority": "MEDIUM", "action_plan": "Manual review required"}
 
-    model = genai.GenerativeModel('gemini-1.5-flash')
+    # Change 'gemini-1.5-flash' to:
+    model = genai.GenerativeModel('gemini-pro')
 
     prompt = f"""
     You are the AI Concierge for a 7-star Ultra-Luxury Hotel.
