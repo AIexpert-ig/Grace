@@ -1,44 +1,50 @@
-import os
 import google.generativeai as genai
+import os
 import json
+import logging
 
-# Initialize the Brain
-api_key = os.getenv("GEMINI_API_KEY")
-if api_key:
-    genai.configure(api_key=api_key)
+# Setup Logger
+logger = logging.getLogger("app.llm")
 
-async def analyze_escalation(guest_name: str, issue_text: str):
+# Configure API Key
+API_KEY = os.getenv("GEMINI_API_KEY")
+genai.configure(api_key=API_KEY)
+
+# 🧠 CONFIGURATION: Use the Stable Model
+# We use 'gemini-pro' because it is 100% available and stable.
+model = genai.GenerativeModel('gemini-pro')
+
+async def analyze_escalation(guest_name, issue_text):
     """
-    Analyzing guest request using Gemini 1.5 Flash (Free Tier).
+    Analyzes the guest issue using Google Gemini AI.
+    Returns a dictionary with priority, sentiment, and action plan.
     """
-    if not api_key:
-        # Fallback if key is missing
-        return {"priority": "MEDIUM", "action_plan": "Manual Review (Key Missing)"}
-
-    # The Prompt
+    
     prompt = f"""
-    You are the AI Manager of a luxury hotel.
+    You are the Hotel Manager AI for a luxury hotel.
+    Analyze this guest complaint:
+    
     Guest: {guest_name}
-    Issue: "{issue_text}"
-
-    Analyze and return JSON ONLY:
-    {{
-        "priority": "LOW" | "MEDIUM" | "HIGH" | "IMMEDIATE",
-        "action_plan": "Specific 1-sentence instruction for staff",
-        "sentiment": "POSITIVE" | "NEUTRAL" | "NEGATIVE"
-    }}
+    Issue: {issue_text}
+    
+    Return a JSON object with these 3 fields:
+    1. "priority": "CRITICAL", "HIGH", "MEDIUM", or "LOW"
+    2. "sentiment": "ANGRY", "DISAPPOINTED", "NEUTRAL", or "HAPPY"
+    3. "action_plan": A one-sentence instruction for staff.
+    
+    IMPORTANT: Return ONLY the JSON. No Markdown formatting.
     """
 
     try:
-        # Find this:
-model = genai.GenerativeModel('gemini-1.5-flash')
-
-# Replace with this:
-model = genai.GenerativeModel('gemini-pro')
         response = model.generate_content(prompt)
-        # Clean markdown if Gemini adds it
-        clean_json = response.text.replace("```json", "").replace("```", "").strip()
-        return json.loads(clean_json)
+        raw_text = response.text.replace("```json", "").replace("```", "").strip()
+        return json.loads(raw_text)
+        
     except Exception as e:
-        print(f"❌ Brain Freeze: {e}")
-        return {"priority": "HIGH", "action_plan": "Error in AI Analysis", "sentiment": "NEGATIVE"}
+        logger.error(f"❌ AI Analysis Failed: {e}")
+        # Fail gracefully so the server doesn't crash
+        return {
+            "priority": "HIGH", 
+            "sentiment": "NEGATIVE", 
+            "action_plan": "AI Offline - Manager attention required immediately."
+        }
