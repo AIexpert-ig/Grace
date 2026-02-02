@@ -1,3 +1,4 @@
+# Force Trigger Deployment - Dubai Sync v1.0
 async def verify_hmac_signature(
     request: Request,
     x_grace_signature: str = Header(...),
