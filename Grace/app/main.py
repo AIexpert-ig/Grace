@@ -16,3 +16,4 @@ app = FastAPI(lifespan=lifespan)
 @app.post("/staff/escalate")
 async def escalate(request: Request, authenticated: bool = Depends(verify_hmac_signature)):
     return {"status": "success", "message": "Escalation received"}# Force Sync: Mon Feb  2 10:46:05 +04 2026
+# Force Build Hash: 13297
