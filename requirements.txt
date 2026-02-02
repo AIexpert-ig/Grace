@@ -12,3 +12,4 @@ tenacity
 pytz
 openai
 google-generativeai
+psycopg2-binary
