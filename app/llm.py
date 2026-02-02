@@ -30,7 +30,7 @@ async def analyze_escalation(guest_name: str, issue_text: str):
     """
 
     try:
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        model = genai.GenerativeModel('gemini-pro')
         response = model.generate_content(prompt)
         # Clean markdown if Gemini adds it
         clean_json = response.text.replace("```json", "").replace("```", "").strip()
