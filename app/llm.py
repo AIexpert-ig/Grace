@@ -14,6 +14,52 @@ if not API_KEY:
 else:
     genai.configure(api_key=API_KEY)
 
+DEFAULT_MODEL_CANDIDATES = [
+    "models/gemini-1.5-pro",
+    "models/gemini-1.5-flash",
+    "models/gemini-1.0-pro",
+    "models/gemini-pro",
+]
+
+_RESOLVED_MODEL_NAME = None
+
+def _resolve_model_name():
+    global _RESOLVED_MODEL_NAME
+    if _RESOLVED_MODEL_NAME:
+        return _RESOLVED_MODEL_NAME
+
+    env_model = os.getenv("GEMINI_MODEL")
+    if env_model:
+        _RESOLVED_MODEL_NAME = env_model
+        logger.info("Using Gemini model from GEMINI_MODEL: %s", _RESOLVED_MODEL_NAME)
+        return _RESOLVED_MODEL_NAME
+
+    try:
+        models = [
+            m for m in genai.list_models()
+            if "generateContent" in getattr(m, "supported_generation_methods", [])
+        ]
+        names = {m.name for m in models}
+        for candidate in DEFAULT_MODEL_CANDIDATES:
+            if candidate in names:
+                _RESOLVED_MODEL_NAME = candidate
+                break
+        if not _RESOLVED_MODEL_NAME:
+            for m in models:
+                if "gemini" in m.name:
+                    _RESOLVED_MODEL_NAME = m.name
+                    break
+        if not _RESOLVED_MODEL_NAME and models:
+            _RESOLVED_MODEL_NAME = models[0].name
+    except Exception as e:
+        logger.warning("Model discovery failed: %s", e)
+
+    if not _RESOLVED_MODEL_NAME:
+        _RESOLVED_MODEL_NAME = "models/gemini-1.5-flash"
+
+    logger.info("Using Gemini model: %s", _RESOLVED_MODEL_NAME)
+    return _RESOLVED_MODEL_NAME
+
 async def analyze_escalation(guest_name, issue):
     if not API_KEY:
         return {
@@ -23,9 +69,9 @@ async def analyze_escalation(guest_name, issue):
         }
 
     try:
-        # 2. Use the STABLE Model (gemini-pro)
-        # This is the most reliable model for free-tier keys
-        model = genai.GenerativeModel('gemini-pro')
+        # 2. Use a supported model. Prefer GEMINI_MODEL or auto-discover.
+        model_name = _resolve_model_name()
+        model = genai.GenerativeModel(model_name)
         
         prompt = f"""
         You are a hotel manager.
