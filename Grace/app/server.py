@@ -1,3 +1,5 @@
+# 1. Overwrite server.py with the fixed code
+cat > app/server.py << 'EOF'
 import os
 import logging
 from contextlib import asynccontextmanager
