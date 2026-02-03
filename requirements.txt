@@ -2,8 +2,8 @@ fastapi
 uvicorn
 sqlalchemy
 asyncpg
+psycopg2-binary
 python-telegram-bot
 google-generativeai
 python-dotenv
 requests
-
