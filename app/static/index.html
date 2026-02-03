@@ -15,23 +15,32 @@
       }
       * { box-sizing: border-box; }
       body {
-        margin: 0; padding: 56px 20px 80px;
-        font-family: "Space Grotesk", "Segoe UI", sans-serif;
+        margin: 0; padding: 40px 20px 80px;
+        font-family: "Space Grotesk", sans-serif;
         color: var(--ink);
         background: radial-gradient(circle at top left, rgba(15, 118, 110, 0.08), transparent 45%),
-                    radial-gradient(circle at 20% 30%, rgba(250, 204, 21, 0.08), transparent 50%),
                     linear-gradient(180deg, #f7f4ee 0%, #f3f7fb 100%);
       }
       main { max-width: 900px; margin: 0 auto; display: grid; gap: 24px; }
-      h1 { margin: 0; font-size: 30px; letter-spacing: -0.02em; }
-      p { margin: 0; font-size: 16px; line-height: 1.6; color: var(--muted); }
+      
+      /* New Stats Grid */
+      .stats-grid {
+        display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px;
+      }
+      .stat-card {
+        background: #fff; padding: 20px; border-radius: 16px;
+        border: 1px solid var(--border);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+        text-align: center;
+      }
+      .stat-value { font-size: 32px; font-weight: 700; color: var(--accent); display: block; }
+      .stat-label { font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+
       .panel {
         background: var(--panel); border: 1px solid var(--border);
         border-radius: 18px; padding: 28px;
         box-shadow: 0 16px 40px rgba(15, 23, 42, 0.08);
-        animation: rise 500ms ease-out;
       }
-      @keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
       form { display: grid; gap: 16px; }
       .field-group { display: grid; gap: 8px; }
       label { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: #6d7178; }
@@ -39,102 +48,105 @@
         width: 100%; border-radius: 12px; border: 1px solid #d9d4cb;
         padding: 12px 14px; font-size: 15px; font-family: "Space Grotesk", sans-serif;
         color: var(--ink); background: #fffefb;
-        transition: border-color 150ms ease, box-shadow 150ms ease;
       }
       input:focus, textarea:focus {
         outline: none; border-color: rgba(15, 118, 110, 0.6);
         box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.12);
       }
-      textarea { min-height: 120px; resize: vertical; }
-      .meta { display: grid; gap: 14px; }
-      @media (min-width: 720px) { .meta { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+      textarea { min-height: 100px; resize: vertical; }
+      .meta { display: grid; gap: 14px; grid-template-columns: 1fr 1fr; }
       button {
         border: none; border-radius: 999px; padding: 14px 20px;
         font-size: 15px; font-weight: 600; color: #ffffff; background: var(--accent);
-        cursor: pointer; transition: all 150ms ease;
-        box-shadow: 0 12px 24px rgba(15, 118, 110, 0.24);
+        cursor: pointer; transition: all 150ms ease; width: 100%;
       }
       button:hover { background: var(--accent-strong); transform: translateY(-1px); }
-      button:disabled { cursor: not-allowed; transform: none; background: #7a9b97; box-shadow: none; }
-      .alert { border-radius: 12px; padding: 12px 14px; font-size: 14px; display: none; border: 1px solid transparent; }
-      .alert.success { background: var(--success-bg); color: var(--success-ink); border-color: rgba(11, 93, 58, 0.2); }
-      .alert.error { background: var(--error-bg); color: var(--error-ink); border-color: rgba(139, 29, 29, 0.25); }
-      .footnote { font-size: 12px; color: #7a7f86; }
-      a { color: var(--accent); text-decoration: none; }
-      a:hover { text-decoration: underline; }
+      .alert { border-radius: 12px; padding: 12px 14px; font-size: 14px; display: none; margin-top: 10px; }
+      .alert.success { background: var(--success-bg); color: var(--success-ink); border: 1px solid rgba(11, 93, 58, 0.2); }
     </style>
   </head>
   <body>
     <main>
-      <header class="header">
-        <h1>Grace AI Operations Console</h1>
-        <p>Dispatch guest escalations directly to the AI desk.</p>
+      <header>
+        <h1 style="margin: 0; font-size: 28px;">Grace Operations</h1>
+        <p style="margin: 5px 0 0; color: var(--muted);">Real-time Guest Escalation & AI Dispatch</p>
       </header>
+
+      <section class="stats-grid">
+        <div class="stat-card">
+          <span class="stat-value" id="ticket-count">-</span>
+          <span class="stat-label">Total Tickets</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-value">Active</span>
+          <span class="stat-label">System Status</span>
+        </div>
+      </section>
+
       <section class="panel">
         <form id="escalation-form">
           <div class="meta">
             <div class="field-group">
-              <label for="guest-name">Guest Name</label>
-              <input id="guest-name" name="guest_name" type="text" placeholder="Mr. Bond" required>
+              <label>Guest Name</label>
+              <input name="guest_name" placeholder="Mr. Wick" required>
             </div>
             <div class="field-group">
-              <label for="room-number">Room Number</label>
-              <input id="room-number" name="room_number" type="text" placeholder="702" required>
+              <label>Room #</label>
+              <input name="room_number" placeholder="404" required>
             </div>
           </div>
           <div class="field-group">
-            <label for="issue">Issue Description</label>
-            <textarea id="issue" name="issue" placeholder="Describe the guest issue..." required></textarea>
+            <label>Issue</label>
+            <textarea name="issue" placeholder="Describe the issue..." required></textarea>
           </div>
-          <div class="alert success" id="success-box">
-            <strong>Action Plan:</strong> <span id="action-plan"></span>
-          </div>
-          <div class="alert error" id="error-box"></div>
           <button id="submit-btn" type="submit">Dispatch Ticket</button>
+          
+          <div class="alert success" id="success-box">
+            <strong>Plan:</strong> <span id="action-plan"></span>
+          </div>
         </form>
       </section>
     </main>
+
     <script>
-      const form = document.getElementById("escalation-form");
-      const submitButton = document.getElementById("submit-btn");
-      const successBox = document.getElementById("success-box");
-      const errorBox = document.getElementById("error-box");
-      const actionPlan = document.getElementById("action-plan");
-
-      form.addEventListener("submit", async (event) => {
-        event.preventDefault();
-        submitButton.disabled = true;
-        submitButton.textContent = "Dispatching...";
-        successBox.style.display = "none";
-        errorBox.style.display = "none";
-
-        const formData = {
-          guest_name: form.guest_name.value,
-          room_number: form.room_number.value,
-          issue: form.issue.value
-        };
-
+      // 1. Fetch Stats on Load
+      async function refreshStats() {
         try {
-          const response = await fetch("/staff/escalate", {
+          const res = await fetch("/staff/dashboard-stats");
+          const data = await res.json();
+          document.getElementById("ticket-count").textContent = data.total_tickets || 0;
+        } catch (e) { console.error("Stats error", e); }
+      }
+      refreshStats();
+      setInterval(refreshStats, 5000); // Auto-refresh every 5s
+
+      // 2. Handle Form
+      const form = document.getElementById("escalation-form");
+      const btn = document.getElementById("submit-btn");
+      const successBox = document.getElementById("success-box");
+
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        btn.disabled = true; btn.textContent = "Analysing...";
+        successBox.style.display = "none";
+        
+        try {
+          const res = await fetch("/staff/escalate", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(formData),
+            body: JSON.stringify({
+              guest_name: form.guest_name.value,
+              room_number: form.room_number.value,
+              issue: form.issue.value
+            })
           });
-
-          const data = await response.json();
-          if (!response.ok) throw new Error(data.message || "Request failed.");
-
-          const plan = data.ai_analysis?.action_plan || "Ticket saved.";
-          actionPlan.textContent = plan;
+          const data = await res.json();
+          document.getElementById("action-plan").textContent = data.ai_analysis?.action_plan || "Logged.";
           successBox.style.display = "block";
           form.reset();
-        } catch (error) {
-          errorBox.textContent = error.message;
-          errorBox.style.display = "block";
-        } finally {
-          submitButton.disabled = false;
-          submitButton.textContent = "Dispatch Ticket";
-        }
+          refreshStats(); // Update count immediately
+        } catch (err) { alert("Error: " + err.message); } 
+        finally { btn.disabled = false; btn.textContent = "Dispatch Ticket"; }
       });
     </script>
   </body>
