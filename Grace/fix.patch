@@ -13,11 +13,10 @@
 +++ b/app/core/database.py
 @@ -39,6 +39,11 @@
      future=True
- )
+
  
 +def get_engine():
 +    """Return the initialized async engine."""
 +    return engine
-+
  # Initialize the Asynchronous Session Factory
- async_session_maker = async_sessionmaker(
+ async_session_maker = async_sessionmaker
