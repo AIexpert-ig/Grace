@@ -7,11 +7,9 @@
     <style>
       @import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap");
       :root {
-        color-scheme: light;
         --ink: #171a1f; --muted: #5b5f66; --accent: #0f766e; --accent-strong: #0a5b55;
         --panel: #ffffff; --border: #e4dfd7; --wash: #f5f1ea;
-        --success-bg: #e8fbf0; --success-ink: #0b5d3a;
-        --error-bg: #ffecec; --error-ink: #8b1d1d;
+        --success-bg: #e8fbf0;
       }
       * { box-sizing: border-box; }
       body {
@@ -23,15 +21,10 @@
       }
       main { max-width: 900px; margin: 0 auto; display: grid; gap: 24px; }
       
-      /* New Stats Grid */
-      .stats-grid {
-        display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px;
-      }
+      .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
       .stat-card {
         background: #fff; padding: 20px; border-radius: 16px;
-        border: 1px solid var(--border);
-        box-shadow: 0 4px 12px rgba(0,0,0,0.03);
-        text-align: center;
+        border: 1px solid var(--border); box-shadow: 0 4px 12px rgba(0,0,0,0.03); text-align: center;
       }
       .stat-value { font-size: 32px; font-weight: 700; color: var(--accent); display: block; }
       .stat-label { font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
@@ -49,20 +42,25 @@
         padding: 12px 14px; font-size: 15px; font-family: "Space Grotesk", sans-serif;
         color: var(--ink); background: #fffefb;
       }
-      input:focus, textarea:focus {
-        outline: none; border-color: rgba(15, 118, 110, 0.6);
-        box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.12);
-      }
-      textarea { min-height: 100px; resize: vertical; }
-      .meta { display: grid; gap: 14px; grid-template-columns: 1fr 1fr; }
       button {
         border: none; border-radius: 999px; padding: 14px 20px;
         font-size: 15px; font-weight: 600; color: #ffffff; background: var(--accent);
-        cursor: pointer; transition: all 150ms ease; width: 100%;
+        cursor: pointer; width: 100%;
       }
-      button:hover { background: var(--accent-strong); transform: translateY(-1px); }
-      .alert { border-radius: 12px; padding: 12px 14px; font-size: 14px; display: none; margin-top: 10px; }
-      .alert.success { background: var(--success-bg); color: var(--success-ink); border: 1px solid rgba(11, 93, 58, 0.2); }
+      button:hover { background: var(--accent-strong); }
+
+      /* TICKET TABLE STYLES */
+      .ticket-feed { margin-top: 20px; }
+      .ticket-card {
+        background: white; border: 1px solid var(--border); border-radius: 12px;
+        padding: 16px; margin-bottom: 12px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.02);
+      }
+      .ticket-header { display: flex; justify-content: space-between; font-size: 14px; color: var(--muted); margin-bottom: 8px; }
+      .ticket-body { font-size: 15px; color: var(--ink); }
+      .badge { 
+        background: var(--wash); padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: 600; 
+      }
     </style>
   </head>
   <body>
@@ -78,60 +76,83 @@
           <span class="stat-label">Total Tickets</span>
         </div>
         <div class="stat-card">
-          <span class="stat-value">Active</span>
+          <span class="stat-value" style="color: #16a34a;">Live</span>
           <span class="stat-label">System Status</span>
         </div>
       </section>
 
       <section class="panel">
+        <h3 style="margin-top: 0;">📝 Dispatch New Ticket</h3>
         <form id="escalation-form">
-          <div class="meta">
-            <div class="field-group">
-              <label>Guest Name</label>
-              <input name="guest_name" placeholder="Mr. Wick" required>
-            </div>
-            <div class="field-group">
-              <label>Room #</label>
-              <input name="room_number" placeholder="404" required>
-            </div>
+          <div style="display: grid; gap: 14px; grid-template-columns: 1fr 1fr;">
+            <div class="field-group"><label>Guest Name</label><input name="guest_name" placeholder="Mr. Wick" required></div>
+            <div class="field-group"><label>Room #</label><input name="room_number" placeholder="404" required></div>
           </div>
-          <div class="field-group">
-            <label>Issue</label>
-            <textarea name="issue" placeholder="Describe the issue..." required></textarea>
-          </div>
+          <div class="field-group"><label>Issue</label><textarea name="issue" placeholder="Describe the issue..." required></textarea></div>
           <button id="submit-btn" type="submit">Dispatch Ticket</button>
-          
-          <div class="alert success" id="success-box">
-            <strong>Plan:</strong> <span id="action-plan"></span>
-          </div>
         </form>
+      </section>
+
+      <section>
+        <h3 style="margin-bottom: 15px;">📡 Recent Live Feed</h3>
+        <div id="feed-container">Loading tickets...</div>
       </section>
     </main>
 
     <script>
-      // 1. Fetch Stats on Load
-      async function refreshStats() {
+      async function refreshData() {
+        // 1. Stats
         try {
           const res = await fetch("/staff/dashboard-stats");
           const data = await res.json();
           document.getElementById("ticket-count").textContent = data.total_tickets || 0;
-        } catch (e) { console.error("Stats error", e); }
-      }
-      refreshStats();
-      setInterval(refreshStats, 5000); // Auto-refresh every 5s
+        } catch (e) {}
 
-      // 2. Handle Form
+        // 2. Feed
+        try {
+          const res = await fetch("/staff/recent-tickets");
+          const tickets = await res.json();
+          const container = document.getElementById("feed-container");
+          
+          if (tickets.length === 0) {
+            container.innerHTML = "<p style='color:var(--muted)'>No tickets yet.</p>";
+            return;
+          }
+
+          container.innerHTML = tickets.map(t => {
+            // Clean up the issue text to separate the User issue from AI plan
+            const parts = (t.issue || "").split("|| [AI:"); 
+            const userIssue = parts[0];
+            const aiPlan = parts[1] ? "AI: " + parts[1].replace("]", "") : "";
+
+            return `
+              <div class="ticket-card">
+                <div class="ticket-header">
+                  <strong>${t.guest_name} (Room ${t.room_number})</strong>
+                  <span class="badge">${t.status}</span>
+                </div>
+                <div class="ticket-body">
+                  <div style="margin-bottom:6px;">${userIssue}</div>
+                  ${aiPlan ? `<div style="color:#0f766e; font-size:13px; background:#f0fdfa; padding:8px; border-radius:6px;">🤖 <strong>AI Plan:</strong> ${aiPlan}</div>` : ""}
+                </div>
+              </div>
+            `;
+          }).join("");
+        } catch (e) { console.error(e); }
+      }
+
+      refreshData();
+      setInterval(refreshData, 5000); // Live refresh
+
       const form = document.getElementById("escalation-form");
       const btn = document.getElementById("submit-btn");
-      const successBox = document.getElementById("success-box");
 
       form.addEventListener("submit", async (e) => {
         e.preventDefault();
-        btn.disabled = true; btn.textContent = "Analysing...";
-        successBox.style.display = "none";
+        btn.disabled = true; btn.textContent = "Processing...";
         
         try {
-          const res = await fetch("/staff/escalate", {
+          await fetch("/staff/escalate", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -140,11 +161,9 @@
               issue: form.issue.value
             })
           });
-          const data = await res.json();
-          document.getElementById("action-plan").textContent = data.ai_analysis?.action_plan || "Logged.";
-          successBox.style.display = "block";
           form.reset();
-          refreshStats(); // Update count immediately
+          refreshData(); 
+          alert("Ticket Dispatched!");
         } catch (err) { alert("Error: " + err.message); } 
         finally { btn.disabled = false; btn.textContent = "Dispatch Ticket"; }
       });
