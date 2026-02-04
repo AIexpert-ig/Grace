@@ -2,74 +2,88 @@ import os
 import logging
 import asyncio
 import json
-
 import google.generativeai as genai
-from google.api_core.exceptions import ResourceExhausted
 
+# --- LOGGING ---
 logger = logging.getLogger("app.llm")
 logger.setLevel(logging.INFO)
 
-MODEL_PRIMARY = "models/gemini-1.5-flash"
-MODEL_FALLBACK = "models/gemini-pro"
+# --- CONFIGURATION ---
+# Based on your logs, these are the models you actually have access to.
+PRIMARY_MODEL = "models/gemini-flash-latest"   # Fast, usually free
+BACKUP_MODEL  = "models/gemini-pro-latest"     # Reliable backup
 
-HARD_CODED_RESPONSE = {
-    "priority": "Medium",
-    "sentiment": "Neutral",
-    "action_plan": "We will acknowledge the guest and dispatch a staff member immediately."
-}
+model_primary = None
+model_backup = None
 
-
-def _configure_client() -> bool:
+def init_gemini():
+    global model_primary, model_backup
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
-        logger.error("GEMINI_API_KEY is missing")
-        return False
-    genai.configure(api_key=api_key)
-    return True
+        logger.error("❌ GEMINI_API_KEY is missing.")
+        return None
 
+    try:
+        genai.configure(api_key=api_key)
+        model_primary = genai.GenerativeModel(PRIMARY_MODEL)
+        model_backup = genai.GenerativeModel(BACKUP_MODEL)
+        logger.info(f"🧠 Brain Online: {PRIMARY_MODEL} (Backup: {BACKUP_MODEL})")
+        return model_primary
+    except Exception as e:
+        logger.error(f"❌ Init Failed: {e}")
+        return None
 
-def _build_prompt(guest_name: str, text_input: str) -> str:
-    return f"""
+init_gemini()
+
+async def analyze_escalation(guest_name, text_input):
+    global model_primary, model_backup
+    
+    if not model_primary: init_gemini()
+
+    # UPDATED PROMPT: Asks for a specific 'verbal_response'
+    prompt = f"""
     You are Grace, a hotel manager.
     Guest: {guest_name}
     Message: "{text_input}"
-
+    
     Output JSON only:
     {{
         "priority": "High/Medium/Low",
-        "sentiment": "Positive/Neutral/Negative",
-        "action_plan": "A short, professional sentence saying exactly what you will do."
+        "action_plan": "Internal note for staff (e.g., Send housekeeping)",
+        "verbal_response": "Polite reply to speak to the guest (e.g., I have sent housekeeping to your room)."
     }}
     """
 
-
-def _parse_json_response(text: str) -> dict:
-    clean_text = text.strip().replace("```json", "").replace("```", "")
-    return json.loads(clean_text)
-
-
-async def _generate_with_model(model_name: str, prompt: str):
-    model = genai.GenerativeModel(model_name)
-    return await asyncio.to_thread(model.generate_content, prompt)
-
-
-async def analyze_escalation(guest_name, text_input):
-    if not _configure_client():
-        return HARD_CODED_RESPONSE
-
-    prompt = _build_prompt(guest_name, text_input)
-
+    # 1. Try Primary
     try:
-        response = await _generate_with_model(MODEL_PRIMARY, prompt)
-        return _parse_json_response(response.text)
-    except ResourceExhausted as e:
-        logger.warning("Primary model quota exhausted, falling back to %s: %s", MODEL_FALLBACK, e)
-        try:
-            response = await _generate_with_model(MODEL_FALLBACK, prompt)
-            return _parse_json_response(response.text)
-        except Exception as fallback_error:
-            logger.error("Fallback model failed: %s", fallback_error)
-            return HARD_CODED_RESPONSE
+        response = await asyncio.to_thread(model_primary.generate_content, prompt)
+        return parse_json(response.text)
     except Exception as e:
-        logger.error("Primary model failed: %s", e)
-        return HARD_CODED_RESPONSE
+        logger.warning(f"⚠️ Primary Brain Failed ({e}). Switching to Backup...")
+
+    # 2. Try Backup
+    try:
+        response = await asyncio.to_thread(model_backup.generate_content, prompt)
+        return parse_json(response.text)
+    except Exception as e:
+        logger.error(f"❌ All Brains Failed: {e}")
+        return {
+            "priority": "Medium",
+            "action_plan": "System Error - Manual check required",
+            "verbal_response": "I am having trouble connecting to the system, but I have logged your request."
+        }
+
+def parse_json(text):
+    try:
+        clean = text.strip().replace("```json", "").replace("```", "")
+        data = json.loads(clean)
+        # Compatibility: Map verbal_response to action_plan if missing, so she speaks something.
+        if "verbal_response" in data:
+            data["action_plan"] = data["verbal_response"] 
+        return data
+    except:
+        return {
+            "priority": "Medium", 
+            "action_plan": text, # Fallback: just read the raw text
+            "verbal_response": "I have logged your request."
+        }
