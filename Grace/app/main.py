@@ -1,160 +1,220 @@
 import os
 import json
 import logging
-import httpx
-import asyncio
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi import FastAPI, WebSocket, Request, HTTPException, WebSocketDisconnect
+from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
 from sqlalchemy import create_engine, text
+from datetime import datetime
 
-# --- CONFIG ---
-DATABASE_URL = os.getenv("DATABASE_URL")
-TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
-RAILWAY_PUBLIC_DOMAIN = os.getenv("RAILWAY_PUBLIC_DOMAIN") or "grace-ai.up.railway.app"
-WEBHOOK_URL = f"https://{RAILWAY_PUBLIC_DOMAIN}/telegram-webhook"
-
-# --- LOGGING ---
-logger = logging.getLogger("app.main")
+# --- CONFIGURATION ---
 logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("hotel_ai")
 
-# --- BRAIN SETUP ---
+DATABASE_URL = os.getenv("DATABASE_URL", "")
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN", "")
+RAILWAY_PUBLIC_DOMAIN = os.getenv("RAILWAY_PUBLIC_DOMAIN", "")
+
+# Fix Postgres URL for SQLAlchemy
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+
+# --- GLOBAL DATABASE ENGINE (Fixes connection leak) ---
+engine = None
+if DATABASE_URL:
+    engine = create_engine(DATABASE_URL, pool_size=10, max_overflow=20)
+
+# --- LLM IMPORT ---
 try:
     from .llm import analyze_escalation
 except ImportError:
-    async def analyze_escalation(g, i): return {"priority": "Medium", "verbal_response": "System Offline"}
+    logger.warning("⚠️ Could not import analyze_escalation, using fallback mode.")
+    async def analyze_escalation(transcript: str) -> dict:
+        return {
+            "verbal_response": "I understand. I am looking into that for you now.",
+            "action_plan": "Fallback response triggered",
+            "escalate": False
+        }
 
-def get_engine():
-    if not DATABASE_URL: raise ValueError("DATABASE_URL is not set")
-    return create_engine(DATABASE_URL)
-
-async def send_telegram_reply(chat_id, text):
-    if not TELEGRAM_TOKEN: return
-    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
-    async with httpx.AsyncClient() as client:
-        await client.post(url, json={"chat_id": chat_id, "text": text})
-
+# --- LIFESPAN MANAGER ---
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    print("🚀 DUBAI-SYNC-V31: FINAL FIX") 
-    logger.info(f"🚀 GRACE AI [V31.0] | Voice: POLISHED")
-    try:
-        engine = get_engine()
-        with engine.begin() as conn:
-            conn.execute(text("""CREATE TABLE IF NOT EXISTS escalations (id SERIAL PRIMARY KEY, guest_name VARCHAR, room_number VARCHAR, issue TEXT, status VARCHAR DEFAULT 'OPEN', sentiment VARCHAR, created_at TIMESTAMP DEFAULT NOW());"""))
-    except Exception as e: logger.warning(f"⚠️ DB Warning: {e}")
-    if TELEGRAM_TOKEN:
-        async with httpx.AsyncClient() as client:
-            await client.get(f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/setWebhook?url={WEBHOOK_URL}")
+    logger.info("🚀 Starting Hotel AI Concierge...")
+    
+    # Initialize DB Tables
+    if engine:
+        try:
+            with engine.begin() as conn: # 'begin' automatically commits
+                conn.execute(text("""
+                    CREATE TABLE IF NOT EXISTS escalations (
+                        id SERIAL PRIMARY KEY,
+                        call_id VARCHAR(255),
+                        guest_request TEXT,
+                        ai_analysis TEXT,
+                        status VARCHAR(50) DEFAULT 'pending',
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                """))
+            logger.info("✅ Database connected and tables verified.")
+        except Exception as e:
+            logger.error(f"❌ Database init failed: {e}")
+    else:
+        logger.warning("⚠️ No DATABASE_URL found. Running in stateless mode.")
+        
     yield
+    logger.info("🛑 Shutting down...")
 
-# --- THE MISSING PIECE: START THE APP ---
 app = FastAPI(lifespan=lifespan)
-app.mount("/static", StaticFiles(directory="app/static"), name="static")
+
+# Mount Static Files (Safe Mode)
+if os.path.exists("static"):
+    app.mount("/static", StaticFiles(directory="static"), name="static")
+else:
+    logger.warning("⚠️ 'static' directory missing. Web interface will not load.")
+
+# --- ROUTES ---
 
 @app.get("/")
-async def read_root(): return FileResponse('app/static/index.html')
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+async def root():
+    if os.path.exists("static/index.html"):
+        return FileResponse("static/index.html")
+    return {"status": "online", "service": "Hotel AI Concierge"}
 
 @app.get("/staff/dashboard-stats")
-async def get_stats():
+async def dashboard_stats():
+    if not engine: return {"error": "No database"}
     try:
-        engine = get_engine()
         with engine.connect() as conn:
-            total = conn.execute(text("SELECT COUNT(*) FROM escalations")).scalar()
-            return {"total_tickets": total or 0}
-    except Exception: return {"total_tickets": 0}
+            # Using text() explicitly for safety
+            result = conn.execute(text("""
+                SELECT 
+                    COUNT(*) as total,
+                    SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,
+                    SUM(CASE WHEN status = 'resolved' THEN 1 ELSE 0 END) as resolved,
+                    SUM(CASE WHEN status = 'in_progress' THEN 1 ELSE 0 END) as in_progress
+                FROM escalations
+            """))
+            row = result.fetchone()
+            return {
+                "total_tickets": row[0] or 0,
+                "pending": row[1] or 0,
+                "resolved": row[2] or 0,
+                "in_progress": row[3] or 0
+            }
+    except Exception as e:
+        logger.error(f"Stats error: {e}")
+        return {"error": "Database error"}
 
 @app.get("/staff/recent-tickets")
-async def get_recent_tickets():
+async def recent_tickets():
+    if not engine: return []
     try:
-        engine = get_engine()
         with engine.connect() as conn:
-            result = conn.execute(text("SELECT guest_name, room_number, issue, status, sentiment, created_at FROM escalations ORDER BY id DESC LIMIT 5"))
+            result = conn.execute(text("""
+                SELECT id, call_id, guest_request, ai_analysis, status, created_at
+                FROM escalations ORDER BY created_at DESC LIMIT 50
+            """))
             return [dict(row._mapping) for row in result]
-    except Exception: return []
+    except Exception as e:
+        logger.error(f"Tickets error: {e}")
+        return []
 
 @app.post("/staff/escalate")
-async def escalate(request: Request):
+async def manual_escalate(request: Request):
+    if not engine: raise HTTPException(500, "Database unavailable")
     try:
         data = await request.json()
-        guest, issue = data.get("guest_name"), data.get("issue")
-        ai_result = await analyze_escalation(guest, issue)
-        engine = get_engine()
         with engine.begin() as conn:
-            conn.execute(text("INSERT INTO escalations (guest_name, room_number, issue, status, sentiment) VALUES (:g, :r, :i, :s, :sent)"), 
-            {"g": guest, "r": data.get("room_number"), "i": f"{issue} || [AI: {ai_result.get('action_plan')}]", "s": "OPEN", "sent": ai_result.get('sentiment')})
-        return {"status": "dispatched", "ai_analysis": ai_result}
-    except Exception: return {"status": "error"}
+            conn.execute(text("""
+                INSERT INTO escalations (call_id, guest_request, ai_analysis, status)
+                VALUES (:cid, :req, :ai, 'pending')
+            """), {
+                "cid": data.get("call_id", "manual"),
+                "req": data.get("guest_request", ""),
+                "ai": "Manual Escalation"
+            })
+        return {"status": "success"}
+    except Exception as e:
+        logger.error(f"Escalate error: {e}")
+        raise HTTPException(500, str(e))
 
 @app.post("/telegram-webhook")
 async def telegram_webhook(request: Request):
-    try:
-        data = await request.json()
-        if "message" in data and "text" in data["message"]:
-            chat_id = data["message"]["chat"]["id"]
-            text = data["message"]["text"]
-            guest = data["message"]["from"].get("first_name", "Guest")
-            await send_telegram_reply(chat_id, "Thinking...")
-            ai_result = await analyze_escalation(guest, text)
-            
-            # Telegram gets the full detailed plan
-            plan = ai_result.get("action_plan", "Logged.")
-            
-            engine = get_engine()
-            with engine.begin() as conn:
-                conn.execute(text("INSERT INTO escalations (guest_name, room_number, issue, status, sentiment) VALUES (:g, :r, :i, :s, :sent)"), 
-                {"g": f"{guest} (Telegram)", "r": "Online", "i": f"{text} || [AI: {plan}]", "s": "OPEN", "sent": ai_result.get("sentiment")})
-            await send_telegram_reply(chat_id, f"✅ Plan: {plan}")
-        return {"status": "ok"}
-    except Exception: return {"status": "error"}
+    data = await request.json()
+    logger.info(f"Telegram: {data}")
+    return {"status": "received"}
 
-# --- VOICE HANDLER (POLISHED) ---
+# --- WEBSOCKET HANDLER ---
 @app.websocket("/llm-websocket/{call_id}")
 async def websocket_endpoint(websocket: WebSocket, call_id: str):
     await websocket.accept()
     logger.info(f"📞 Call Connected: {call_id}")
     
+    conversation_history = []
+    
     try:
-        # Initial Greeting
+        # Send initial greeting
         await websocket.send_json({
             "response_type": "response",
-            "response_id": "req_init",
-            "content": "Hello, this is Grace, the hotel manager. How can I help you?",
+            "response_id": 0,
+            "content": "Good evening! Welcome to our hotel. How may I assist you today?",
             "content_complete": True,
             "end_call": False
         })
-
+        
         while True:
             data = await websocket.receive_json()
+            
             if data.get("interaction_type") == "response_required":
-                user_text = data["transcript"][0]["content"]
-                logger.info(f"��️ Guest: {user_text}")
+                transcript = data.get("transcript", [])
+                if not transcript or not isinstance(transcript, list):
+                    continue
 
-                ai_result = await analyze_escalation("Voice Guest", user_text)
+                # Safely get last user message
+                last_utterance = transcript[-1]
+                user_message = last_utterance.get("content", "")
+                if not user_message: continue
+
+                logger.info(f"🗣️ User ({call_id}): {user_message}")
                 
-                # We prioritize 'verbal_response' for the speech
-                verbal_reply = ai_result.get('verbal_response', ai_result.get('action_plan', 'I have logged your request.'))
+                # Build context
+                conversation_history.append(f"User: {user_message}")
+                full_context = "\n".join(conversation_history[-10:]) # Keep last 10 turns
                 
+                # Analyze
+                ai_result = await analyze_escalation(full_context)
+                verbal_response = ai_result.get("verbal_response", "I see. Could you say that again?")
+                
+                conversation_history.append(f"AI: {verbal_response}")
+
+                # Database logging (Non-blocking ideally, but blocking here for simplicity)
+                if ai_result.get("escalate", False) and engine:
+                    try:
+                        with engine.begin() as conn:
+                            conn.execute(text("""
+                                INSERT INTO escalations (call_id, guest_request, ai_analysis, status)
+                                VALUES (:cid, :req, :ai, 'pending')
+                            """), {
+                                "cid": call_id,
+                                "req": user_message,
+                                "ai": json.dumps(ai_result)
+                            })
+                    except Exception as db_e:
+                        logger.error(f"DB Logging failed: {db_e}")
+
+                # Send Response
+                # Note: Use incoming response_id if available to keep sync
+                req_id = data.get("response_id", 0) 
                 await websocket.send_json({
                     "response_type": "response",
-                    "response_id": data["response_id"],
-                    "content": verbal_reply,
+                    "response_id": req_id,
+                    "content": verbal_response,
                     "content_complete": True,
                     "end_call": False
                 })
-                logger.info(f"🤖 Grace: {verbal_reply}")
-
-                # Save to DB silently
-                try:
-                    engine = get_engine()
-                    with engine.begin() as conn:
-                        conn.execute(text("INSERT INTO escalations (guest_name, room_number, issue, status, sentiment) VALUES (:g, :r, :i, :s, :sent)"), 
-                        {"g": "Voice Caller", "r": "Phone", "i": f"{user_text}", "s": "OPEN", "sent": "Voice"})
-                except Exception as e:
-                    logger.error(f"DB Error: {e}")
 
     except WebSocketDisconnect:
-        logger.info("📞 Call Ended")
+        logger.info(f"📞 Call Ended: {call_id}")
+    except Exception as e:
+        logger.error(f"🔥 WebSocket Crash: {e}")
