@@ -13,7 +13,7 @@ from sqlalchemy import create_engine, text
 # --- CONFIG ---
 DATABASE_URL = os.getenv("DATABASE_URL")
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
-RETELL_API_KEY = os.getenv("RETELL_API_KEY") # We will add this next
+RETELL_API_KEY = os.getenv("RETELL_API_KEY") 
 RAILWAY_PUBLIC_DOMAIN = os.getenv("RAILWAY_PUBLIC_DOMAIN") or "grace-ai.up.railway.app"
 WEBHOOK_URL = f"https://{RAILWAY_PUBLIC_DOMAIN}/telegram-webhook"
 
@@ -22,12 +22,12 @@ logger = logging.getLogger("app.main")
 logging.basicConfig(level=logging.INFO)
 
 # --- BRAIN SETUP (GEMINI) ---
+# We wrap this to prevent crashes if llm.py is broken
 try:
-    from .llm import analyze_escalation, ask_gemini_stream
+    from .llm import analyze_escalation
 except ImportError:
-    # Fallback if llm.py is missing streaming
+    logger.error("⚠️ Could not import 'analyze_escalation'. Using fallback.")
     async def analyze_escalation(g, i): return {"priority": "Medium", "sentiment": "Neutral", "action_plan": "AI Offline"}
-    async def ask_gemini_stream(text): yield "I am currently offline. Please try again later."
 
 def get_engine():
     if not DATABASE_URL: raise ValueError("DATABASE_URL is not set")
@@ -41,21 +41,16 @@ async def send_telegram_reply(chat_id, text):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    print("🚀 DUBAI-SYNC-V23: VOICE INTERFACE ONLINE") 
-    logger.info(f"🚀 GRACE AI [V23.0] | Voice: READY")
-    
-    # Init DB
+    print("🚀 DUBAI-SYNC-V24: VOICE DEBUG MODE ONLINE") 
+    logger.info(f"🚀 GRACE AI [V24.0] | Voice: READY")
     try:
         engine = get_engine()
         with engine.begin() as conn:
             conn.execute(text("""CREATE TABLE IF NOT EXISTS escalations (id SERIAL PRIMARY KEY, guest_name VARCHAR, room_number VARCHAR, issue TEXT, status VARCHAR DEFAULT 'OPEN', sentiment VARCHAR, created_at TIMESTAMP DEFAULT NOW());"""))
     except Exception as e: logger.warning(f"⚠️ DB Warning: {e}")
-
-    # Init Telegram
     if TELEGRAM_TOKEN:
         async with httpx.AsyncClient() as client:
             await client.get(f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/setWebhook?url={WEBHOOK_URL}")
-
     yield
 
 app = FastAPI(lifespan=lifespan)
@@ -63,10 +58,8 @@ app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
 @app.get("/")
 async def read_root(): return FileResponse('app/static/index.html')
-
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
-# --- EXISTING ENDPOINTS ---
 @app.get("/staff/dashboard-stats")
 async def get_stats():
     try:
@@ -100,7 +93,6 @@ async def escalate(request: Request):
 
 @app.post("/telegram-webhook")
 async def telegram_webhook(request: Request):
-    # (Same Telegram logic as before - abbreviated for space)
     try:
         data = await request.json()
         if "message" in data and "text" in data["message"]:
@@ -118,56 +110,72 @@ async def telegram_webhook(request: Request):
         return {"status": "ok"}
     except Exception: return {"status": "error"}
 
-# --- NEW: VOICE WEBSOCKET ---
-@app.websocket("/llm-websocket/{call_id}")
-async def websocket_endpoint(websocket: WebSocket, call_id: str):
+# --- UPDATED WEBSOCKET HANDLER ---
+@app.websocket("/llm-websocket")
+async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
-    logger.info(f"📞 Call started: {call_id}")
+    logger.info("📞 Call Connected!")
     
     # 1. Send Initial Greeting
-    first_event = {
-        "response_type": "response",
-        "response_id": "req_001",
-        "content": "Hello, this is Grace, the hotel manager. How can I help you today?",
-        "content_complete": True,
-        "end_call": False
-    }
-    await websocket.send_json(first_event)
+    try:
+        first_event = {
+            "response_type": "response",
+            "response_id": "req_init",
+            "content": "Hello, this is Grace. How can I help you?",
+            "content_complete": True,
+            "end_call": False
+        }
+        await websocket.send_json(first_event)
+        logger.info("📤 Sent Greeting")
+    except Exception as e:
+        logger.error(f"💥 Error sending greeting: {e}")
 
     try:
         while True:
-            # 2. Listen for Guest Audio (Text Transcript)
+            # 2. Listen
             data = await websocket.receive_json()
             
-            # Retell sends "interaction_response" when user finishes speaking
             if data.get("interaction_type") == "response_required":
                 user_text = data["transcript"][0]["content"]
                 logger.info(f"🗣️ Guest said: {user_text}")
 
-                # 3. Ask Gemini for response
-                ai_response_text = ""
-                
-                # (Simple blocking call for MVP - Streaming is better for speed later)
-                # We reuse the logic but ask for a conversational reply
-                ai_result = await analyze_escalation("Voice Guest", user_text)
-                # We construct a polite verbal reply based on the action plan
-                verbal_reply = f"I understand. I have logged a {ai_result.get('priority')} priority ticket. {ai_result.get('action_plan')}"
-                
-                # 4. Speak back to Guest
-                response_event = {
-                    "response_type": "response",
-                    "response_id": data["response_id"],
-                    "content": verbal_reply,
-                    "content_complete": True,
-                    "end_call": False
-                }
-                await websocket.send_json(response_event)
-                
-                # 5. Log to Dashboard
-                engine = get_engine()
-                with engine.begin() as conn:
-                    conn.execute(text("INSERT INTO escalations (guest_name, room_number, issue, status, sentiment) VALUES (:g, :r, :i, :s, :sent)"), 
-                    {"g": "Voice Caller", "r": "Phone", "i": f"{user_text} || [AI: {ai_result.get('action_plan')}]", "s": "OPEN", "sent": ai_result.get("sentiment")})
+                # 3. Brain Processing
+                try:
+                    logger.info("🧠 Asking Gemini...")
+                    ai_result = await analyze_escalation("Voice Guest", user_text)
+                    
+                    # Create verbal reply
+                    plan = ai_result.get('action_plan', 'No plan generated.')
+                    priority = ai_result.get('priority', 'Medium')
+                    
+                    verbal_reply = f"I see. I have logged a {priority} priority request for you. {plan}"
+                    logger.info(f"🤖 Gemini Replied: {verbal_reply}")
+
+                    # 4. Speak Back
+                    response_event = {
+                        "response_type": "response",
+                        "response_id": data["response_id"],
+                        "content": verbal_reply,
+                        "content_complete": True,
+                        "end_call": False
+                    }
+                    await websocket.send_json(response_event)
+                    logger.info("📤 Sent Audio Response")
+                    
+                except Exception as ai_error:
+                    logger.error(f"💥 AI CRASHED: {ai_error}")
+                    # Fallback so call doesn't hang
+                    fallback_event = {
+                        "response_type": "response",
+                        "response_id": data["response_id"],
+                        "content": "I am having trouble connecting to the system, but I heard you.",
+                        "content_complete": True,
+                        "end_call": False
+                    }
+                    await websocket.send_json(fallback_event)
 
     except WebSocketDisconnect:
-        logger.info(f"📞 Call ended: {call_id}")
+        logger.info("📞 Call ended by user.")
+    except Exception as e:
+        logger.error(f"💥 Critical Websocket Error: {e}")
+
