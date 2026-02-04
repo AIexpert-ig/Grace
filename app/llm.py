@@ -19,7 +19,10 @@ def init_gemini():
     try:
         import google.generativeai as genai
         genai.configure(api_key=api_key)
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        
+        # SWITCHING TO STABLE MODEL
+        model = genai.GenerativeModel('gemini-pro')
+        
         logger.info("🧠 Gemini Brain Initialized Successfully.")
         return model
     except Exception as e:
