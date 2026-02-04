@@ -1,105 +1,69 @@
 import os
 import logging
-import json
-import google.generativeai as genai
+import asyncio
 
+# Configure Logging
 logger = logging.getLogger("app.llm")
 logger.setLevel(logging.INFO)
 
-# 1. Setup the Key
-API_KEY = os.getenv("GEMINI_API_KEY")
+# Global Client
+model = None
 
-if not API_KEY:
-    logger.error("❌ GEMINI_API_KEY is missing!")
-else:
-    genai.configure(api_key=API_KEY)
-
-DEFAULT_MODEL_CANDIDATES = [
-    "models/gemini-1.5-pro",
-    "models/gemini-1.5-flash",
-    "models/gemini-1.0-pro",
-    "models/gemini-pro",
-]
-
-_RESOLVED_MODEL_NAME = None
-
-def _resolve_model_name():
-    global _RESOLVED_MODEL_NAME
-    if _RESOLVED_MODEL_NAME:
-        return _RESOLVED_MODEL_NAME
-
-    env_model = os.getenv("GEMINI_MODEL")
-    if env_model:
-        _RESOLVED_MODEL_NAME = env_model
-        logger.info("Using Gemini model from GEMINI_MODEL: %s", _RESOLVED_MODEL_NAME)
-        return _RESOLVED_MODEL_NAME
+def init_gemini():
+    global model
+    api_key = os.getenv("GEMINI_API_KEY")
+    if not api_key:
+        logger.error("❌ GEMINI_API_KEY is missing! The Brain is dead.")
+        return None
 
     try:
-        models = [
-            m for m in genai.list_models()
-            if "generateContent" in getattr(m, "supported_generation_methods", [])
-        ]
-        names = {m.name for m in models}
-        for candidate in DEFAULT_MODEL_CANDIDATES:
-            if candidate in names:
-                _RESOLVED_MODEL_NAME = candidate
-                break
-        if not _RESOLVED_MODEL_NAME:
-            for m in models:
-                if "gemini" in m.name:
-                    _RESOLVED_MODEL_NAME = m.name
-                    break
-        if not _RESOLVED_MODEL_NAME and models:
-            _RESOLVED_MODEL_NAME = models[0].name
+        import google.generativeai as genai
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel('gemini-1.5-flash')
+        logger.info("🧠 Gemini Brain Initialized Successfully.")
+        return model
     except Exception as e:
-        logger.warning("Model discovery failed: %s", e)
+        logger.error(f"❌ Failed to load Gemini Library: {e}")
+        return None
 
-    if not _RESOLVED_MODEL_NAME:
-        _RESOLVED_MODEL_NAME = "models/gemini-1.5-flash"
+# Initialize on load
+init_gemini()
 
-    logger.info("Using Gemini model: %s", _RESOLVED_MODEL_NAME)
-    return _RESOLVED_MODEL_NAME
+async def analyze_escalation(guest_name, text_input):
+    global model
+    if not model:
+        # Try to revive the brain
+        model = init_gemini()
+        if not model:
+            return {
+                "priority": "Medium",
+                "sentiment": "Neutral",
+                "action_plan": "AI Offline (Check API Key)"
+            }
 
-async def analyze_escalation(guest_name, issue):
-    if not API_KEY:
-        return {
-            "priority": "High", 
-            "sentiment": "Negative", 
-            "action_plan": "System Error: GEMINI_API_KEY is missing."
-        }
-
+    prompt = f"""
+    You are Grace, a hotel manager.
+    Guest: {guest_name}
+    Message: "{text_input}"
+    
+    Output JSON only:
+    {{
+        "priority": "High/Medium/Low",
+        "sentiment": "Positive/Neutral/Negative",
+        "action_plan": "A short, professional sentence saying exactly what you will do."
+    }}
+    """
+    
     try:
-        # 2. Use a supported model. Prefer GEMINI_MODEL or auto-discover.
-        model_name = _resolve_model_name()
-        model = genai.GenerativeModel(model_name)
-        
-        prompt = f"""
-        You are a hotel manager.
-        Guest: {guest_name}
-        Issue: {issue}
-        
-        Return a valid JSON object (NO markdown, NO comments) with:
-        {{
-            "priority": "High/Medium/Low",
-            "sentiment": "Negative/Neutral/Positive",
-            "action_plan": "One specific, professional action to resolve this."
-        }}
-        """
-        
-        logger.info(f"🧠 Asking Gemini (Pro) about: {guest_name}...")
-        
-        response = model.generate_content(prompt)
-        
-        # 3. Clean the result
-        clean_text = response.text.replace("```json", "").replace("```", "").strip()
-        logger.info(f"📥 Gemini Answer: {clean_text[:50]}...")
-        
+        # Run in a thread to avoid blocking
+        response = await asyncio.to_thread(model.generate_content, prompt)
+        import json
+        clean_text = response.text.strip().replace("```json", "").replace("```", "")
         return json.loads(clean_text)
-
     except Exception as e:
-        logger.error(f"🔥 AI CRASH: {e}")
+        logger.error(f"🧠 Brain Freeze: {e}")
         return {
-            "priority": "High",
-            "sentiment": "Negative",
-            "action_plan": f"AI Error: {str(e)}"
+            "priority": "Medium",
+            "sentiment": "Neutral",
+            "action_plan": "I heard you, but I am having trouble thinking right now."
         }
