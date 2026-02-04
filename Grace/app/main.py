@@ -38,8 +38,8 @@ async def send_telegram_reply(chat_id, text):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    print("🚀 DUBAI-SYNC-V30: HUMAN VOICE MODE") 
-    logger.info(f"🚀 GRACE AI [V30.0] | Voice: POLISHED")
+    print("🚀 DUBAI-SYNC-V31: FINAL FIX") 
+    logger.info(f"🚀 GRACE AI [V31.0] | Voice: POLISHED")
     try:
         engine = get_engine()
         with engine.begin() as conn:
@@ -50,7 +50,7 @@ async def lifespan(app: FastAPI):
             await client.get(f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/setWebhook?url={WEBHOOK_URL}")
     yield
 
-# --- THE APP INSTANCE (This was missing!) ---
+# --- THE MISSING PIECE: START THE APP ---
 app = FastAPI(lifespan=lifespan)
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
@@ -131,7 +131,7 @@ async def websocket_endpoint(websocket: WebSocket, call_id: str):
             data = await websocket.receive_json()
             if data.get("interaction_type") == "response_required":
                 user_text = data["transcript"][0]["content"]
-                logger.info(f"🗣️ Guest: {user_text}")
+                logger.info(f"��️ Guest: {user_text}")
 
                 ai_result = await analyze_escalation("Voice Guest", user_text)
                 
