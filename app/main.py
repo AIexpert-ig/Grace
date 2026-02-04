@@ -13,7 +13,6 @@ from sqlalchemy import create_engine, text
 # --- CONFIG ---
 DATABASE_URL = os.getenv("DATABASE_URL")
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
-RETELL_API_KEY = os.getenv("RETELL_API_KEY") 
 RAILWAY_PUBLIC_DOMAIN = os.getenv("RAILWAY_PUBLIC_DOMAIN") or "grace-ai.up.railway.app"
 WEBHOOK_URL = f"https://{RAILWAY_PUBLIC_DOMAIN}/telegram-webhook"
 
@@ -21,12 +20,10 @@ WEBHOOK_URL = f"https://{RAILWAY_PUBLIC_DOMAIN}/telegram-webhook"
 logger = logging.getLogger("app.main")
 logging.basicConfig(level=logging.INFO)
 
-# --- BRAIN SETUP (GEMINI) ---
-# We wrap this to prevent crashes if llm.py is broken
+# --- BRAIN SETUP ---
 try:
     from .llm import analyze_escalation
 except ImportError:
-    logger.error("⚠️ Could not import 'analyze_escalation'. Using fallback.")
     async def analyze_escalation(g, i): return {"priority": "Medium", "sentiment": "Neutral", "action_plan": "AI Offline"}
 
 def get_engine():
@@ -41,8 +38,8 @@ async def send_telegram_reply(chat_id, text):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    print("🚀 DUBAI-SYNC-V24: VOICE DEBUG MODE ONLINE") 
-    logger.info(f"🚀 GRACE AI [V24.0] | Voice: READY")
+    print("🚀 DUBAI-SYNC-V25: VOICE FIXED") 
+    logger.info(f"🚀 GRACE AI [V25.0] | Voice: READY")
     try:
         engine = get_engine()
         with engine.begin() as conn:
@@ -110,72 +107,39 @@ async def telegram_webhook(request: Request):
         return {"status": "ok"}
     except Exception: return {"status": "error"}
 
-# --- UPDATED WEBSOCKET HANDLER ---
-@app.websocket("/llm-websocket")
-async def websocket_endpoint(websocket: WebSocket):
+# --- FIX: ACCEPT CALL_ID IN URL ---
+@app.websocket("/llm-websocket/{call_id}")
+async def websocket_endpoint(websocket: WebSocket, call_id: str):
     await websocket.accept()
-    logger.info("📞 Call Connected!")
+    logger.info(f"📞 Call Connected: {call_id}")
     
-    # 1. Send Initial Greeting
     try:
-        first_event = {
+        # Initial Greeting
+        await websocket.send_json({
             "response_type": "response",
             "response_id": "req_init",
             "content": "Hello, this is Grace. How can I help you?",
             "content_complete": True,
             "end_call": False
-        }
-        await websocket.send_json(first_event)
-        logger.info("📤 Sent Greeting")
-    except Exception as e:
-        logger.error(f"💥 Error sending greeting: {e}")
+        })
 
-    try:
         while True:
-            # 2. Listen
             data = await websocket.receive_json()
-            
             if data.get("interaction_type") == "response_required":
                 user_text = data["transcript"][0]["content"]
-                logger.info(f"🗣️ Guest said: {user_text}")
+                logger.info(f"🗣️ Guest: {user_text}")
 
-                # 3. Brain Processing
-                try:
-                    logger.info("🧠 Asking Gemini...")
-                    ai_result = await analyze_escalation("Voice Guest", user_text)
-                    
-                    # Create verbal reply
-                    plan = ai_result.get('action_plan', 'No plan generated.')
-                    priority = ai_result.get('priority', 'Medium')
-                    
-                    verbal_reply = f"I see. I have logged a {priority} priority request for you. {plan}"
-                    logger.info(f"🤖 Gemini Replied: {verbal_reply}")
-
-                    # 4. Speak Back
-                    response_event = {
-                        "response_type": "response",
-                        "response_id": data["response_id"],
-                        "content": verbal_reply,
-                        "content_complete": True,
-                        "end_call": False
-                    }
-                    await websocket.send_json(response_event)
-                    logger.info("📤 Sent Audio Response")
-                    
-                except Exception as ai_error:
-                    logger.error(f"💥 AI CRASHED: {ai_error}")
-                    # Fallback so call doesn't hang
-                    fallback_event = {
-                        "response_type": "response",
-                        "response_id": data["response_id"],
-                        "content": "I am having trouble connecting to the system, but I heard you.",
-                        "content_complete": True,
-                        "end_call": False
-                    }
-                    await websocket.send_json(fallback_event)
+                ai_result = await analyze_escalation("Voice Guest", user_text)
+                reply = f"I have logged a {ai_result.get('priority')} priority ticket. {ai_result.get('action_plan')}"
+                
+                await websocket.send_json({
+                    "response_type": "response",
+                    "response_id": data["response_id"],
+                    "content": reply,
+                    "content_complete": True,
+                    "end_call": False
+                })
+                logger.info(f"🤖 Grace: {reply}")
 
     except WebSocketDisconnect:
-        logger.info("📞 Call ended by user.")
-    except Exception as e:
-        logger.error(f"💥 Critical Websocket Error: {e}")
-
+        logger.info("📞 Call Ended")
