@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, WebSocket, Request, HTTPException, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import create_engine, text
 from datetime import datetime
 
@@ -23,7 +24,10 @@ if DATABASE_URL.startswith("postgres://"):
 # --- GLOBAL DATABASE ENGINE (Fixes connection leak) ---
 engine = None
 if DATABASE_URL:
-    engine = create_engine(DATABASE_URL, pool_size=10, max_overflow=20)
+    try:
+        engine = create_engine(DATABASE_URL, pool_size=10, max_overflow=20)
+    except Exception as e:
+        logger.error(f"❌ Failed to create engine: {e}")
 
 # --- LLM IMPORT ---
 try:
@@ -66,6 +70,21 @@ async def lifespan(app: FastAPI):
     logger.info("🛑 Shutting down...")
 
 app = FastAPI(lifespan=lifespan)
+
+# --- CORS CONFIGURATION (RESTORED) ---
+origins = [
+    "https://grace-dxb.up.railway.app",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Mount Static Files (Safe Mode)
 if os.path.exists("static"):
