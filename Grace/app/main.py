@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from sqlalchemy import create_engine, text
 
 # --- CONFIG ---
@@ -24,8 +24,13 @@ logging.basicConfig(level=logging.INFO)
 try:
     from .llm import analyze_escalation
 except ImportError:
-    # Dummy brain if the real one isn't ready
-    async def analyze_escalation(g, i): return {"priority": "Medium", "verbal_response": "I am operating in safe mode."}
+    logger.warning("⚠️ Brain missing! Using dummy response.")
+    async def analyze_escalation(g, i): 
+        return {
+            "priority": "Low", 
+            "verbal_response": "I am currently updating my system. Please hold on.",
+            "action_plan": "System Update"
+        }
 
 def get_engine():
     if not DATABASE_URL: return None
@@ -37,13 +42,13 @@ async def send_telegram_reply(chat_id, text):
     async with httpx.AsyncClient() as client:
         await client.post(url, json={"chat_id": chat_id, "text": text})
 
-# --- LIFESPAN (Startup/Shutdown) ---
+# --- LIFESPAN ---
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    print("🚀 DUBAI-SYNC-V33: RESTORED") 
-    logger.info(f"🚀 GRACE AI [V33.0] | Voice: ONLINE")
+    print("🚀 DUBAI-SYNC-V34: BRAIN RELOADED") 
+    logger.info(f"🚀 GRACE AI [V34.0] | Voice: ACTIVE")
     
-    # 1. Init Database Tables
+    # Init DB
     try:
         engine = get_engine()
         if engine:
@@ -52,17 +57,17 @@ async def lifespan(app: FastAPI):
     except Exception as e: 
         logger.warning(f"⚠️ DB Warning: {e}")
 
-    # 2. Register Telegram Webhook
+    # Init Telegram
     if TELEGRAM_TOKEN:
         async with httpx.AsyncClient() as client:
             await client.get(f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/setWebhook?url={WEBHOOK_URL}")
     yield
 
-# --- APP INSTANCE (CRITICAL: MUST BE AT ROOT) ---
+# --- APP INSTANCE ---
 app = FastAPI(lifespan=lifespan)
 
-# --- MIDDLEWARE & STATIC ---
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+
 if os.path.exists("app/static"):
     app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
@@ -71,7 +76,12 @@ if os.path.exists("app/static"):
 async def read_root(): 
     if os.path.exists("app/static/index.html"):
         return FileResponse('app/static/index.html')
-    return {"status": "Grace AI Online"}
+    return {"status": "Grace AI V34 Online"}
+
+# Stop Retell 410 Errors
+@app.post("/webhook") 
+async def generic_webhook(request: Request):
+    return JSONResponse(content={"received": True})
 
 @app.get("/staff/dashboard-stats")
 async def get_stats():
@@ -128,14 +138,14 @@ async def telegram_webhook(request: Request):
         return {"status": "ok"}
     except Exception: return {"status": "error"}
 
-# --- VOICE HANDLER (THE BRAIN) ---
+# --- VOICE HANDLER ---
 @app.websocket("/llm-websocket/{call_id}")
 async def websocket_endpoint(websocket: WebSocket, call_id: str):
     await websocket.accept()
     logger.info(f"📞 Call Connected: {call_id}")
     
     try:
-        # Initial Greeting
+        # V34 GREETING: This is how you know it worked.
         await websocket.send_json({
             "response_type": "response",
             "response_id": "req_init",
@@ -146,13 +156,15 @@ async def websocket_endpoint(websocket: WebSocket, call_id: str):
 
         while True:
             data = await websocket.receive_json()
+            
+            # This block was missing in Safe Mode!
             if data.get("interaction_type") == "response_required":
                 user_text = data["transcript"][0]["content"]
                 logger.info(f"🗣️ Guest: {user_text}")
 
+                # Call the Brain
                 ai_result = await analyze_escalation("Voice Guest", user_text)
                 
-                # Prioritize 'verbal_response' for natural speech
                 verbal_reply = ai_result.get('verbal_response', ai_result.get('action_plan', 'I have logged your request.'))
                 
                 await websocket.send_json({
@@ -164,7 +176,7 @@ async def websocket_endpoint(websocket: WebSocket, call_id: str):
                 })
                 logger.info(f"🤖 Grace: {verbal_reply}")
 
-                # Save to DB (Fire & Forget)
+                # DB Log
                 try:
                     engine = get_engine()
                     if engine:
