@@ -26,12 +26,7 @@ try:
 except ImportError:
     logger.warning("⚠️ Brain module missing. Using dummy mode.")
     async def analyze_escalation(g, i): 
-        return {
-            "priority": "Medium", 
-            "verbal_response": "I have logged your request.",
-            "action_plan": "Manual Check",
-            "sentiment": "Neutral"
-        }
+        return {"priority": "Medium", "verbal_response": "I have logged your request.", "action_plan": "Manual Check", "sentiment": "Neutral"}
 
 def get_engine():
     if not DATABASE_URL: return None
@@ -43,13 +38,12 @@ async def send_telegram_reply(chat_id, text):
     async with httpx.AsyncClient() as client:
         await client.post(url, json={"chat_id": chat_id, "text": text})
 
-# --- LIFESPAN (Startup/Shutdown) ---
+# --- LIFESPAN ---
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    print("🚀 DUBAI-SYNC-V35: FULL SYSTEM ONLINE") 
-    logger.info(f"🚀 GRACE AI [V35.0] | Brain: ACTIVE | API: ACTIVE")
+    print("🚀 DUBAI-SYNC-V36: WEBHOOK HANDLER ACTIVE") 
+    logger.info(f"🚀 GRACE AI [V36.0] | Ready to Capture Tickets")
     
-    # Init Database Table
     try:
         engine = get_engine()
         if engine:
@@ -58,16 +52,12 @@ async def lifespan(app: FastAPI):
     except Exception as e: 
         logger.warning(f"⚠️ DB Init Warning: {e}")
 
-    # Init Telegram Webhook
     if TELEGRAM_TOKEN:
         async with httpx.AsyncClient() as client:
             await client.get(f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/setWebhook?url={WEBHOOK_URL}")
     yield
 
-# --- APP INSTANCE (Must be global) ---
 app = FastAPI(lifespan=lifespan)
-
-# --- MIDDLEWARE & STATIC ---
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 if os.path.exists("app/static"):
@@ -79,14 +69,42 @@ if os.path.exists("app/static"):
 async def read_root(): 
     if os.path.exists("app/static/index.html"):
         return FileResponse('app/static/index.html')
-    return {"status": "Grace AI Online", "dashboard": "Missing HTML"}
+    return {"status": "Grace AI Online"}
 
-# Fix Retell 410 Errors
+# --- THE NEW WEBHOOK HANDLER (Captures the Summary) ---
 @app.post("/webhook") 
-async def generic_webhook(request: Request):
-    return JSONResponse(content={"received": True})
+async def retell_webhook(request: Request):
+    try:
+        payload = await request.json()
+        event = payload.get("event")
+        
+        # Only act when the analysis is ready
+        if event == "call_analyzed":
+            call_data = payload.get("call", {})
+            analysis = call_data.get("call_analysis", {})
+            
+            # Extract Details from Retell Summary
+            summary = analysis.get("call_summary", "No summary provided.")
+            sentiment = analysis.get("user_sentiment", "Neutral")
+            
+            # Try to parse Name/Room from the summary if possible, otherwise generic
+            guest_name = "Voice Guest"
+            room_num = "Phone"
+            
+            # Save to Dashboard
+            engine = get_engine()
+            if engine:
+                with engine.begin() as conn:
+                    conn.execute(text("INSERT INTO escalations (guest_name, room_number, issue, status, sentiment) VALUES (:g, :r, :i, :s, :sent)"), 
+                    {"g": guest_name, "r": room_num, "i": f"{summary}", "s": "OPEN", "sent": sentiment})
+            
+            logger.info(f"✅ Ticket Created from Voice Call: {summary}")
 
-# --- STAFF DASHBOARD API (Restored!) ---
+        return JSONResponse(content={"received": True})
+    except Exception as e:
+        logger.error(f"Webhook Error: {e}")
+        return JSONResponse(content={"error": str(e)}, status_code=500)
+
 @app.get("/staff/dashboard-stats")
 async def get_stats():
     try:
@@ -131,7 +149,6 @@ async def telegram_webhook(request: Request):
             guest = data["message"]["from"].get("first_name", "Guest")
             await send_telegram_reply(chat_id, "Thinking...")
             ai_result = await analyze_escalation(guest, text)
-            
             plan = ai_result.get("action_plan", "Logged.")
             engine = get_engine()
             if engine:
@@ -142,14 +159,12 @@ async def telegram_webhook(request: Request):
         return {"status": "ok"}
     except Exception: return {"status": "error"}
 
-# --- VOICE HANDLER (The Brain) ---
+# --- VOICE HANDLER ---
 @app.websocket("/llm-websocket/{call_id}")
 async def websocket_endpoint(websocket: WebSocket, call_id: str):
     await websocket.accept()
-    logger.info(f"📞 Call Connected: {call_id}")
     
     try:
-        # V35 Greeting
         await websocket.send_json({
             "response_type": "response",
             "response_id": "req_init",
@@ -160,11 +175,11 @@ async def websocket_endpoint(websocket: WebSocket, call_id: str):
 
         while True:
             data = await websocket.receive_json()
-            
-            # Respond only when Retell asks
             if data.get("interaction_type") == "response_required":
                 user_text = data["transcript"][0]["content"]
-                logger.info(f"🗣️ Guest: {user_text}")
+                
+                # We do NOT save to DB here anymore (too noisy).
+                # We wait for the Webhook to save the full summary.
 
                 ai_result = await analyze_escalation("Voice Guest", user_text)
                 verbal_reply = ai_result.get('verbal_response', ai_result.get('action_plan', 'I have logged your request.'))
@@ -176,17 +191,6 @@ async def websocket_endpoint(websocket: WebSocket, call_id: str):
                     "content_complete": True,
                     "end_call": False
                 })
-                logger.info(f"🤖 Grace: {verbal_reply}")
-
-                # Save to DB
-                try:
-                    engine = get_engine()
-                    if engine:
-                        with engine.begin() as conn:
-                            conn.execute(text("INSERT INTO escalations (guest_name, room_number, issue, status, sentiment) VALUES (:g, :r, :i, :s, :sent)"), 
-                            {"g": "Voice Caller", "r": "Phone", "i": f"{user_text}", "s": "OPEN", "sent": "Voice"})
-                except Exception as e:
-                    logger.error(f"DB Error: {e}")
 
     except WebSocketDisconnect:
-        logger.info("📞 Call Ended")
+        pass
