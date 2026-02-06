@@ -1,172 +1,179 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Grace AI Operations Console</title>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grace AI | Hotel Command Center</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
-      @import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap");
-      :root {
-        --ink: #171a1f; --muted: #5b5f66; --accent: #0f766e; --accent-strong: #0a5b55;
-        --panel: #ffffff; --border: #e4dfd7; --wash: #f5f1ea;
-        --success-bg: #e8fbf0;
-      }
-      * { box-sizing: border-box; }
-      body {
-        margin: 0; padding: 40px 20px 80px;
-        font-family: "Space Grotesk", sans-serif;
-        color: var(--ink);
-        background: radial-gradient(circle at top left, rgba(15, 118, 110, 0.08), transparent 45%),
-                    linear-gradient(180deg, #f7f4ee 0%, #f3f7fb 100%);
-      }
-      main { max-width: 900px; margin: 0 auto; display: grid; gap: 24px; }
-      
-      .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
-      .stat-card {
-        background: #fff; padding: 20px; border-radius: 16px;
-        border: 1px solid var(--border); box-shadow: 0 4px 12px rgba(0,0,0,0.03); text-align: center;
-      }
-      .stat-value { font-size: 32px; font-weight: 700; color: var(--accent); display: block; }
-      .stat-label { font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
-
-      .panel {
-        background: var(--panel); border: 1px solid var(--border);
-        border-radius: 18px; padding: 28px;
-        box-shadow: 0 16px 40px rgba(15, 23, 42, 0.08);
-      }
-      form { display: grid; gap: 16px; }
-      .field-group { display: grid; gap: 8px; }
-      label { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: #6d7178; }
-      input, textarea {
-        width: 100%; border-radius: 12px; border: 1px solid #d9d4cb;
-        padding: 12px 14px; font-size: 15px; font-family: "Space Grotesk", sans-serif;
-        color: var(--ink); background: #fffefb;
-      }
-      button {
-        border: none; border-radius: 999px; padding: 14px 20px;
-        font-size: 15px; font-weight: 600; color: #ffffff; background: var(--accent);
-        cursor: pointer; width: 100%;
-      }
-      button:hover { background: var(--accent-strong); }
-
-      /* TICKET TABLE STYLES */
-      .ticket-feed { margin-top: 20px; }
-      .ticket-card {
-        background: white; border: 1px solid var(--border); border-radius: 12px;
-        padding: 16px; margin-bottom: 12px;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.02);
-      }
-      .ticket-header { display: flex; justify-content: space-between; font-size: 14px; color: var(--muted); margin-bottom: 8px; }
-      .ticket-body { font-size: 15px; color: var(--ink); }
-      .badge { 
-        background: var(--wash); padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: 600; 
-      }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
+        .glass-panel { background: white; border: 1px solid #e5e7eb; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); border-radius: 12px; }
+        .status-open { background-color: #fee2e2; color: #991b1b; }
+        .status-resolved { background-color: #dcfce7; color: #166534; }
+        .priority-high { border-left: 4px solid #ef4444; }
+        .priority-medium { border-left: 4px solid #f59e0b; }
+        .priority-low { border-left: 4px solid #10b981; }
+        .animate-pulse-slow { animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .7; } }
     </style>
-  </head>
-  <body>
-    <main>
-      <header>
-        <h1 style="margin: 0; font-size: 28px;">Grace Operations</h1>
-        <p style="margin: 5px 0 0; color: var(--muted);">Real-time Guest Escalation & AI Dispatch</p>
-      </header>
+</head>
+<body class="text-gray-800">
 
-      <section class="stats-grid">
-        <div class="stat-card">
-          <span class="stat-value" id="ticket-count">-</span>
-          <span class="stat-label">Total Tickets</span>
+    <nav class="bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center sticky top-0 z-50">
+        <div class="flex items-center gap-3">
+            <div class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold">G</div>
+            <h1 class="text-xl font-bold tracking-tight text-indigo-900">Grace AI <span class="text-gray-400 font-normal text-sm">| Staff Portal</span></h1>
         </div>
-        <div class="stat-card">
-          <span class="stat-value" style="color: #16a34a;">Live</span>
-          <span class="stat-label">System Status</span>
+        <div class="flex items-center gap-4">
+            <div class="flex items-center gap-2 text-sm text-green-600 bg-green-50 px-3 py-1 rounded-full">
+                <span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                System Operational
+            </div>
+            <div class="text-sm text-gray-500" id="clock">--:--</div>
         </div>
-      </section>
+    </nav>
 
-      <section class="panel">
-        <h3 style="margin-top: 0;">📝 Dispatch New Ticket</h3>
-        <form id="escalation-form">
-          <div style="display: grid; gap: 14px; grid-template-columns: 1fr 1fr;">
-            <div class="field-group"><label>Guest Name</label><input name="guest_name" placeholder="Mr. Wick" required></div>
-            <div class="field-group"><label>Room #</label><input name="room_number" placeholder="404" required></div>
-          </div>
-          <div class="field-group"><label>Issue</label><textarea name="issue" placeholder="Describe the issue..." required></textarea></div>
-          <button id="submit-btn" type="submit">Dispatch Ticket</button>
-        </form>
-      </section>
+    <div class="max-w-7xl mx-auto px-6 py-8">
+        
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div class="glass-panel p-6">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-sm font-medium text-gray-500">Total Tickets</p>
+                        <h3 class="text-3xl font-bold text-gray-900 mt-1" id="stat-total">0</h3>
+                    </div>
+                    <div class="p-2 bg-indigo-50 rounded-lg text-indigo-600"><i class="fas fa-ticket-alt"></i></div>
+                </div>
+            </div>
+            <div class="glass-panel p-6">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-sm font-medium text-gray-500">Active Calls</p>
+                        <h3 class="text-3xl font-bold text-gray-900 mt-1" id="stat-active">0</h3>
+                    </div>
+                    <div class="p-2 bg-green-50 rounded-lg text-green-600"><i class="fas fa-phone-volume"></i></div>
+                </div>
+            </div>
+            <div class="glass-panel p-6">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-sm font-medium text-gray-500">Avg Sentiment</p>
+                        <h3 class="text-3xl font-bold text-gray-900 mt-1" id="stat-sentiment">--</h3>
+                    </div>
+                    <div class="p-2 bg-purple-50 rounded-lg text-purple-600"><i class="fas fa-smile"></i></div>
+                </div>
+            </div>
+        </div>
 
-      <section>
-        <h3 style="margin-bottom: 15px;">📡 Recent Live Feed</h3>
-        <div id="feed-container">Loading tickets...</div>
-      </section>
-    </main>
+        <div class="flex justify-between items-end mb-4">
+            <h2 class="text-lg font-semibold text-gray-900">Live Request Feed</h2>
+            <button onclick="fetchTickets()" class="text-sm text-indigo-600 hover:text-indigo-800 font-medium"><i class="fas fa-sync-alt mr-1"></i> Refresh</button>
+        </div>
+
+        <div class="glass-panel overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead class="bg-gray-50 text-xs uppercase text-gray-500 font-semibold">
+                        <tr>
+                            <th class="px-6 py-4">Time</th>
+                            <th class="px-6 py-4">Guest / Room</th>
+                            <th class="px-6 py-4">Request & AI Analysis</th>
+                            <th class="px-6 py-4">Sentiment</th>
+                            <th class="px-6 py-4">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ticket-table" class="divide-y divide-gray-100 text-sm">
+                        <tr>
+                            <td colspan="5" class="px-6 py-8 text-center text-gray-400">Loading live data...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
 
     <script>
-      async function refreshData() {
-        // 1. Stats
-        try {
-          const res = await fetch("/staff/dashboard-stats");
-          const data = await res.json();
-          document.getElementById("ticket-count").textContent = data.total_tickets || 0;
-        } catch (e) {}
+        const API_BASE = window.location.origin;
 
-        // 2. Feed
-        try {
-          const res = await fetch("/staff/recent-tickets");
-          const tickets = await res.json();
-          const container = document.getElementById("feed-container");
-          
-          if (tickets.length === 0) {
-            container.innerHTML = "<p style='color:var(--muted)'>No tickets yet.</p>";
-            return;
-          }
+        function updateClock() {
+            document.getElementById('clock').innerText = new Date().toLocaleTimeString();
+        }
+        setInterval(updateClock, 1000);
 
-          container.innerHTML = tickets.map(t => {
-            // Clean up the issue text to separate the User issue from AI plan
-            const parts = (t.issue || "").split("|| [AI:"); 
-            const userIssue = parts[0];
-            const aiPlan = parts[1] ? "AI: " + parts[1].replace("]", "") : "";
+        async function fetchStats() {
+            try {
+                const res = await fetch(`${API_BASE}/staff/dashboard-stats`);
+                const data = await res.json();
+                document.getElementById('stat-total').innerText = data.total_tickets || 0;
+            } catch (e) { console.error("Stats Error", e); }
+        }
 
-            return `
-              <div class="ticket-card">
-                <div class="ticket-header">
-                  <strong>${t.guest_name} (Room ${t.room_number})</strong>
-                  <span class="badge">${t.status}</span>
-                </div>
-                <div class="ticket-body">
-                  <div style="margin-bottom:6px;">${userIssue}</div>
-                  ${aiPlan ? `<div style="color:#0f766e; font-size:13px; background:#f0fdfa; padding:8px; border-radius:6px;">🤖 <strong>AI Plan:</strong> ${aiPlan}</div>` : ""}
-                </div>
-              </div>
-            `;
-          }).join("");
-        } catch (e) { console.error(e); }
-      }
+        async function fetchTickets() {
+            try {
+                const res = await fetch(`${API_BASE}/staff/recent-tickets`);
+                const tickets = await res.json();
+                const tbody = document.getElementById('ticket-table');
+                
+                if (tickets.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" class="px-6 py-8 text-center text-gray-400">No active tickets found.</td></tr>';
+                    return;
+                }
 
-      refreshData();
-      setInterval(refreshData, 5000); // Live refresh
+                tbody.innerHTML = tickets.map(t => {
+                    // Safe parsing of the issue text
+                    let requestText = t.issue || "No audio detected";
+                    let aiNote = "";
+                    
+                    if (requestText.includes("|| [AI:")) {
+                        const parts = requestText.split("|| [AI:");
+                        requestText = parts[0];
+                        aiNote = parts[1].replace("]", "");
+                    }
 
-      const form = document.getElementById("escalation-form");
-      const btn = document.getElementById("submit-btn");
+                    // Priority Color Logic
+                    let priorityClass = 'priority-medium'; 
+                    // (Simple logic: if AI note mentions 'urgent' or 'High', make it red)
+                    if (aiNote.toLowerCase().includes('high') || aiNote.toLowerCase().includes('urgent')) priorityClass = 'priority-high';
 
-      form.addEventListener("submit", async (e) => {
-        e.preventDefault();
-        btn.disabled = true; btn.textContent = "Processing...";
-        
-        try {
-          await fetch("/staff/escalate", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              guest_name: form.guest_name.value,
-              room_number: form.room_number.value,
-              issue: form.issue.value
-            })
-          });
-          form.reset();
-          refreshData(); 
-          alert("Ticket Dispatched!");
-        } catch (err) { alert("Error: " + err.message); } 
-        finally { btn.disabled = false; btn.textContent = "Dispatch Ticket"; }
-      });
+                    const dateObj = new Date(t.created_at);
+                    const timeStr = dateObj.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+
+                    return `
+                        <tr class="hover:bg-gray-50 transition-colors ${priorityClass}">
+                            <td class="px-6 py-4 text-gray-500 whitespace-nowrap">${timeStr}</td>
+                            <td class="px-6 py-4 font-medium text-gray-900">
+                                ${t.guest_name}<br>
+                                <span class="text-xs text-gray-400 font-normal">Room ${t.room_number}</span>
+                            </td>
+                            <td class="px-6 py-4">
+                                <div class="text-gray-900 mb-1">"${requestText}"</div>
+                                ${aiNote ? `<div class="text-xs text-indigo-600 bg-indigo-50 inline-block px-2 py-1 rounded border border-indigo-100"><i class="fas fa-robot mr-1"></i> ${aiNote}</div>` : ''}
+                            </td>
+                            <td class="px-6 py-4">
+                                <span class="px-2 py-1 rounded text-xs font-medium ${t.sentiment === 'Positive' ? 'bg-green-100 text-green-700' : (t.sentiment === 'Negative' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600')}">
+                                    ${t.sentiment || 'Neutral'}
+                                </span>
+                            </td>
+                            <td class="px-6 py-4">
+                                <span class="px-3 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 border border-yellow-200">
+                                    ${t.status}
+                                </span>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+            } catch (e) { console.error("Ticket Error", e); }
+        }
+
+        // Auto-Refresh loop
+        fetchStats();
+        fetchTickets();
+        setInterval(() => {
+            fetchStats();
+            fetchTickets();
+        }, 5000);
     </script>
-  </body>
+</body>
 </html>
