@@ -1,331 +1,359 @@
-<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
-<html>
+<!DOCTYPE html>
+<html lang="en">
+
 <head>
-  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-  <meta http-equiv="Content-Style-Type" content="text/css">
-  <title></title>
-  <meta name="Generator" content="Cocoa HTML Writer">
-  <meta name="CocoaVersion" content="2685.3">
-  <style type="text/css">
-    body {background-color: #e7e8ed}
-    p.p1 {margin: 0.0px 0.0px 0.0px 0.0px; font: 12.0px 'Helvetica Neue'; -webkit-text-stroke: #000000}
-    p.p2 {margin: 0.0px 0.0px 0.0px 0.0px; font: 12.0px 'Helvetica Neue'; -webkit-text-stroke: #000000; min-height: 14.0px}
-    span.s1 {font-kerning: none}
-    span.s2 {font: 12.0px 'Apple Color Emoji'; font-kerning: none}
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Grace Hotel Concierge | Command Center</title>
+  <meta name="description" content="AI-powered voice-native hotel concierge system">
+  <link rel="icon" href="https://z-cdn.chatglm.cn/z-ai/static/logo.svg">
+
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            slate: { 950: '#020617', 900: '#0f172a', 800: '#1e293b' },
+            purple: { 400: '#c084fc', 500: '#a855f7', 600: '#9333ea' },
+            cyan: { 400: '#22d3ee', 500: '#06b6d4' }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    @keyframes pulse {
+
+      0%,
+      100% {
+        opacity: 1;
+      }
+
+      50% {
+        opacity: 0.6;
+      }
+    }
+
+    .glass-card {
+      background: rgba(15, 23, 42, 0.8);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(168, 85, 247, 0.3);
+      box-shadow: 0 8px 32px rgba(168, 85, 247, 0.3);
+    }
+
+    .status-dot {
+      animation: pulse 2s infinite;
+    }
+
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: #0f172a;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #4c1d95;
+      border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: #6d28d9;
+    }
   </style>
 </head>
-<body>
-<p class="p1"><span class="s1">&lt;!DOCTYPE html&gt;</span></p>
-<p class="p1"><span class="s1">&lt;html lang="en"&gt;</span></p>
-<p class="p1"><span class="s1">&lt;head&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;meta charset="UTF-8"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;meta name="viewport" content="width=device-width, initial-scale=1.0"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;title&gt;Grace Hotel Concierge | Command Center&lt;/title&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;meta name="description" content="AI-powered voice-native hotel concierge system"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;link rel="icon" href="https://z-cdn.chatglm.cn/z-ai/static/logo.svg"&gt;</span></p>
-<p class="p2"><span class="s1"><span class="Apple-converted-space">    </span></span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;script src="https://cdn.tailwindcss.com"&gt;&lt;/script&gt;</span></p>
-<p class="p2"><span class="s1"><span class="Apple-converted-space">    </span></span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"&gt;</span></p>
-<p class="p2"><span class="s1"><span class="Apple-converted-space">    </span></span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;script&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>tailwind.config = {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>theme: {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>extend: {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>colors: {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                        </span>slate: { 950: '#020617', 900: '#0f172a', 800: '#1e293b' },</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                        </span>purple: { 400: '#c084fc', 500: '#a855f7', 600: '#9333ea' },</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                        </span>cyan: { 400: '#22d3ee', 500: '#06b6d4' }</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>}</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>}</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>}</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>}</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;/script&gt;</span></p>
-<p class="p2"><span class="s1"><span class="Apple-converted-space">    </span></span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;style&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>.glass-card {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>background: rgba(15, 23, 42, 0.8);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>backdrop-filter: blur(16px);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>border: 1px solid rgba(168, 85, 247, 0.3);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>box-shadow: 0 8px 32px rgba(168, 85, 247, 0.3);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>}</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>.status-dot { animation: pulse 2s infinite; }</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>/* Custom Scrollbar */</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>::-webkit-scrollbar { width: 8px; }</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>::-webkit-scrollbar-track { background: #0f172a; }</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>::-webkit-scrollbar-thumb { background: #4c1d95; border-radius: 4px; }</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>::-webkit-scrollbar-thumb:hover { background: #6d28d9; }</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;/style&gt;</span></p>
-<p class="p1"><span class="s1">&lt;/head&gt;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1">&lt;body class="bg-gradient-to-br from-slate-950 via-purple-950/20 to-slate-950 min-h-screen text-white overflow-x-hidden"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;div class="fixed inset-0 opacity-5 pointer-events-none"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;div class="absolute inset-0" style="background-image: linear-gradient(#a855f7 1px, transparent 1px), linear-gradient(90deg, #a855f7 1px, transparent 1px); background-size: 50px 50px;"&gt;&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;/div&gt;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;div class="fixed top-1/4 left-1/4 w-96 h-96 bg-purple-600/10 rounded-full blur-3xl animate-pulse pointer-events-none"&gt;&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;div class="fixed bottom-1/4 right-1/4 w-96 h-96 bg-cyan-600/10 rounded-full blur-3xl animate-pulse pointer-events-none delay-1000"&gt;&lt;/div&gt;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;header class="sticky top-0 z-50 border-b border-purple-500/20 backdrop-blur-xl bg-slate-950/80"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;div class="container mx-auto px-4 py-4"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;div class="flex items-center justify-between"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>&lt;div class="flex items-center gap-4"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>&lt;div class="relative"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                        </span>&lt;i class="fas fa-robot text-purple-400 text-2xl"&gt;&lt;/i&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                        </span>&lt;span class="absolute -top-1 -right-1 h-3 w-3 bg-green-500 rounded-full status-dot"&gt;&lt;/span&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>&lt;div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                        </span>&lt;h1 class="text-2xl font-bold bg-gradient-to-r from-purple-400 via-cyan-400 to-purple-400 bg-clip-text text-transparent"&gt;GRACE AI&lt;/h1&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                        </span>&lt;p class="text-xs text-slate-400 font-mono tracking-widest"&gt;HOTEL CONCIERGE V36&lt;/p&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>&lt;/div&gt;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>&lt;div class="flex items-center gap-6"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>&lt;div class="text-right hidden md:block"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                        </span>&lt;p class="text-xs text-purple-400 font-mono"&gt;SYSTEM TIME&lt;/p&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                        </span>&lt;p class="text-sm font-mono text-cyan-400" id="system-time"&gt;--:--:--&lt;/p&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>&lt;div class="flex items-center gap-2 text-xs text-green-400 font-mono border border-green-500/30 px-3 py-1 rounded-full bg-green-500/10"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                        </span>&lt;div class="w-2 h-2 bg-green-500 rounded-full status-dot"&gt;&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                        </span>OPERATIONAL</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;div class="h-[1px] w-full bg-gradient-to-r from-transparent via-purple-600 to-transparent opacity-50"&gt;&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;/header&gt;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;main class="container mx-auto px-4 py-8 relative z-10"&gt;</span></p>
-<p class="p2"><span class="s1"><span class="Apple-converted-space">        </span></span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;div class="glass-card rounded-2xl p-6 relative overflow-hidden group hover:border-purple-500/50 transition-all"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>&lt;div class="absolute top-0 right-0 w-32 h-32 bg-purple-600/20 rounded-full blur-3xl group-hover:bg-purple-600/30 transition-all"&gt;&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>&lt;div class="flex justify-between items-start mb-4"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>&lt;h2 class="text-sm text-purple-400 font-mono uppercase"&gt;Total Tickets&lt;/h2&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>&lt;i class="fas fa-database text-cyan-400 text-xl"&gt;&lt;/i&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>&lt;div class="text-4xl font-bold text-white" id="total-tickets"&gt;0&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>&lt;p class="text-xs text-slate-500 mt-2 font-mono"&gt;LIFETIME LOGS&lt;/p&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;/div&gt;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;div class="glass-card rounded-2xl p-6 relative overflow-hidden group hover:border-green-500/50 transition-all"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>&lt;div class="absolute top-0 right-0 w-32 h-32 bg-green-600/20 rounded-full blur-3xl group-hover:bg-green-600/30 transition-all"&gt;&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>&lt;div class="flex justify-between items-start mb-4"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>&lt;h2 class="text-sm text-green-400 font-mono uppercase"&gt;System Status&lt;/h2&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>&lt;i class="fas fa-server text-green-400 text-xl"&gt;&lt;/i&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>&lt;div class="text-2xl font-bold text-white mt-1"&gt;Listening&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>&lt;p class="text-xs text-slate-500 mt-2 font-mono"&gt;WEBHOOK ACTIVE&lt;/p&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;/div&gt;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;div class="glass-card rounded-2xl p-6 relative overflow-hidden group hover:border-cyan-500/50 transition-all"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>&lt;div class="absolute top-0 right-0 w-32 h-32 bg-cyan-600/20 rounded-full blur-3xl group-hover:bg-cyan-600/30 transition-all"&gt;&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>&lt;div class="flex justify-between items-start mb-4"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>&lt;h2 class="text-sm text-cyan-400 font-mono uppercase"&gt;AI Model&lt;/h2&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>&lt;i class="fas fa-brain text-purple-400 text-xl"&gt;&lt;/i&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>&lt;div class="text-2xl font-bold text-white mt-1"&gt;Gemini Flash&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>&lt;p class="text-xs text-slate-500 mt-2 font-mono"&gt;LATENCY: LOW&lt;/p&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;/div&gt;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;div class="glass-card rounded-2xl p-6 min-h-[600px]"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;div class="flex items-center justify-between mb-6"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>&lt;h2 class="text-xl font-bold flex items-center gap-3"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>&lt;i class="fas fa-list-ul text-purple-400"&gt;&lt;/i&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>&lt;span class="bg-gradient-to-r from-purple-400 to-cyan-400 bg-clip-text text-transparent"&gt;Live Incoming Feed&lt;/span&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>&lt;/h2&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>&lt;div class="flex gap-3"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>&lt;button id="create-test-ticket" class="text-xs bg-slate-800 hover:bg-slate-700 text-purple-300 border border-purple-500/30 px-4 py-2 rounded-lg transition-all flex items-center gap-2"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                        </span>&lt;i class="fas fa-plus"&gt;&lt;/i&gt; Test Ticket</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>&lt;/button&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>&lt;div class="flex items-center gap-2 text-xs text-green-400 font-mono bg-slate-900/50 px-3 py-2 rounded-lg border border-slate-700"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                        </span>&lt;span class="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"&gt;&lt;/span&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                        </span>LIVE SYNC</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;/div&gt;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;div id="loading-state" class="flex flex-col items-center justify-center h-64 text-slate-400"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>&lt;div class="w-12 h-12 border-4 border-purple-500/30 border-t-purple-500 rounded-full animate-spin mb-4"&gt;&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>&lt;p class="font-mono text-sm"&gt;CONNECTING TO NEURAL CORE...&lt;/p&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;/div&gt;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;div id="empty-state" class="hidden flex flex-col items-center justify-center h-64 text-slate-500"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>&lt;i class="fas fa-inbox text-4xl mb-4 opacity-50"&gt;&lt;/i&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>&lt;p&gt;No active requests found.&lt;/p&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>&lt;p class="text-sm opacity-70 mt-1"&gt;Waiting for incoming calls...&lt;/p&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;/div&gt;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;div id="tickets-container" class="hidden overflow-x-auto"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>&lt;table class="w-full text-left border-collapse"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>&lt;thead&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                        </span>&lt;tr class="border-b border-purple-500/20 text-xs font-mono text-purple-400 uppercase tracking-wider"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                            </span>&lt;th class="p-4"&gt;Time&lt;/th&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                            </span>&lt;th class="p-4"&gt;Guest&lt;/th&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                            </span>&lt;th class="p-4"&gt;Room&lt;/th&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                            </span>&lt;th class="p-4 w-1/3"&gt;Request &amp; AI Analysis&lt;/th&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                            </span>&lt;th class="p-4"&gt;Sentiment&lt;/th&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                            </span>&lt;th class="p-4"&gt;Status&lt;/th&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                        </span>&lt;/tr&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>&lt;/thead&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>&lt;tbody id="tickets-body" class="text-sm divide-y divide-purple-500/10"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                        </span>&lt;/tbody&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>&lt;/table&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;/main&gt;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;footer class="border-t border-purple-500/10 bg-slate-950/80 mt-auto py-6"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;div class="container mx-auto px-4 text-center"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;p class="text-xs text-slate-600 font-mono"&gt;GRACE AI SYSTEM // POWERED BY RAILWAY &amp; GEMINI&lt;/p&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;/footer&gt;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;script&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>// </span><span class="s2">🚀</span><span class="s1"> AUTO-DETECT API URL (Fixes the localhost issue)</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const API_BASE_URL = window.location.origin;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>// DOM Elements</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const totalTicketsEl = document.getElementById('total-tickets');</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const loadingStateEl = document.getElementById('loading-state');</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const emptyStateEl = document.getElementById('empty-state');</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const ticketsContainerEl = document.getElementById('tickets-container');</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const ticketsBodyEl = document.getElementById('tickets-body');</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const testBtn = document.getElementById('create-test-ticket');</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>// Initialize</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>function init() {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>startClock();</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>fetchDashboardData();</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>// Poll every 3 seconds for new tickets</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>setInterval(fetchDashboardData, 3000);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>}</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>// Live Clock</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>function startClock() {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>const update = () =&gt; {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>const now = new Date();</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>document.getElementById('system-time').innerText = now.toLocaleTimeString();</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>};</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>update();</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>setInterval(update, 1000);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>}</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>// Fetch Data from Grace Backend</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>async function fetchDashboardData() {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>try {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>// 1. Get Stats</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>const statsRes = await fetch(`${API_BASE_URL}/staff/dashboard-stats`);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>const stats = await statsRes.json();</span></p>
-<p class="p2"><span class="s1"><span class="Apple-converted-space">                </span></span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>if (totalTicketsEl) totalTicketsEl.innerText = stats.total_tickets || 0;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>// 2. Get Recent Tickets</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>const ticketsRes = await fetch(`${API_BASE_URL}/staff/recent-tickets`);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>const tickets = await ticketsRes.json();</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>renderTickets(tickets);</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>} catch (error) {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>console.error("Dashboard Error:", error);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>}</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>}</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>// Render the Table</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>function renderTickets(tickets) {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>loadingStateEl.classList.add('hidden');</span></p>
-<p class="p2"><span class="s1"><span class="Apple-converted-space">            </span></span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>if (!tickets || tickets.length === 0) {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>emptyStateEl.classList.remove('hidden');</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>ticketsContainerEl.classList.add('hidden');</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>return;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>}</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>emptyStateEl.classList.add('hidden');</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>ticketsContainerEl.classList.remove('hidden');</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>ticketsBodyEl.innerHTML = '';</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>tickets.forEach(t =&gt; {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>// Parse AI Note from Issue text</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>let issueText = t.issue || "No audio";</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>let aiBadge = "";</span></p>
-<p class="p2"><span class="s1"><span class="Apple-converted-space">                </span></span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>// Logic to separate "I need water || [AI: Send Amenities]"</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>if (issueText.includes("|| [AI:")) {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>const parts = issueText.split("|| [AI:");</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>issueText = parts[0];</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>aiBadge = `&lt;div class="mt-1 flex items-center gap-1 text-xs text-cyan-400 font-mono"&gt;&lt;i class="fas fa-robot"&gt;&lt;/i&gt; ${parts[1].replace("]", "")}&lt;/div&gt;`;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>}</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>// Status Color Logic</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>let statusBadge = t.status === 'OPEN'<span class="Apple-converted-space"> </span></span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>? '&lt;span class="px-2 py-1 rounded bg-red-500/20 text-red-300 border border-red-500/30 text-xs font-bold"&gt;OPEN&lt;/span&gt;'<span class="Apple-converted-space"> </span></span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>: '&lt;span class="px-2 py-1 rounded bg-green-500/20 text-green-300 border border-green-500/30 text-xs font-bold"&gt;RESOLVED&lt;/span&gt;';</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>// Sentiment Icon</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>let sentimentIcon = '&lt;i class="fas fa-minus text-slate-500"&gt;&lt;/i&gt;';</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>let sentimentClass = 'text-slate-400';</span></p>
-<p class="p2"><span class="s1"><span class="Apple-converted-space">                </span></span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>if (t.sentiment &amp;&amp; t.sentiment.toLowerCase().includes('positive')) {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>sentimentIcon = '&lt;i class="fas fa-smile text-green-400"&gt;&lt;/i&gt;';</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>sentimentClass = 'text-green-400';</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>} else if (t.sentiment &amp;&amp; t.sentiment.toLowerCase().includes('negative')) {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>sentimentIcon = '&lt;i class="fas fa-frown text-red-400"&gt;&lt;/i&gt;';</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>sentimentClass = 'text-red-400';</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>}</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>const row = document.createElement('tr');</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>row.className = 'border-b border-purple-500/10 hover:bg-purple-500/5 transition-all';</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>row.innerHTML = `</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>&lt;td class="p-4 text-slate-400 font-mono whitespace-nowrap"&gt;${new Date(t.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}&lt;/td&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>&lt;td class="p-4 font-bold text-white"&gt;${t.guest_name}&lt;/td&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>&lt;td class="p-4 text-cyan-300 font-mono"&gt;${t.room_number}&lt;/td&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>&lt;td class="p-4 text-slate-300"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                        </span>&lt;div class="line-clamp-2" title="${issueText}"&gt;${issueText}&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                        </span>${aiBadge}</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>&lt;/td&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>&lt;td class="p-4"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                        </span>&lt;div class="flex items-center gap-2 ${sentimentClass}"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                            </span>${sentimentIcon}</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                            </span>&lt;span class="text-xs font-mono uppercase"&gt;${t.sentiment || 'Neutral'}&lt;/span&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                        </span>&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>&lt;/td&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>&lt;td class="p-4"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                        </span>${statusBadge}</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>&lt;/td&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>`;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>ticketsBodyEl.appendChild(row);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>});</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>}</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>// Test Ticket Button Logic</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>testBtn.addEventListener('click', async () =&gt; {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>testBtn.innerHTML = '&lt;i class="fas fa-spinner fa-spin"&gt;&lt;/i&gt; Sending...';</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>try {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>await fetch(`${API_BASE_URL}/staff/escalate`, {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>method: 'POST',</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>headers: { 'Content-Type': 'application/json' },</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>body: JSON.stringify({</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                        </span>guest_name: "Test Guest",</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                        </span>room_number: "101",</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                        </span>issue: "I need extra towels and soap please."</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>})</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>});</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>setTimeout(() =&gt; fetchDashboardData(), 1000); // Quick refresh</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>} catch (e) {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>console.error(e);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>alert("Error creating ticket");</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>} finally {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>testBtn.innerHTML = '&lt;i class="fas fa-plus"&gt;&lt;/i&gt; Test Ticket';</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>}</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>});</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>// Start</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>init();</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;/script&gt;</span></p>
-<p class="p1"><span class="s1">&lt;/body&gt;</span></p>
-<p class="p1"><span class="s1">&lt;/html&gt;</span></p>
+
+<body class="bg-gradient-to-br from-slate-950 via-purple-950/20 to-slate-950 min-h-screen text-white overflow-x-hidden">
+  <div class="fixed inset-0 opacity-5 pointer-events-none">
+    <div class="absolute inset-0"
+      style="background-image: linear-gradient(#a855f7 1px, transparent 1px), linear-gradient(90deg, #a855f7 1px, transparent 1px); background-size: 50px 50px;">
+    </div>
+  </div>
+
+  <div
+    class="fixed top-1/4 left-1/4 w-96 h-96 bg-purple-600/10 rounded-full blur-3xl animate-pulse pointer-events-none">
+  </div>
+  <div
+    class="fixed bottom-1/4 right-1/4 w-96 h-96 bg-cyan-600/10 rounded-full blur-3xl animate-pulse pointer-events-none delay-1000">
+  </div>
+
+  <header class="sticky top-0 z-50 border-b border-purple-500/20 backdrop-blur-xl bg-slate-950/80">
+    <div class="container mx-auto px-4 py-4">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-4">
+          <div class="relative">
+            <i class="fas fa-robot text-purple-400 text-2xl"></i>
+            <span class="absolute -top-1 -right-1 h-3 w-3 bg-green-500 rounded-full status-dot"></span>
+          </div>
+          <div>
+            <h1
+              class="text-2xl font-bold bg-gradient-to-r from-purple-400 via-cyan-400 to-purple-400 bg-clip-text text-transparent">
+              GRACE AI</h1>
+            <p class="text-xs text-slate-400 font-mono tracking-widest">HOTEL CONCIERGE V36</p>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-6">
+          <div class="text-right hidden md:block">
+            <p class="text-xs text-purple-400 font-mono">SYSTEM TIME</p>
+            <p class="text-sm font-mono text-cyan-400" id="system-time">--:--:--</p>
+          </div>
+          <div
+            class="flex items-center gap-2 text-xs text-green-400 font-mono border border-green-500/30 px-3 py-1 rounded-full bg-green-500/10">
+            <div class="w-2 h-2 bg-green-500 rounded-full status-dot"></div>
+            OPERATIONAL
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="h-[1px] w-full bg-gradient-to-r from-transparent via-purple-600 to-transparent opacity-50"></div>
+  </header>
+
+  <main class="container mx-auto px-4 py-8 relative z-10">
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      <div class="glass-card rounded-2xl p-6 relative overflow-hidden group hover:border-purple-500/50 transition-all">
+        <div
+          class="absolute top-0 right-0 w-32 h-32 bg-purple-600/20 rounded-full blur-3xl group-hover:bg-purple-600/30 transition-all">
+        </div>
+        <div class="flex justify-between items-start mb-4">
+          <h2 class="text-sm text-purple-400 font-mono uppercase">Total Tickets</h2>
+          <i class="fas fa-database text-cyan-400 text-xl"></i>
+        </div>
+        <div class="text-4xl font-bold text-white" id="total-tickets">0</div>
+        <p class="text-xs text-slate-500 mt-2 font-mono">LIFETIME LOGS</p>
+      </div>
+
+      <div class="glass-card rounded-2xl p-6 relative overflow-hidden group hover:border-green-500/50 transition-all">
+        <div
+          class="absolute top-0 right-0 w-32 h-32 bg-green-600/20 rounded-full blur-3xl group-hover:bg-green-600/30 transition-all">
+        </div>
+        <div class="flex justify-between items-start mb-4">
+          <h2 class="text-sm text-green-400 font-mono uppercase">System Status</h2>
+          <i class="fas fa-server text-green-400 text-xl"></i>
+        </div>
+        <div class="text-2xl font-bold text-white mt-1">Listening</div>
+        <p class="text-xs text-slate-500 mt-2 font-mono">WEBHOOK ACTIVE</p>
+      </div>
+
+      <div class="glass-card rounded-2xl p-6 relative overflow-hidden group hover:border-cyan-500/50 transition-all">
+        <div
+          class="absolute top-0 right-0 w-32 h-32 bg-cyan-600/20 rounded-full blur-3xl group-hover:bg-cyan-600/30 transition-all">
+        </div>
+        <div class="flex justify-between items-start mb-4">
+          <h2 class="text-sm text-cyan-400 font-mono uppercase">AI Model</h2>
+          <i class="fas fa-brain text-purple-400 text-xl"></i>
+        </div>
+        <div class="text-2xl font-bold text-white mt-1">Gemini Flash</div>
+        <p class="text-xs text-slate-500 mt-2 font-mono">LATENCY: LOW</p>
+      </div>
+    </div>
+
+    <div class="glass-card rounded-2xl p-6 min-h-[600px]">
+      <div class="flex items-center justify-between mb-6">
+        <h2 class="text-xl font-bold flex items-center gap-3">
+          <i class="fas fa-list-ul text-purple-400"></i>
+          <span class="bg-gradient-to-r from-purple-400 to-cyan-400 bg-clip-text text-transparent">Live Incoming
+            Feed</span>
+        </h2>
+        <div class="flex gap-3">
+          <button id="create-test-ticket"
+            class="text-xs bg-slate-800 hover:bg-slate-700 text-purple-300 border border-purple-500/30 px-4 py-2 rounded-lg transition-all flex items-center gap-2">
+            <i class="fas fa-plus"></i> Test Ticket
+          </button>
+          <div
+            class="flex items-center gap-2 text-xs text-green-400 font-mono bg-slate-900/50 px-3 py-2 rounded-lg border border-slate-700">
+            <span class="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
+            LIVE SYNC
+          </div>
+        </div>
+      </div>
+
+      <div id="loading-state" class="flex flex-col items-center justify-center h-64 text-slate-400">
+        <div class="w-12 h-12 border-4 border-purple-500/30 border-t-purple-500 rounded-full animate-spin mb-4"></div>
+        <p class="font-mono text-sm">CONNECTING TO NEURAL CORE...</p>
+      </div>
+
+      <div id="empty-state" class="hidden flex flex-col items-center justify-center h-64 text-slate-500">
+        <i class="fas fa-inbox text-4xl mb-4 opacity-50"></i>
+        <p>No active requests found.</p>
+        <p class="text-sm opacity-70 mt-1">Waiting for incoming calls...</p>
+      </div>
+
+      <div id="tickets-container" class="hidden overflow-x-auto">
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="border-b border-purple-500/20 text-xs font-mono text-purple-400 uppercase tracking-wider">
+              <th class="p-4">Time</th>
+              <th class="p-4">Guest</th>
+              <th class="p-4">Room</th>
+              <th class="p-4 w-1/3">Request & AI Analysis</th>
+              <th class="p-4">Sentiment</th>
+              <th class="p-4">Status</th>
+            </tr>
+          </thead>
+          <tbody id="tickets-body" class="text-sm divide-y divide-purple-500/10">
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <footer class="border-t border-purple-500/10 bg-slate-950/80 mt-auto py-6">
+    <div class="container mx-auto px-4 text-center">
+      <p class="text-xs text-slate-600 font-mono">GRACE AI SYSTEM // POWERED BY RAILWAY & GEMINI</p>
+    </div>
+  </footer>
+
+  <script>
+    // 🚀 AUTO-DETECT API URL (Fixes the localhost issue)
+    const API_BASE_URL = window.location.origin;
+
+    // DOM Elements
+    const totalTicketsEl = document.getElementById('total-tickets');
+    const loadingStateEl = document.getElementById('loading-state');
+    const emptyStateEl = document.getElementById('empty-state');
+    const ticketsContainerEl = document.getElementById('tickets-container');
+    const ticketsBodyEl = document.getElementById('tickets-body');
+    const testBtn = document.getElementById('create-test-ticket');
+
+    // Initialize
+    function init() {
+      startClock();
+      fetchDashboardData();
+      // Poll every 3 seconds for new tickets
+      setInterval(fetchDashboardData, 3000);
+    }
+
+    // Live Clock
+    function startClock() {
+      const update = () => {
+        const now = new Date();
+        document.getElementById('system-time').innerText = now.toLocaleTimeString();
+      };
+      update();
+      setInterval(update, 1000);
+    }
+
+    // Fetch Data from Grace Backend
+    async function fetchDashboardData() {
+      try {
+        // 1. Get Stats
+        const statsRes = await fetch(`${API_BASE_URL}/staff/dashboard-stats`);
+        const stats = await statsRes.json();
+
+        if (totalTicketsEl) totalTicketsEl.innerText = stats.total_tickets || 0;
+
+        // 2. Get Recent Tickets
+        const ticketsRes = await fetch(`${API_BASE_URL}/staff/recent-tickets`);
+        const tickets = await ticketsRes.json();
+
+        renderTickets(tickets);
+
+      } catch (error) {
+        console.error("Dashboard Error:", error);
+      }
+    }
+
+    // Render the Table
+    function renderTickets(tickets) {
+      loadingStateEl.classList.add('hidden');
+
+      if (!tickets || tickets.length === 0) {
+        emptyStateEl.classList.remove('hidden');
+        ticketsContainerEl.classList.add('hidden');
+        return;
+      }
+
+      emptyStateEl.classList.add('hidden');
+      ticketsContainerEl.classList.remove('hidden');
+      ticketsBodyEl.innerHTML = '';
+
+      tickets.forEach(t => {
+        // Parse AI Note from Issue text
+        let issueText = t.issue || "No audio";
+        let aiBadge = "";
+
+        // Logic to separate "I need water || [AI: Send Amenities]"
+        if (issueText.includes("|| [AI:")) {
+          const parts = issueText.split("|| [AI:");
+          issueText = parts[0];
+          aiBadge = `<div class="mt-1 flex items-center gap-1 text-xs text-cyan-400 font-mono"><i class="fas fa-robot"></i> ${parts[1].replace("]", "")}</div>`;
+        }
+
+        // Status Color Logic
+        let statusBadge = t.status === 'OPEN'
+          ? '<span class="px-2 py-1 rounded bg-red-500/20 text-red-300 border border-red-500/30 text-xs font-bold">OPEN</span>'
+          : '<span class="px-2 py-1 rounded bg-green-500/20 text-green-300 border border-green-500/30 text-xs font-bold">RESOLVED</span>';
+
+        // Sentiment Icon
+        let sentimentIcon = '<i class="fas fa-minus text-slate-500"></i>';
+        let sentimentClass = 'text-slate-400';
+
+        if (t.sentiment && t.sentiment.toLowerCase().includes('positive')) {
+          sentimentIcon = '<i class="fas fa-smile text-green-400"></i>';
+          sentimentClass = 'text-green-400';
+        } else if (t.sentiment && t.sentiment.toLowerCase().includes('negative')) {
+          sentimentIcon = '<i class="fas fa-frown text-red-400"></i>';
+          sentimentClass = 'text-red-400';
+        }
+
+        const row = document.createElement('tr');
+        row.className = 'border-b border-purple-500/10 hover:bg-purple-500/5 transition-all';
+        row.innerHTML = `
+                    <td class="p-4 text-slate-400 font-mono whitespace-nowrap">${new Date(t.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
+                    <td class="p-4 font-bold text-white">${t.guest_name}</td>
+                    <td class="p-4 text-cyan-300 font-mono">${t.room_number}</td>
+                    <td class="p-4 text-slate-300">
+                        <div class="line-clamp-2" title="${issueText}">${issueText}</div>
+                        ${aiBadge}
+                    </td>
+                    <td class="p-4">
+                        <div class="flex items-center gap-2 ${sentimentClass}">
+                            ${sentimentIcon}
+                            <span class="text-xs font-mono uppercase">${t.sentiment || 'Neutral'}</span>
+                        </div>
+                    </td>
+                    <td class="p-4">
+                        ${statusBadge}
+                    </td>
+                `;
+        ticketsBodyEl.appendChild(row);
+      });
+    }
+
+    // Test Ticket Button Logic
+    testBtn.addEventListener('click', async () => {
+      testBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
+      try {
+        await fetch(`${API_BASE_URL}/staff/escalate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            guest_name: "Test Guest",
+            room_number: "101",
+            issue: "I need extra towels and soap please."
+          })
+        });
+        setTimeout(() => fetchDashboardData(), 1000); // Quick refresh
+      } catch (e) {
+        console.error(e);
+        alert("Error creating ticket");
+      } finally {
+        testBtn.innerHTML = '<i class="fas fa-plus"></i> Test Ticket';
+      }
+    });
+
+    // Start
+    init();
+  </script>
 </body>
+
 </html>
