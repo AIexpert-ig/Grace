@@ -9,7 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime
 from sqlalchemy.orm import sessionmaker, declarative_base
 
-import google.generativeai as genai
+import google.generativeai as genai  # pylint: disable=import-error
 
 # --- CONFIGURATION ---
 DATABASE_URL = os.getenv(

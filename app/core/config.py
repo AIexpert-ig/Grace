@@ -1,4 +1,7 @@
 """Configuration settings for the Grace AI Infrastructure application."""
+# pylint: disable=no-member
+from typing import cast
+
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -29,7 +32,7 @@ class Settings(BaseSettings):  # pylint: disable=too-few-public-methods
     @property
     def DATABASE_URL(self) -> str:
         """Transform Railway's postgresql:// to postgresql+asyncpg:// for async compatibility."""
-        url = self.database_url_raw
+        url = cast(str, self.database_url_raw)
         if url.startswith("postgresql://"):
             return url.replace("postgresql://", "postgresql+asyncpg://", 1)
         elif url.startswith("postgres://"):
