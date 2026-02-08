@@ -146,4 +146,4 @@ async def handle_webhook(request: Request):
 
 # --- VOICE BRAIN (WEBSOCKET) ---
 @app.websocket("/llm-websocket/{call_id}")
-async def
+async def websocket_endpoint(websocket: WebSocket, call_id: str):
