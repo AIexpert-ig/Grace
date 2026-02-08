@@ -1,8 +1,7 @@
 import os
 import json
-import asyncio
-from fastapi import FastAPI, WebSocket, Request, HTTPException
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi import FastAPI, WebSocket, Request
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime
@@ -42,7 +41,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Mount Static Files (for CSS/JS if needed later)
+# Mount Static Files
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
 # --- AI SETUP ---
@@ -51,11 +50,13 @@ if GOOGLE_API_KEY:
 
 # --- ROUTES ---
 
-@app.get("/", response_class=HTMLResponse)
+@app.get("/")
 async def read_root():
-    """Serves the Dashboard HTML"""
-    with open("app/static/index.html", "r") as f:
-        return f.read()
+    """
+    FIX: Uses FileResponse to ensure browser renders HTML 
+    instead of showing code.
+    """
+    return FileResponse("app/static/index.html")
 
 @app.get("/health")
 def health_check():
@@ -115,17 +116,15 @@ async def create_ticket(request: Request):
     finally:
         db.close()
 
-# --- WEBHOOK (SAVES DATA FROM RETELL) ---
+# --- WEBHOOK ---
 @app.post("/webhook")
 async def handle_webhook(request: Request):
     payload = await request.json()
     print(f"📝 WEBHOOK RECEIVED: {json.dumps(payload)}")
 
-    # Extract Details
     call_summary = payload.get("call_analysis", {}).get("call_summary", "No summary provided.")
     sentiment = payload.get("call_analysis", {}).get("user_sentiment", "Neutral")
     
-    # Save to DB
     db = SessionLocal()
     try:
         ticket = Escalation(
@@ -147,46 +146,4 @@ async def handle_webhook(request: Request):
 
 # --- VOICE BRAIN (WEBSOCKET) ---
 @app.websocket("/llm-websocket/{call_id}")
-async def websocket_endpoint(websocket: WebSocket, call_id: str):
-    await websocket.accept()
-    print(f"🧠 AI Connected: {call_id}")
-
-    try:
-        # 1. Send Welcome Message
-        welcome_event = {
-            "response_type": "response",
-            "response_id": "init_welcome",
-            "content": "Good morning, this is Grace at the front desk. How may I assist you?",
-            "content_complete": True,
-            "end_call": False
-        }
-        await websocket.send_json(welcome_event)
-
-        # 2. Loop for conversation
-        while True:
-            data = await websocket.receive_json()
-            
-            if data.get("interaction_type") == "response_required":
-                user_text = data["transcript"][-1]["content"]
-                print(f"🗣️ User: {user_text}")
-
-                # AI Logic
-                ai_reply = "I have noted that request for you."
-                try:
-                    model = genai.GenerativeModel('gemini-1.5-flash')
-                    response = model.generate_content(f"You are a hotel concierge named Grace. User says: {user_text}. Keep it short.")
-                    ai_reply = response.text
-                except:
-                    ai_reply = "Certainly, I will take care of that right away."
-
-                response_event = {
-                    "response_type": "response",
-                    "response_id": data["response_id"],
-                    "content": ai_reply,
-                    "content_complete": True,
-                    "end_call": False
-                }
-                await websocket.send_json(response_event)
-
-    except Exception as e:
-        print(f"⚠️ Connection Closed: {e}")
+async def
