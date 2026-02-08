@@ -1,5 +1,5 @@
 import os
-import google.generativeai as genai
+import google.generativeai as genai  # pylint: disable=import-error
 import json
 
 # Configure the Brain

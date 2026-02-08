@@ -2,7 +2,7 @@ import os
 import logging
 import asyncio
 import json
-import google.generativeai as genai
+import google.generativeai as genai  # pylint: disable=import-error
 
 # --- LOGGING ---
 logger = logging.getLogger("app.llm")
