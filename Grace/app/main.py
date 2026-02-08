@@ -51,6 +51,7 @@ if GOOGLE_API_KEY:
 # --- ROUTES ---
 @app.get("/")
 async def read_root():
+    # This FileResponse is what fixes the "Code View" bug
     return FileResponse("app/static/index.html")
 
 @app.get("/health")
