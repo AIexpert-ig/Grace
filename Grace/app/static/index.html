@@ -4,36 +4,22 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Grace Hotel Concierge System</title>
-  <meta name="description" content="AI-powered voice-native hotel concierge system with real-time updates">
+  <title>Grace Hotel Concierge | Command Center</title>
+  <meta name="description" content="AI-powered voice-native hotel concierge system">
   <link rel="icon" href="https://z-cdn.chatglm.cn/z-ai/static/logo.svg">
 
-  <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
 
-  <!-- FontAwesome CDN -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
-  <!-- Tailwind Config -->
   <script>
     tailwind.config = {
       theme: {
         extend: {
           colors: {
-            slate: {
-              950: '#020617',
-              900: '#0f172a',
-              800: '#1e293b',
-            },
-            purple: {
-              400: '#c084fc',
-              500: '#a855f7',
-              600: '#9333ea',
-            },
-            cyan: {
-              400: '#22d3ee',
-              500: '#06b6d4',
-            }
+            slate: { 950: '#020617', 900: '#0f172a', 800: '#1e293b' },
+            purple: { 400: '#c084fc', 500: '#a855f7', 600: '#9333ea' },
+            cyan: { 400: '#22d3ee', 500: '#06b6d4' }
           }
         }
       }
@@ -41,7 +27,6 @@
   </script>
 
   <style>
-    /* Custom animations */
     @keyframes pulse {
 
       0%,
@@ -54,17 +39,6 @@
       }
     }
 
-    @keyframes spin {
-      from {
-        transform: rotate(0deg);
-      }
-
-      to {
-        transform: rotate(360deg);
-      }
-    }
-
-    /* Glassmorphism */
     .glass-card {
       background: rgba(15, 23, 42, 0.8);
       backdrop-filter: blur(16px);
@@ -72,44 +46,37 @@
       box-shadow: 0 8px 32px rgba(168, 85, 247, 0.3);
     }
 
-    /* Scrollbar styling */
-    .custom-scrollbar::-webkit-scrollbar {
+    .status-dot {
+      animation: pulse 2s infinite;
+    }
+
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
       width: 8px;
     }
 
-    .custom-scrollbar::-webkit-scrollbar-track {
-      background: rgba(15, 23, 42, 0.3);
+    ::-webkit-scrollbar-track {
+      background: #0f172a;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #4c1d95;
       border-radius: 4px;
     }
 
-    .custom-scrollbar::-webkit-scrollbar-thumb {
-      background: rgba(168, 85, 247, 0.5);
-      border-radius: 4px;
-    }
-
-    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-      background: rgba(168, 85, 247, 0.7);
-    }
-
-    /* Status indicator animation */
-    .status-dot {
-      animation: pulse 2s infinite;
+    ::-webkit-scrollbar-thumb:hover {
+      background: #6d28d9;
     }
   </style>
 </head>
 
-<body class="bg-gradient-to-br from-slate-950 via-purple-950/20 to-slate-950 min-h-screen text-white">
-  <!-- Animated Background Grid -->
+<body class="bg-gradient-to-br from-slate-950 via-purple-950/20 to-slate-950 min-h-screen text-white overflow-x-hidden">
   <div class="fixed inset-0 opacity-5 pointer-events-none">
-    <div class="absolute inset-0" style="
-            background-image:
-                linear-gradient(0deg, transparent 24%, #a855f7 25%, #a855f7 26%, transparent 27%, transparent 74%, #a855f7 75%, #a855f7 76%, transparent 77%, transparent),
-                linear-gradient(90deg, transparent 24%, #a855f7 25%, #a855f7 26%, transparent 27%, transparent 74%, #a855f7 75%, #a855f7 76%, transparent 77%, transparent);
-            background-size: 50px 50px;
-        "></div>
+    <div class="absolute inset-0"
+      style="background-image: linear-gradient(#a855f7 1px, transparent 1px), linear-gradient(90deg, #a855f7 1px, transparent 1px); background-size: 50px 50px;">
+    </div>
   </div>
 
-  <!-- Floating Orbs -->
   <div
     class="fixed top-1/4 left-1/4 w-96 h-96 bg-purple-600/10 rounded-full blur-3xl animate-pulse pointer-events-none">
   </div>
@@ -117,468 +84,276 @@
     class="fixed bottom-1/4 right-1/4 w-96 h-96 bg-cyan-600/10 rounded-full blur-3xl animate-pulse pointer-events-none delay-1000">
   </div>
 
-  <!-- Header -->
   <header class="sticky top-0 z-50 border-b border-purple-500/20 backdrop-blur-xl bg-slate-950/80">
     <div class="container mx-auto px-4 py-4">
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-4">
           <div class="relative">
-            <i class="fas fa-phone text-purple-400 text-2xl"></i>
+            <i class="fas fa-robot text-purple-400 text-2xl"></i>
             <span class="absolute -top-1 -right-1 h-3 w-3 bg-green-500 rounded-full status-dot"></span>
           </div>
           <div>
             <h1
               class="text-2xl font-bold bg-gradient-to-r from-purple-400 via-cyan-400 to-purple-400 bg-clip-text text-transparent">
-              GRACE
-            </h1>
-            <p class="text-xs text-slate-400 font-mono">AI Hotel Concierge System // V2.0</p>
+              GRACE AI</h1>
+            <p class="text-xs text-slate-400 font-mono tracking-widest">HOTEL CONCIERGE V36</p>
           </div>
         </div>
 
         <div class="flex items-center gap-6">
-          <div class="text-right">
+          <div class="text-right hidden md:block">
             <p class="text-xs text-purple-400 font-mono">SYSTEM TIME</p>
-            <p class="text-sm font-mono text-cyan-400" id="system-time">Loading...</p>
+            <p class="text-sm font-mono text-cyan-400" id="system-time">--:--:--</p>
           </div>
-
-          <div class="flex items-center gap-2 text-xs text-green-400 font-mono">
+          <div
+            class="flex items-center gap-2 text-xs text-green-400 font-mono border border-green-500/30 px-3 py-1 rounded-full bg-green-500/10">
             <div class="w-2 h-2 bg-green-500 rounded-full status-dot"></div>
-            ONLINE
+            OPERATIONAL
           </div>
         </div>
       </div>
-      <!-- Glowing bottom border -->
-      <div class="h-[1px] w-full bg-gradient-to-r from-transparent via-purple-600 to-transparent"></div>
+    </div>
+    <div class="h-[1px] w-full bg-gradient-to-r from-transparent via-purple-600 to-transparent opacity-50"></div>
+  </header>
+
+  <main class="container mx-auto px-4 py-8 relative z-10">
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      <div class="glass-card rounded-2xl p-6 relative overflow-hidden group hover:border-purple-500/50 transition-all">
+        <div
+          class="absolute top-0 right-0 w-32 h-32 bg-purple-600/20 rounded-full blur-3xl group-hover:bg-purple-600/30 transition-all">
+        </div>
+        <div class="flex justify-between items-start mb-4">
+          <h2 class="text-sm text-purple-400 font-mono uppercase">Total Tickets</h2>
+          <i class="fas fa-database text-cyan-400 text-xl"></i>
+        </div>
+        <div class="text-4xl font-bold text-white" id="total-tickets">0</div>
+        <p class="text-xs text-slate-500 mt-2 font-mono">LIFETIME LOGS</p>
+      </div>
+
+      <div class="glass-card rounded-2xl p-6 relative overflow-hidden group hover:border-green-500/50 transition-all">
+        <div
+          class="absolute top-0 right-0 w-32 h-32 bg-green-600/20 rounded-full blur-3xl group-hover:bg-green-600/30 transition-all">
+        </div>
+        <div class="flex justify-between items-start mb-4">
+          <h2 class="text-sm text-green-400 font-mono uppercase">System Status</h2>
+          <i class="fas fa-server text-green-400 text-xl"></i>
+        </div>
+        <div class="text-2xl font-bold text-white mt-1">Listening</div>
+        <p class="text-xs text-slate-500 mt-2 font-mono">WEBHOOK ACTIVE</p>
+      </div>
+
+      <div class="glass-card rounded-2xl p-6 relative overflow-hidden group hover:border-cyan-500/50 transition-all">
+        <div
+          class="absolute top-0 right-0 w-32 h-32 bg-cyan-600/20 rounded-full blur-3xl group-hover:bg-cyan-600/30 transition-all">
+        </div>
+        <div class="flex justify-between items-start mb-4">
+          <h2 class="text-sm text-cyan-400 font-mono uppercase">AI Model</h2>
+          <i class="fas fa-brain text-purple-400 text-xl"></i>
+        </div>
+        <div class="text-2xl font-bold text-white mt-1">Gemini Flash</div>
+        <p class="text-xs text-slate-500 mt-2 font-mono">LATENCY: LOW</p>
+      </div>
     </div>
 
-    <!-- Main Content -->
-    <main class="container mx-auto px-4 py-6 flex-1 relative z-10">
-      <!-- Stats Cards (Bento Grid) -->
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <!-- Total Tickets Card -->
-        <div class="glass-card rounded-2xl p-6 relative overflow-hidden">
-          <div class="absolute top-0 right-0 w-32 h-32 bg-purple-600/20 rounded-full blur-3xl"></div>
-          <div class="flex items-center justify-between mb-4">
-            <div>
-              <h2 class="text-sm font-medium text-purple-400 font-mono uppercase tracking-wider">Total Tickets</h2>
-            </div>
-            <i class="fas fa-users text-cyan-400 text-xl"></i>
-          </div>
-          <div>
-            <div class="text-4xl font-bold bg-gradient-to-r from-purple-400 to-cyan-400 bg-clip-text text-transparent"
-              id="total-tickets">0</div>
-            <p class="text-xs text-slate-500 mt-1 font-mono">ALL TIME RECORDS</p>
-          </div>
-        </div>
-
-        <!-- Active Calls Card -->
-        <div class="glass-card rounded-2xl p-6 relative overflow-hidden">
-          <div class="absolute top-0 right-0 w-32 h-32 bg-green-600/20 rounded-full blur-3xl"></div>
-          <div class="flex items-center justify-between mb-4">
-            <div>
-              <h2 class="text-sm font-medium text-purple-400 font-mono uppercase tracking-wider">Active Calls</h2>
-            </div>
-            <i class="fas fa-chart-line text-green-400 text-xl"></i>
-          </div>
-          <div>
-            <div class="text-4xl font-bold bg-gradient-to-r from-green-400 to-cyan-400 bg-clip-text text-transparent"
-              id="active-calls">0</div>
-            <p class="text-xs text-slate-500 mt-1 font-mono">LIVE INTERACTIONS</p>
-          </div>
-        </div>
-
-        <!-- Sentiment Score Card -->
-        <div class="glass-card rounded-2xl p-6 relative overflow-hidden">
-          <div class="absolute top-0 right-0 w-32 h-32 bg-cyan-600/20 rounded-full blur-3xl"></div>
-          <div class="flex items-center justify-between mb-4">
-            <div>
-              <h2 class="text-sm font-medium text-purple-400 font-mono uppercase tracking-wider">Sentiment Score</h2>
-            </div>
-            <i class="fas fa-comment-dots text-purple-400 text-xl"></i>
-          </div>
-          <div>
-            <div class="text-4xl font-bold bg-gradient-to-r bg-clip-text text-transparent" id="sentiment-score">0%</div>
-            <p class="text-xs text-slate-500 mt-1 font-mono">GUEST SATISFACTION</p>
-          </div>
-        </div>
-      </div>
-
-      <!-- Voice Test Panel -->
-      <div class="glass-card rounded-2xl p-6 mb-8">
-        <div class="flex items-center justify-between mb-4">
-          <h2
-            class="text-xl bg-gradient-to-r from-purple-400 to-cyan-400 bg-clip-text text-transparent flex items-center gap-2">
-            <i class="fas fa-microphone text-lg"></i>
-            Voice Interface Test
-          </h2>
-        </div>
-
-        <div class="flex items-center gap-4">
-          <button id="mic-button"
-            class="min-w-[160px] bg-gradient-to-r from-purple-600 to-cyan-600 hover:from-purple-500 hover:to-cyan-500 text-white font-semibold py-3 px-6 rounded-lg shadow-lg shadow-purple-500/30 transition-all duration-300 hover:shadow-purple-500/50 hover:scale-[1.02]">
-            <i class="fas fa-microphone mr-2"></i>
-            <span id="mic-button-text">Test Microphone</span>
-          </button>
-
-          <div id="recording-indicator" class="hidden items-center gap-2 text-red-400">
-            <div class="flex gap-1">
-              <div class="w-1 h-4 bg-red-500 rounded animate-pulse"></div>
-              <div class="w-1 h-6 bg-red-500 rounded animate-pulse delay-100"></div>
-              <div class="w-1 h-8 bg-red-500 rounded animate-pulse delay-200"></div>
-              <div class="w-1 h-6 bg-red-500 rounded animate-pulse delay-300"></div>
-              <div class="w-1 h-4 bg-red-500 rounded animate-pulse delay-400"></div>
-            </div>
-            <span class="text-sm font-mono">RECORDING...</span>
-          </div>
-        </div>
-
-        <div class="bg-slate-800/50 rounded-lg p-4 border border-purple-500/20">
-          <p class="text-xs text-purple-400 font-mono mb-2">STATUS:</p>
-          <p class="text-sm text-slate-300">Microphone functionality available (requires HTTPS)</p>
-        </div>
-      </div>
-
-      <!-- Tickets Table -->
-      <div class="glass-card rounded-2xl p-6">
-        <div class="flex items-center justify-between mb-4">
-          <h2
-            class="text-xl bg-gradient-to-r from-purple-400 to-cyan-400 bg-clip-text text-transparent flex items-center gap-2">
-            <i class="fas fa-list-ul text-lg"></i>
-            Live Ticket Feed
-          </h2>
-          <div class="flex items-center gap-2 text-xs text-green-400 font-mono">
-            <div class="w-2 h-2 bg-green-500 rounded-full status-dot"></div>
-            AUTO-REFRESH (3s)
-          </div>
-        </div>
-
-        <!-- Loading State -->
-        <div id="loading-state" class="flex items-center justify-center h-64 text-slate-400">
-          <div class="text-center">
-            <div
-              class="w-16 h-16 border-4 border-purple-500/30 border-t-purple-500 rounded-full animate-spin mx-auto mb-4">
-            </div>
-            <p class="text-purple-400 font-mono">INITIALIZING DASHBOARD...</p>
-          </div>
-        </div>
-
-        <!-- Empty State -->
-        <div id="empty-state" class="hidden flex flex-col items-center justify-center h-64 text-slate-400">
-          <i class="fas fa-comment-dots text-purple-400 text-5xl mb-4 opacity-50"></i>
-          <p class="text-lg mb-2">No tickets yet</p>
-          <p class="text-sm mb-4">New guest requests will appear here in real-time</p>
+    <div class="glass-card rounded-2xl p-6 min-h-[600px]">
+      <div class="flex items-center justify-between mb-6">
+        <h2 class="text-xl font-bold flex items-center gap-3">
+          <i class="fas fa-list-ul text-purple-400"></i>
+          <span class="bg-gradient-to-r from-purple-400 to-cyan-400 bg-clip-text text-transparent">Live Incoming
+            Feed</span>
+        </h2>
+        <div class="flex gap-3">
           <button id="create-test-ticket"
-            class="border-purple-500/30 text-purple-300 hover:bg-purple-950/50 px-6 py-3 rounded-lg transition-all">
-            <i class="fas fa-plus mr-2"></i>
-            Create Test Ticket
+            class="text-xs bg-slate-800 hover:bg-slate-700 text-purple-300 border border-purple-500/30 px-4 py-2 rounded-lg transition-all flex items-center gap-2">
+            <i class="fas fa-plus"></i> Test Ticket
           </button>
-        </div>
-
-        <!-- Tickets Table -->
-        <div id="tickets-container" class="hidden">
-          <div class="overflow-auto max-h-[500px] rounded-lg">
-            <table class="w-full">
-              <thead>
-                <tr class="border-b border-purple-500/20 hover:bg-purple-950/20">
-                  <th class="text-left text-purple-400 font-mono text-xs py-3 px-4">TIME</th>
-                  <th class="text-left text-purple-400 font-mono text-xs py-3 px-4">GUEST</th>
-                  <th class="text-left text-purple-400 font-mono text-xs py-3 px-4">ROOM</th>
-                  <th class="text-left text-purple-400 font-mono text-xs py-3 px-4">ISSUE</th>
-                  <th class="text-left text-purple-400 font-mono text-xs py-3 px-4">SENTIMENT</th>
-                  <th class="text-left text-purple-400 font-mono text-xs py-3 px-4">STATUS</th>
-                </tr>
-              </thead>
-              <tbody id="tickets-body" class="divide-y divide-purple-500/20">
-                <!-- Tickets will be loaded here -->
-              </tbody>
-            </table>
+          <div
+            class="flex items-center gap-2 text-xs text-green-400 font-mono bg-slate-900/50 px-3 py-2 rounded-lg border border-slate-700">
+            <span class="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
+            LIVE SYNC
           </div>
         </div>
       </div>
-    </main>
 
-    <!-- Footer -->
-    <footer class="mt-auto border-t border-purple-500/20 backdrop-blur-xl bg-slate-950/80">
-      <div class="container mx-auto px-4 py-4">
-        <div class="flex items-center justify-between text-xs text-slate-500 font-mono">
-          <p>© 2025 GRACE HOTEL CONCIERGE SYSTEM</p>
-          <p class="flex items-center gap-2">
-            <i class="fas fa-bolt text-purple-500"></i>
-            POWERED BY PYTHON FASTAPI & AI
-          </p>
-        </div>
+      <div id="loading-state" class="flex flex-col items-center justify-center h-64 text-slate-400">
+        <div class="w-12 h-12 border-4 border-purple-500/30 border-t-purple-500 rounded-full animate-spin mb-4"></div>
+        <p class="font-mono text-sm">CONNECTING TO NEURAL CORE...</p>
       </div>
-    </footer>
+
+      <div id="empty-state" class="hidden flex flex-col items-center justify-center h-64 text-slate-500">
+        <i class="fas fa-inbox text-4xl mb-4 opacity-50"></i>
+        <p>No active requests found.</p>
+        <p class="text-sm opacity-70 mt-1">Waiting for incoming calls...</p>
+      </div>
+
+      <div id="tickets-container" class="hidden overflow-x-auto">
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="border-b border-purple-500/20 text-xs font-mono text-purple-400 uppercase tracking-wider">
+              <th class="p-4">Time</th>
+              <th class="p-4">Guest</th>
+              <th class="p-4">Room</th>
+              <th class="p-4 w-1/3">Request & AI Analysis</th>
+              <th class="p-4">Sentiment</th>
+              <th class="p-4">Status</th>
+            </tr>
+          </thead>
+          <tbody id="tickets-body" class="text-sm divide-y divide-purple-500/10">
+          </tbody>
+        </table>
+      </div>
     </div>
+  </main>
 
-    <script>
-      // API Base URL - Change this to your FastAPI server URL
-      const API_BASE_URL = 'http://localhost:8000';
+  <footer class="border-t border-purple-500/10 bg-slate-950/80 mt-auto py-6">
+    <div class="container mx-auto px-4 text-center">
+      <p class="text-xs text-slate-600 font-mono">GRACE AI SYSTEM // POWERED BY RAILWAY & GEMINI</p>
+    </div>
+  </footer>
 
-      // DOM Elements
-      const systemTimeEl = document.getElementById('system-time');
-      const totalTicketsEl = document.getElementById('total-tickets');
-      const activeCallsEl = document.getElementById('active-calls');
-      const sentimentScoreEl = document.getElementById('sentiment-score');
-      const micButton = document.getElementById('mic-button');
-      const micButtonText = document.getElementById('mic-button-text');
-      const recordingIndicator = document.getElementById('recording-indicator');
-      const loadingStateEl = document.getElementById('loading-state');
-      const emptyStateEl = document.getElementById('empty-state');
-      const ticketsContainerEl = document.getElementById('tickets-container');
-      const ticketsBodyEl = document.getElementById('tickets-body');
-      const createTestTicketBtn = document.getElementById('create-test-ticket');
+  <script>
+    // 🚀 AUTO-DETECT API URL (Fixes the localhost issue)
+    const API_BASE_URL = window.location.origin;
 
-      // State
-      let isRecording = false;
-      let mediaRecorder = null;
-      let audioChunks = [];
+    // DOM Elements
+    const totalTicketsEl = document.getElementById('total-tickets');
+    const loadingStateEl = document.getElementById('loading-state');
+    const emptyStateEl = document.getElementById('empty-state');
+    const ticketsContainerEl = document.getElementById('tickets-container');
+    const ticketsBodyEl = document.getElementById('tickets-body');
+    const testBtn = document.getElementById('create-test-ticket');
 
-      // Initialize
-      async function init() {
-        await fetchDashboardData();
-        startClock();
-        startAutoRefresh();
+    // Initialize
+    function init() {
+      startClock();
+      fetchDashboardData();
+      // Poll every 3 seconds for new tickets
+      setInterval(fetchDashboardData, 3000);
+    }
+
+    // Live Clock
+    function startClock() {
+      const update = () => {
+        const now = new Date();
+        document.getElementById('system-time').innerText = now.toLocaleTimeString();
+      };
+      update();
+      setInterval(update, 1000);
+    }
+
+    // Fetch Data from Grace Backend
+    async function fetchDashboardData() {
+      try {
+        // 1. Get Stats
+        const statsRes = await fetch(`${API_BASE_URL}/staff/dashboard-stats`);
+        const stats = await statsRes.json();
+
+        if (totalTicketsEl) totalTicketsEl.innerText = stats.total_tickets || 0;
+
+        // 2. Get Recent Tickets
+        const ticketsRes = await fetch(`${API_BASE_URL}/staff/recent-tickets`);
+        const tickets = await ticketsRes.json();
+
+        renderTickets(tickets);
+
+      } catch (error) {
+        console.error("Dashboard Error:", error);
+      }
+    }
+
+    // Render the Table
+    function renderTickets(tickets) {
+      loadingStateEl.classList.add('hidden');
+
+      if (!tickets || tickets.length === 0) {
+        emptyStateEl.classList.remove('hidden');
+        ticketsContainerEl.classList.add('hidden');
+        return;
       }
 
-      // Fetch dashboard data
-      async function fetchDashboardData() {
-        try {
-          const [statsRes, ticketsRes] = await Promise.all([
-            fetch(`${API_BASE_URL}/staff/dashboard-stats`),
-            fetch(`${API_BASE_URL}/staff/recent-tickets`)
-          ]);
+      emptyStateEl.classList.add('hidden');
+      ticketsContainerEl.classList.remove('hidden');
+      ticketsBodyEl.innerHTML = '';
 
-          if (!statsRes.ok || !ticketsRes.ok) {
-            throw new Error('Failed to fetch data');
-          }
+      tickets.forEach(t => {
+        // Parse AI Note from Issue text
+        let issueText = t.issue || "No audio";
+        let aiBadge = "";
 
-          const statsData = await statsRes.json();
-          const ticketsData = await ticketsRes.json();
-
-          // Update stats
-          updateStats(statsData);
-
-          // Update tickets
-          updateTickets(ticketsData.tickets || []);
-
-        } catch (error) {
-          console.error('Error fetching data:', error);
-        }
-      }
-
-      // Update stats display
-      function updateStats(stats) {
-        if (stats.total_tickets !== undefined) {
-          totalTicketsEl.textContent = stats.total_tickets;
-        }
-        if (stats.open_tickets !== undefined) {
-          activeCallsEl.textContent = stats.open_tickets;
-        }
-        if (stats.sentiment_score !== undefined) {
-          const score = stats.sentiment_score;
-          sentimentScoreEl.textContent = `${score}%`;
-
-          // Update color based on sentiment
-          sentimentScoreEl.className = 'text-4xl font-bold bg-gradient-to-r bg-clip-text text-transparent ';
-          if (score >= 50) {
-            sentimentScoreEl.className += 'from-green-400 to-cyan-400';
-          } else if (score >= 0) {
-            sentimentScoreEl.className += 'from-yellow-400 to-orange-400';
-          } else {
-            sentimentScoreEl.className += 'from-red-400 to-pink-400';
-          }
-        }
-      }
-
-      // Update tickets table
-      function updateTickets(tickets) {
-        // Hide loading, show tickets
-        loadingStateEl.classList.add('hidden');
-        emptyStateEl.classList.add('hidden');
-        ticketsContainerEl.classList.remove('hidden');
-
-        // Clear existing tickets
-        ticketsBodyEl.innerHTML = '';
-
-        if (tickets.length === 0) {
-          emptyStateEl.classList.remove('hidden');
-          ticketsContainerEl.classList.add('hidden');
-          return;
+        // Logic to separate "I need water || [AI: Send Amenities]"
+        if (issueText.includes("|| [AI:")) {
+          const parts = issueText.split("|| [AI:");
+          issueText = parts[0];
+          aiBadge = `<div class="mt-1 flex items-center gap-1 text-xs text-cyan-400 font-mono"><i class="fas fa-robot"></i> ${parts[1].replace("]", "")}</div>`;
         }
 
-        // Render tickets
-        tickets.forEach(ticket => {
-          const row = document.createElement('tr');
-          row.className = 'border-b border-purple-500/20 hover:bg-purple-950/20 transition-colors';
-          row.innerHTML = `
-                    <td class="text-slate-300 font-mono text-xs py-3 px-4">
-                        ${formatTime(ticket.created_at)}
+        // Status Color Logic
+        let statusBadge = t.status === 'OPEN'
+          ? '<span class="px-2 py-1 rounded bg-red-500/20 text-red-300 border border-red-500/30 text-xs font-bold">OPEN</span>'
+          : '<span class="px-2 py-1 rounded bg-green-500/20 text-green-300 border border-green-500/30 text-xs font-bold">RESOLVED</span>';
+
+        // Sentiment Icon
+        let sentimentIcon = '<i class="fas fa-minus text-slate-500"></i>';
+        let sentimentClass = 'text-slate-400';
+
+        if (t.sentiment && t.sentiment.toLowerCase().includes('positive')) {
+          sentimentIcon = '<i class="fas fa-smile text-green-400"></i>';
+          sentimentClass = 'text-green-400';
+        } else if (t.sentiment && t.sentiment.toLowerCase().includes('negative')) {
+          sentimentIcon = '<i class="fas fa-frown text-red-400"></i>';
+          sentimentClass = 'text-red-400';
+        }
+
+        const row = document.createElement('tr');
+        row.className = 'border-b border-purple-500/10 hover:bg-purple-500/5 transition-all';
+        row.innerHTML = `
+                    <td class="p-4 text-slate-400 font-mono whitespace-nowrap">${new Date(t.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
+                    <td class="p-4 font-bold text-white">${t.guest_name}</td>
+                    <td class="p-4 text-cyan-300 font-mono">${t.room_number}</td>
+                    <td class="p-4 text-slate-300">
+                        <div class="line-clamp-2" title="${issueText}">${issueText}</div>
+                        ${aiBadge}
                     </td>
-                    <td class="font-medium text-white py-3 px-4">${ticket.guest_name || 'N/A'}</td>
-                    <td class="text-slate-300 font-mono text-xs py-3 px-4">#${ticket.room_number || 'N/A'}</td>
-                    <td class="text-slate-300 max-w-md py-3 px-4">
-                        <span class="bg-purple-600/30 border-purple-500/50 text-purple-300 text-xs font-mono mr-2">AI</span>
-                        <span class="line-clamp-2 text-sm">${ticket.issue || 'N/A'}</span>
-                    </td>
-                    <td class="py-3 px-4">
-                        <div class="flex items-center gap-2">
-                            ${getSentimentIcon(ticket.sentiment)}
-                            <span class="text-xs font-mono ${getSentimentClass(ticket.sentiment)}">
-                                ${ticket.sentiment || 'N/A'}
-                            </span>
+                    <td class="p-4">
+                        <div class="flex items-center gap-2 ${sentimentClass}">
+                            ${sentimentIcon}
+                            <span class="text-xs font-mono uppercase">${t.sentiment || 'Neutral'}</span>
                         </div>
                     </td>
-                    <td class="py-3 px-4">
-                        ${getStatusBadge(ticket.status)}
+                    <td class="p-4">
+                        ${statusBadge}
                     </td>
                 `;
-          ticketsBodyEl.appendChild(row);
-        });
-      }
-
-      // Format time
-      function formatTime(dateString) {
-        if (!dateString) return '--:--';
-        const date = new Date(dateString);
-        return date.toLocaleTimeString();
-      }
-
-      // Get sentiment icon
-      function getSentimentIcon(sentiment) {
-        if (!sentiment) return '<i class="fas fa-circle-question text-slate-400"></i>';
-        const lower = sentiment.toLowerCase();
-        if (lower.includes('positive')) return '<i class="fas fa-check-circle text-green-400"></i>';
-        if (lower.includes('negative')) return '<i class="fas fa-times-circle text-red-400"></i>';
-        return '<i class="fas fa-circle-question text-yellow-400"></i>';
-      }
-
-      // Get sentiment class
-      function getSentimentClass(sentiment) {
-        if (!sentiment) return 'text-slate-400';
-        const lower = sentiment.toLowerCase();
-        if (lower.includes('positive')) return 'text-green-400';
-        if (lower.includes('negative')) return 'text-red-400';
-        return 'text-yellow-400';
-      }
-
-      // Get status badge
-      function getStatusBadge(status) {
-        const isOpen = status && status.toUpperCase() === 'OPEN';
-        return `
-                <span class="px-3 py-1 rounded-full text-xs font-mono ${isOpen ? 'bg-red-500' : 'bg-green-500'}">
-                    ${status || 'N/A'}
-                </span>
-            `;
-      }
-
-      // Live clock
-      function startClock() {
-        updateClock();
-        setInterval(updateClock, 1000);
-      }
-
-      function updateClock() {
-        const now = new Date();
-        systemTimeEl.textContent = now.toLocaleTimeString();
-      }
-
-      // Auto-refresh
-      function startAutoRefresh() {
-        setInterval(fetchDashboardData, 3000);
-      }
-
-      // Microphone functionality
-      async function startRecording() {
-        try {
-          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-          mediaRecorder = new MediaRecorder(stream);
-          audioChunks = [];
-
-          mediaRecorder.ondataavailable = (event) => {
-            audioChunks.push(event.data);
-          };
-
-          mediaRecorder.start();
-          isRecording = true;
-          updateMicButton();
-
-        } catch (error) {
-          console.error('Error accessing microphone:', error);
-          alert('Could not access microphone. Please allow microphone permissions.');
-        }
-      }
-
-      function stopRecording() {
-        if (mediaRecorder && isRecording) {
-          mediaRecorder.stop();
-          isRecording = false;
-          updateMicButton();
-
-          // Process audio
-          const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
-
-          // Send to backend for processing (you can implement this)
-          console.log('Recording stopped. Audio size:', audioBlob.size);
-          alert('Recording saved! This feature will be fully functional once your backend supports audio processing.');
-        }
-      }
-
-      function updateMicButton() {
-        if (isRecording) {
-          micButtonText.textContent = 'Stop Recording';
-          micButton.classList.remove('from-purple-600', 'to-cyan-600');
-          micButton.classList.add('bg-red-600', 'hover:bg-red-500');
-          recordingIndicator.classList.remove('hidden');
-        } else {
-          micButtonText.textContent = 'Test Microphone';
-          micButton.classList.remove('bg-red-600', 'hover:bg-red-500');
-          micButton.classList.add('from-purple-600', 'to-cyan-600');
-          recordingIndicator.classList.add('hidden');
-        }
-      }
-
-      // Create test ticket
-      async function createTestTicket() {
-        try {
-          const response = await fetch(`${API_BASE_URL}/staff/recent-tickets`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              guest_name: 'John Doe',
-              room_number: '305',
-              issue: 'Air conditioning not working properly',
-              sentiment: 'Negative',
-              status: 'OPEN'
-            })
-          });
-
-          if (response.ok) {
-            console.log('Test ticket created');
-            await fetchDashboardData();
-          }
-        } catch (error) {
-          console.error('Error creating test ticket:', error);
-          alert('Failed to create test ticket');
-        }
-      }
-
-      // Event listeners
-      micButton.addEventListener('click', () => {
-        if (isRecording) {
-          stopRecording();
-        } else {
-          startRecording();
-        }
+        ticketsBodyEl.appendChild(row);
       });
+    }
 
-      createTestTicketBtn.addEventListener('click', createTestTicket);
+    // Test Ticket Button Logic
+    testBtn.addEventListener('click', async () => {
+      testBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
+      try {
+        await fetch(`${API_BASE_URL}/staff/escalate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            guest_name: "Test Guest",
+            room_number: "101",
+            issue: "I need extra towels and soap please."
+          })
+        });
+        setTimeout(() => fetchDashboardData(), 1000); // Quick refresh
+      } catch (e) {
+        console.error(e);
+        alert("Error creating ticket");
+      } finally {
+        testBtn.innerHTML = '<i class="fas fa-plus"></i> Test Ticket';
+      }
+    });
 
-      // Initialize on load
-      document.addEventListener('DOMContentLoaded', init);
-    </script>
+    // Start
+    init();
+  </script>
 </body>
 
 </html>
