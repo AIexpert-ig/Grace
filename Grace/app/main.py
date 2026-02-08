@@ -49,7 +49,6 @@ if GOOGLE_API_KEY:
     genai.configure(api_key=GOOGLE_API_KEY)
 
 # --- ROUTES ---
-
 @app.get("/")
 async def read_root():
     return FileResponse("app/static/index.html")
@@ -59,7 +58,6 @@ def health_check():
     return {"status": "healthy", "service": "Grace Hotel AI"}
 
 # --- DASHBOARD API ENDPOINTS ---
-
 @app.get("/staff/recent-tickets")
 def get_recent_tickets():
     db = SessionLocal()
@@ -89,7 +87,7 @@ def get_stats():
         return {
             "total_tickets": total,
             "open_tickets": open_tickets,
-            "sentiment_score": 98 
+            "sentiment_score": 98
         }
     finally:
         db.close()
@@ -117,7 +115,7 @@ async def create_ticket(request: Request):
 async def handle_webhook(request: Request):
     payload = await request.json()
     print(f"📝 WEBHOOK RECEIVED: {json.dumps(payload)}")
-
+    
     call_summary = payload.get("call_analysis", {}).get("call_summary", "No summary provided.")
     sentiment = payload.get("call_analysis", {}).get("user_sentiment", "Neutral")
     
@@ -125,7 +123,7 @@ async def handle_webhook(request: Request):
     try:
         ticket = Escalation(
             guest_name="Voice Guest",
-            room_number="Unknown", 
+            room_number="Unknown",
             issue=call_summary,
             status="OPEN",
             sentiment=sentiment
@@ -137,7 +135,7 @@ async def handle_webhook(request: Request):
         print(f"❌ DB Error: {e}")
     finally:
         db.close()
-
+    
     return {"received": True}
 
 # --- VOICE BRAIN (WEBSOCKET) ---
@@ -145,7 +143,7 @@ async def handle_webhook(request: Request):
 async def websocket_endpoint(websocket: WebSocket, call_id: str):
     await websocket.accept()
     print(f"🧠 AI Connected: {call_id}")
-
+    
     try:
         welcome_event = {
             "response_type": "response",
@@ -155,14 +153,14 @@ async def websocket_endpoint(websocket: WebSocket, call_id: str):
             "end_call": False
         }
         await websocket.send_json(welcome_event)
-
+        
         while True:
             data = await websocket.receive_json()
             
             if data.get("interaction_type") == "response_required":
                 user_text = data["transcript"][-1]["content"]
                 print(f"🗣️ User: {user_text}")
-
+                
                 ai_reply = "I have noted that request for you."
                 try:
                     model = genai.GenerativeModel('gemini-1.5-flash')
@@ -170,7 +168,7 @@ async def websocket_endpoint(websocket: WebSocket, call_id: str):
                     ai_reply = response.text
                 except:
                     ai_reply = "Certainly, I will take care of that right away."
-
+                
                 response_event = {
                     "response_type": "response",
                     "response_id": data["response_id"],
@@ -179,6 +177,5 @@ async def websocket_endpoint(websocket: WebSocket, call_id: str):
                     "end_call": False
                 }
                 await websocket.send_json(response_event)
-
     except Exception as e:
         print(f"⚠️ Connection Closed: {e}")
