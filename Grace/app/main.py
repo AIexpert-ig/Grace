@@ -52,7 +52,7 @@ if GOOGLE_API_KEY:
 @app.get("/")
 async def read_root():
     # This FileResponse is what fixes the "Code View" bug
-    return FileResponse("app/static/index.html")
+    return FileResponse("app/static/index.html", media_type="text/html")
 
 @app.get("/health")
 def health_check():

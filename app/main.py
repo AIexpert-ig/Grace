@@ -59,7 +59,7 @@ if GOOGLE_API_KEY:
 
 @app.get("/")
 async def read_root():
-    return FileResponse("app/static/index.html")
+    return FileResponse("app/static/index.html", media_type="text/html")
 
 
 @app.get("/health")
