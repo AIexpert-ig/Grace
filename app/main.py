@@ -52,10 +52,6 @@ if GOOGLE_API_KEY:
 
 @app.get("/")
 async def read_root():
-    """
-    FIX: Uses FileResponse to ensure browser renders HTML 
-    instead of showing code.
-    """
     return FileResponse("app/static/index.html")
 
 @app.get("/health")
@@ -147,3 +143,42 @@ async def handle_webhook(request: Request):
 # --- VOICE BRAIN (WEBSOCKET) ---
 @app.websocket("/llm-websocket/{call_id}")
 async def websocket_endpoint(websocket: WebSocket, call_id: str):
+    await websocket.accept()
+    print(f"🧠 AI Connected: {call_id}")
+
+    try:
+        welcome_event = {
+            "response_type": "response",
+            "response_id": "init_welcome",
+            "content": "Good morning, this is Grace at the front desk. How may I assist you?",
+            "content_complete": True,
+            "end_call": False
+        }
+        await websocket.send_json(welcome_event)
+
+        while True:
+            data = await websocket.receive_json()
+            
+            if data.get("interaction_type") == "response_required":
+                user_text = data["transcript"][-1]["content"]
+                print(f"🗣️ User: {user_text}")
+
+                ai_reply = "I have noted that request for you."
+                try:
+                    model = genai.GenerativeModel('gemini-1.5-flash')
+                    response = model.generate_content(f"You are a hotel concierge named Grace. User says: {user_text}. Keep it short.")
+                    ai_reply = response.text
+                except:
+                    ai_reply = "Certainly, I will take care of that right away."
+
+                response_event = {
+                    "response_type": "response",
+                    "response_id": data["response_id"],
+                    "content": ai_reply,
+                    "content_complete": True,
+                    "end_call": False
+                }
+                await websocket.send_json(response_event)
+
+    except Exception as e:
+        print(f"⚠️ Connection Closed: {e}")
