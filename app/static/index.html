@@ -1,359 +1,164 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Grace Hotel Concierge | Command Center</title>
-  <meta name="description" content="AI-powered voice-native hotel concierge system">
-  <link rel="icon" href="https://z-cdn.chatglm.cn/z-ai/static/logo.svg">
-
-  <script src="https://cdn.tailwindcss.com"></script>
-
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            slate: { 950: '#020617', 900: '#0f172a', 800: '#1e293b' },
-            purple: { 400: '#c084fc', 500: '#a855f7', 600: '#9333ea' },
-            cyan: { 400: '#22d3ee', 500: '#06b6d4' }
-          }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grace Hotel Concierge | Command Center</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        slate: { 950: '#020617', 900: '#0f172a', 800: '#1e293b' },
+                        purple: { 400: '#c084fc', 500: '#a855f7', 600: '#9333ea' },
+                        cyan: { 400: '#22d3ee', 500: '#06b6d4' }
+                    }
+                }
+            }
         }
-      }
-    }
-  </script>
-
-  <style>
-    @keyframes pulse {
-
-      0%,
-      100% {
-        opacity: 1;
-      }
-
-      50% {
-        opacity: 0.6;
-      }
-    }
-
-    .glass-card {
-      background: rgba(15, 23, 42, 0.8);
-      backdrop-filter: blur(16px);
-      border: 1px solid rgba(168, 85, 247, 0.3);
-      box-shadow: 0 8px 32px rgba(168, 85, 247, 0.3);
-    }
-
-    .status-dot {
-      animation: pulse 2s infinite;
-    }
-
-    /* Custom Scrollbar */
-    ::-webkit-scrollbar {
-      width: 8px;
-    }
-
-    ::-webkit-scrollbar-track {
-      background: #0f172a;
-    }
-
-    ::-webkit-scrollbar-thumb {
-      background: #4c1d95;
-      border-radius: 4px;
-    }
-
-    ::-webkit-scrollbar-thumb:hover {
-      background: #6d28d9;
-    }
-  </style>
+    </script>
+    <style>
+        .glass-card {
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(148, 163, 184, 0.1);
+        }
+    </style>
 </head>
-
-<body class="bg-gradient-to-br from-slate-950 via-purple-950/20 to-slate-950 min-h-screen text-white overflow-x-hidden">
-  <div class="fixed inset-0 opacity-5 pointer-events-none">
-    <div class="absolute inset-0"
-      style="background-image: linear-gradient(#a855f7 1px, transparent 1px), linear-gradient(90deg, #a855f7 1px, transparent 1px); background-size: 50px 50px;">
-    </div>
-  </div>
-
-  <div
-    class="fixed top-1/4 left-1/4 w-96 h-96 bg-purple-600/10 rounded-full blur-3xl animate-pulse pointer-events-none">
-  </div>
-  <div
-    class="fixed bottom-1/4 right-1/4 w-96 h-96 bg-cyan-600/10 rounded-full blur-3xl animate-pulse pointer-events-none delay-1000">
-  </div>
-
-  <header class="sticky top-0 z-50 border-b border-purple-500/20 backdrop-blur-xl bg-slate-950/80">
-    <div class="container mx-auto px-4 py-4">
-      <div class="flex items-center justify-between">
-        <div class="flex items-center gap-4">
-          <div class="relative">
-            <i class="fas fa-robot text-purple-400 text-2xl"></i>
-            <span class="absolute -top-1 -right-1 h-3 w-3 bg-green-500 rounded-full status-dot"></span>
-          </div>
-          <div>
-            <h1
-              class="text-2xl font-bold bg-gradient-to-r from-purple-400 via-cyan-400 to-purple-400 bg-clip-text text-transparent">
-              GRACE AI</h1>
-            <p class="text-xs text-slate-400 font-mono tracking-widest">HOTEL CONCIERGE V36</p>
-          </div>
-        </div>
-
-        <div class="flex items-center gap-6">
-          <div class="text-right hidden md:block">
-            <p class="text-xs text-purple-400 font-mono">SYSTEM TIME</p>
-            <p class="text-sm font-mono text-cyan-400" id="system-time">--:--:--</p>
-          </div>
-          <div
-            class="flex items-center gap-2 text-xs text-green-400 font-mono border border-green-500/30 px-3 py-1 rounded-full bg-green-500/10">
-            <div class="w-2 h-2 bg-green-500 rounded-full status-dot"></div>
-            OPERATIONAL
-          </div>
-        </div>
-      </div>
-    </div>
-    <div class="h-[1px] w-full bg-gradient-to-r from-transparent via-purple-600 to-transparent opacity-50"></div>
-  </header>
-
-  <main class="container mx-auto px-4 py-8 relative z-10">
-
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-      <div class="glass-card rounded-2xl p-6 relative overflow-hidden group hover:border-purple-500/50 transition-all">
-        <div
-          class="absolute top-0 right-0 w-32 h-32 bg-purple-600/20 rounded-full blur-3xl group-hover:bg-purple-600/30 transition-all">
-        </div>
-        <div class="flex justify-between items-start mb-4">
-          <h2 class="text-sm text-purple-400 font-mono uppercase">Total Tickets</h2>
-          <i class="fas fa-database text-cyan-400 text-xl"></i>
-        </div>
-        <div class="text-4xl font-bold text-white" id="total-tickets">0</div>
-        <p class="text-xs text-slate-500 mt-2 font-mono">LIFETIME LOGS</p>
-      </div>
-
-      <div class="glass-card rounded-2xl p-6 relative overflow-hidden group hover:border-green-500/50 transition-all">
-        <div
-          class="absolute top-0 right-0 w-32 h-32 bg-green-600/20 rounded-full blur-3xl group-hover:bg-green-600/30 transition-all">
-        </div>
-        <div class="flex justify-between items-start mb-4">
-          <h2 class="text-sm text-green-400 font-mono uppercase">System Status</h2>
-          <i class="fas fa-server text-green-400 text-xl"></i>
-        </div>
-        <div class="text-2xl font-bold text-white mt-1">Listening</div>
-        <p class="text-xs text-slate-500 mt-2 font-mono">WEBHOOK ACTIVE</p>
-      </div>
-
-      <div class="glass-card rounded-2xl p-6 relative overflow-hidden group hover:border-cyan-500/50 transition-all">
-        <div
-          class="absolute top-0 right-0 w-32 h-32 bg-cyan-600/20 rounded-full blur-3xl group-hover:bg-cyan-600/30 transition-all">
-        </div>
-        <div class="flex justify-between items-start mb-4">
-          <h2 class="text-sm text-cyan-400 font-mono uppercase">AI Model</h2>
-          <i class="fas fa-brain text-purple-400 text-xl"></i>
-        </div>
-        <div class="text-2xl font-bold text-white mt-1">Gemini Flash</div>
-        <p class="text-xs text-slate-500 mt-2 font-mono">LATENCY: LOW</p>
-      </div>
+<body class="bg-slate-950 min-h-screen text-white overflow-x-hidden font-sans">
+    
+    <div class="fixed inset-0 pointer-events-none">
+        <div class="absolute top-0 left-1/4 w-96 h-96 bg-purple-600/20 rounded-full blur-3xl"></div>
+        <div class="absolute bottom-0 right-1/4 w-96 h-96 bg-cyan-600/20 rounded-full blur-3xl"></div>
     </div>
 
-    <div class="glass-card rounded-2xl p-6 min-h-[600px]">
-      <div class="flex items-center justify-between mb-6">
-        <h2 class="text-xl font-bold flex items-center gap-3">
-          <i class="fas fa-list-ul text-purple-400"></i>
-          <span class="bg-gradient-to-r from-purple-400 to-cyan-400 bg-clip-text text-transparent">Live Incoming
-            Feed</span>
-        </h2>
-        <div class="flex gap-3">
-          <button id="create-test-ticket"
-            class="text-xs bg-slate-800 hover:bg-slate-700 text-purple-300 border border-purple-500/30 px-4 py-2 rounded-lg transition-all flex items-center gap-2">
-            <i class="fas fa-plus"></i> Test Ticket
-          </button>
-          <div
-            class="flex items-center gap-2 text-xs text-green-400 font-mono bg-slate-900/50 px-3 py-2 rounded-lg border border-slate-700">
-            <span class="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
-            LIVE SYNC
-          </div>
+    <div class="relative z-10 max-w-7xl mx-auto p-6">
+        
+        <header class="flex justify-between items-center mb-10 py-4 border-b border-white/10">
+            <div>
+                <h1 class="text-3xl font-bold bg-gradient-to-r from-purple-400 to-cyan-400 bg-clip-text text-transparent">
+                    Grace AI
+                </h1>
+                <p class="text-slate-400 text-sm">Hotel Concierge Command Center</p>
+            </div>
+            <div class="flex gap-4">
+                <button onclick="testTicket()" class="px-4 py-2 bg-purple-600/20 border border-purple-500/50 hover:bg-purple-600/40 rounded-lg text-sm transition-all">
+                    <i class="fas fa-plus mr-2"></i>Test Ticket
+                </button>
+                <div class="flex items-center gap-2 px-4 py-2 glass-card rounded-lg">
+                    <div class="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                    <span class="text-sm font-medium text-green-400">System Online</span>
+                </div>
+            </div>
+        </header>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+            <div class="glass-card p-6 rounded-2xl">
+                <div class="text-slate-400 mb-2 text-sm uppercase tracking-wider">Active Tickets</div>
+                <div class="text-4xl font-bold text-white" id="stat-open">0</div>
+            </div>
+            <div class="glass-card p-6 rounded-2xl">
+                <div class="text-slate-400 mb-2 text-sm uppercase tracking-wider">Total Requests</div>
+                <div class="text-4xl font-bold text-white" id="stat-total">0</div>
+            </div>
+            <div class="glass-card p-6 rounded-2xl">
+                <div class="text-slate-400 mb-2 text-sm uppercase tracking-wider">Guest Sentiment</div>
+                <div class="text-4xl font-bold text-cyan-400" id="stat-sentiment">98%</div>
+            </div>
         </div>
-      </div>
 
-      <div id="loading-state" class="flex flex-col items-center justify-center h-64 text-slate-400">
-        <div class="w-12 h-12 border-4 border-purple-500/30 border-t-purple-500 rounded-full animate-spin mb-4"></div>
-        <p class="font-mono text-sm">CONNECTING TO NEURAL CORE...</p>
-      </div>
-
-      <div id="empty-state" class="hidden flex flex-col items-center justify-center h-64 text-slate-500">
-        <i class="fas fa-inbox text-4xl mb-4 opacity-50"></i>
-        <p>No active requests found.</p>
-        <p class="text-sm opacity-70 mt-1">Waiting for incoming calls...</p>
-      </div>
-
-      <div id="tickets-container" class="hidden overflow-x-auto">
-        <table class="w-full text-left border-collapse">
-          <thead>
-            <tr class="border-b border-purple-500/20 text-xs font-mono text-purple-400 uppercase tracking-wider">
-              <th class="p-4">Time</th>
-              <th class="p-4">Guest</th>
-              <th class="p-4">Room</th>
-              <th class="p-4 w-1/3">Request & AI Analysis</th>
-              <th class="p-4">Sentiment</th>
-              <th class="p-4">Status</th>
-            </tr>
-          </thead>
-          <tbody id="tickets-body" class="text-sm divide-y divide-purple-500/10">
-          </tbody>
-        </table>
-      </div>
+        <div class="glass-card rounded-2xl overflow-hidden">
+            <div class="p-6 border-b border-white/10 flex justify-between items-center">
+                <h2 class="text-xl font-semibold">Live Ticket Feed</h2>
+                <span class="text-xs text-slate-500 uppercase tracking-widest">Real-time Sync</span>
+            </div>
+            
+            <div class="overflow-x-auto">
+                <table class="w-full text-left">
+                    <thead class="bg-white/5 text-slate-400 text-xs uppercase">
+                        <tr>
+                            <th class="p-4 font-medium">Time</th>
+                            <th class="p-4 font-medium">Guest</th>
+                            <th class="p-4 font-medium">Room</th>
+                            <th class="p-4 font-medium">Request</th>
+                            <th class="p-4 font-medium">Status</th>
+                            <th class="p-4 font-medium text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ticket-feed" class="divide-y divide-white/5 text-sm"></tbody>
+                </table>
+            </div>
+        </div>
     </div>
-  </main>
 
-  <footer class="border-t border-purple-500/10 bg-slate-950/80 mt-auto py-6">
-    <div class="container mx-auto px-4 text-center">
-      <p class="text-xs text-slate-600 font-mono">GRACE AI SYSTEM // POWERED BY RAILWAY & GEMINI</p>
-    </div>
-  </footer>
+    <script>
+        const API_BASE = window.location.origin;
 
-  <script>
-    // 🚀 AUTO-DETECT API URL (Fixes the localhost issue)
-    const API_BASE_URL = window.location.origin;
-
-    // DOM Elements
-    const totalTicketsEl = document.getElementById('total-tickets');
-    const loadingStateEl = document.getElementById('loading-state');
-    const emptyStateEl = document.getElementById('empty-state');
-    const ticketsContainerEl = document.getElementById('tickets-container');
-    const ticketsBodyEl = document.getElementById('tickets-body');
-    const testBtn = document.getElementById('create-test-ticket');
-
-    // Initialize
-    function init() {
-      startClock();
-      fetchDashboardData();
-      // Poll every 3 seconds for new tickets
-      setInterval(fetchDashboardData, 3000);
-    }
-
-    // Live Clock
-    function startClock() {
-      const update = () => {
-        const now = new Date();
-        document.getElementById('system-time').innerText = now.toLocaleTimeString();
-      };
-      update();
-      setInterval(update, 1000);
-    }
-
-    // Fetch Data from Grace Backend
-    async function fetchDashboardData() {
-      try {
-        // 1. Get Stats
-        const statsRes = await fetch(`${API_BASE_URL}/staff/dashboard-stats`);
-        const stats = await statsRes.json();
-
-        if (totalTicketsEl) totalTicketsEl.innerText = stats.total_tickets || 0;
-
-        // 2. Get Recent Tickets
-        const ticketsRes = await fetch(`${API_BASE_URL}/staff/recent-tickets`);
-        const tickets = await ticketsRes.json();
-
-        renderTickets(tickets);
-
-      } catch (error) {
-        console.error("Dashboard Error:", error);
-      }
-    }
-
-    // Render the Table
-    function renderTickets(tickets) {
-      loadingStateEl.classList.add('hidden');
-
-      if (!tickets || tickets.length === 0) {
-        emptyStateEl.classList.remove('hidden');
-        ticketsContainerEl.classList.add('hidden');
-        return;
-      }
-
-      emptyStateEl.classList.add('hidden');
-      ticketsContainerEl.classList.remove('hidden');
-      ticketsBodyEl.innerHTML = '';
-
-      tickets.forEach(t => {
-        // Parse AI Note from Issue text
-        let issueText = t.issue || "No audio";
-        let aiBadge = "";
-
-        // Logic to separate "I need water || [AI: Send Amenities]"
-        if (issueText.includes("|| [AI:")) {
-          const parts = issueText.split("|| [AI:");
-          issueText = parts[0];
-          aiBadge = `<div class="mt-1 flex items-center gap-1 text-xs text-cyan-400 font-mono"><i class="fas fa-robot"></i> ${parts[1].replace("]", "")}</div>`;
+        async function fetchStats() {
+            try {
+                const res = await fetch(`${API_BASE}/staff/dashboard-stats`);
+                const data = await res.json();
+                document.getElementById('stat-total').innerText = data.total_tickets;
+                document.getElementById('stat-open').innerText = data.open_tickets;
+            } catch (e) { console.error("Stats error", e); }
         }
 
-        // Status Color Logic
-        let statusBadge = t.status === 'OPEN'
-          ? '<span class="px-2 py-1 rounded bg-red-500/20 text-red-300 border border-red-500/30 text-xs font-bold">OPEN</span>'
-          : '<span class="px-2 py-1 rounded bg-green-500/20 text-green-300 border border-green-500/30 text-xs font-bold">RESOLVED</span>';
-
-        // Sentiment Icon
-        let sentimentIcon = '<i class="fas fa-minus text-slate-500"></i>';
-        let sentimentClass = 'text-slate-400';
-
-        if (t.sentiment && t.sentiment.toLowerCase().includes('positive')) {
-          sentimentIcon = '<i class="fas fa-smile text-green-400"></i>';
-          sentimentClass = 'text-green-400';
-        } else if (t.sentiment && t.sentiment.toLowerCase().includes('negative')) {
-          sentimentIcon = '<i class="fas fa-frown text-red-400"></i>';
-          sentimentClass = 'text-red-400';
+        async function fetchTickets() {
+            try {
+                const res = await fetch(`${API_BASE}/staff/recent-tickets`);
+                const tickets = await res.json();
+                const tbody = document.getElementById('ticket-feed');
+                
+                tbody.innerHTML = tickets.map(t => `
+                    <tr class="hover:bg-white/5 transition-colors group">
+                        <td class="p-4 text-slate-400 whitespace-nowrap">${new Date(t.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</td>
+                        <td class="p-4 font-medium text-white">${t.guest_name}</td>
+                        <td class="p-4 text-cyan-400 font-mono">${t.room_number}</td>
+                        <td class="p-4 text-slate-300 max-w-xs truncate">${t.issue}</td>
+                        <td class="p-4">
+                            <span class="px-2 py-1 rounded-full text-xs font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                                ${t.status}
+                            </span>
+                        </td>
+                        <td class="p-4 text-right">
+                            <button onclick="deleteTicket(${t.id})" class="text-slate-500 hover:text-red-400 transition-colors p-2 rounded hover:bg-white/10" title="Delete Ticket">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `).join('');
+            } catch (e) { console.error("Feed error", e); }
         }
 
-        const row = document.createElement('tr');
-        row.className = 'border-b border-purple-500/10 hover:bg-purple-500/5 transition-all';
-        row.innerHTML = `
-                    <td class="p-4 text-slate-400 font-mono whitespace-nowrap">${new Date(t.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
-                    <td class="p-4 font-bold text-white">${t.guest_name}</td>
-                    <td class="p-4 text-cyan-300 font-mono">${t.room_number}</td>
-                    <td class="p-4 text-slate-300">
-                        <div class="line-clamp-2" title="${issueText}">${issueText}</div>
-                        ${aiBadge}
-                    </td>
-                    <td class="p-4">
-                        <div class="flex items-center gap-2 ${sentimentClass}">
-                            ${sentimentIcon}
-                            <span class="text-xs font-mono uppercase">${t.sentiment || 'Neutral'}</span>
-                        </div>
-                    </td>
-                    <td class="p-4">
-                        ${statusBadge}
-                    </td>
-                `;
-        ticketsBodyEl.appendChild(row);
-      });
-    }
+        async function deleteTicket(id) {
+            if(!confirm("Are you sure you want to delete this ticket?")) return;
+            try {
+                await fetch(`${API_BASE}/staff/tickets/${id}`, { method: 'DELETE' });
+                fetchStats();
+                fetchTickets();
+            } catch(e) {
+                alert("Failed to delete ticket");
+            }
+        }
 
-    // Test Ticket Button Logic
-    testBtn.addEventListener('click', async () => {
-      testBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
-      try {
-        await fetch(`${API_BASE_URL}/staff/escalate`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            guest_name: "Test Guest",
-            room_number: "101",
-            issue: "I need extra towels and soap please."
-          })
-        });
-        setTimeout(() => fetchDashboardData(), 1000); // Quick refresh
-      } catch (e) {
-        console.error(e);
-        alert("Error creating ticket");
-      } finally {
-        testBtn.innerHTML = '<i class="fas fa-plus"></i> Test Ticket';
-      }
-    });
+        async function testTicket() {
+            await fetch(`${API_BASE}/staff/escalate`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    guest_name: "Test Guest",
+                    room_number: "101",
+                    issue: "Manual test ticket created from dashboard."
+                })
+            });
+            fetchTickets();
+            fetchStats();
+        }
 
-    // Start
-    init();
-  </script>
+        setInterval(() => { fetchStats(); fetchTickets(); }, 2000);
+        fetchStats(); fetchTickets();
+    </script>
 </body>
-
 </html>
