@@ -54,8 +54,7 @@ BUILD_MARK = "grace-build-2026-02-09"
 @app.get("/__build")
 def __build():
     return {"sha": BUILD_SHA, "mark": BUILD_MARK}
-
-
+    
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
