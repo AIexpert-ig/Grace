@@ -84,6 +84,15 @@ def _parse_envelope(data: dict) -> EventEnvelope | None:
         return None
 
 
+def _derive_retell_type(payload: object) -> str:
+    if isinstance(payload, dict):
+        for key in ("event", "type", "event_type"):
+            value = payload.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+    return "retell.webhook"
+
+
 # --- ROUTES ---
 
 
@@ -355,14 +364,63 @@ def delete_ticket(ticket_id: int):
 @app.post("/webhook")
 async def handle_webhook(
     request: Request,
-    _: None = Depends(verify_retell_signature),
 ):
-    payload = await request.json()
+    if not settings.RETELL_SIGNING_SECRET:
+        return _error_response(503, "retell_signing_secret_missing")
+
+    raw_body = await request.body()
+    timestamp = request.headers.get("X-Signature-Timestamp")
+    signature = request.headers.get("X-Signature")
+
+    try:
+        verify_hmac_signature(
+            raw_body=raw_body,
+            timestamp=timestamp,
+            signature=signature,
+            secret=settings.RETELL_SIGNING_SECRET,
+            tolerance_seconds=settings.WEBHOOK_TIMESTAMP_TOLERANCE_SECONDS,
+        )
+    except (SignatureMissingError, SignatureExpiredError, SignatureInvalidError):
+        return _error_response(401, "unauthorized")
+
+    try:
+        payload = json.loads(raw_body)
+    except Exception:
+        return _error_response(400, "invalid_json")
+
+    envelope = EventEnvelope(
+        version="v1",
+        source="retell",
+        type=_derive_retell_type(payload),
+        idempotency_key=hashlib.sha256(raw_body).hexdigest(),
+        timestamp=int(time.time()),
+        correlation_id=str(uuid.uuid4()),
+        payload=payload,
+    )
+
+    result = await bus.publish(envelope)
+    if result.status == "duplicate":
+        return JSONResponse(
+            status_code=200,
+            content={
+                "received": True,
+                "status": "duplicate",
+                "correlation_id": result.correlation_id,
+            },
+        )
+
     logger.info(
         "Webhook received",
-        extra={"correlation_id": payload.get("call_id", "webhook")},
+        extra={"correlation_id": envelope.correlation_id},
     )
-    return {"received": True}
+    return JSONResponse(
+        status_code=200,
+        content={
+            "received": True,
+            "status": "accepted",
+            "correlation_id": envelope.correlation_id,
+        },
+    )
 
 
 # --- VOICE BRAIN (WEBSOCKET) ---
