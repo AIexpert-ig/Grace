@@ -157,22 +157,54 @@
     </div>
 
     <div class="glass-card rounded-2xl p-6 min-h-[600px]">
-      <div class="flex items-center justify-between mb-6">
+      <div class="flex items-center justify-between mb-4">
         <h2 class="text-xl font-bold flex items-center gap-3">
           <i class="fas fa-list-ul text-purple-400"></i>
           <span class="bg-gradient-to-r from-purple-400 to-cyan-400 bg-clip-text text-transparent">Live Incoming
             Feed</span>
         </h2>
-        <div class="flex gap-3">
+        <div
+          class="flex items-center gap-2 text-xs text-green-400 font-mono bg-slate-900/50 px-3 py-2 rounded-lg border border-slate-700">
+          <span class="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
+          LIVE SYNC
+        </div>
+      </div>
+
+      <div class="flex flex-col gap-3 mb-6">
+        <div class="flex flex-wrap items-center gap-3">
+          <label class="flex items-center gap-2 text-xs text-slate-300 font-mono">
+            <span class="text-purple-300">Admin Token</span>
+            <input id="admin-token-input" type="password" placeholder="••••••"
+              class="bg-slate-900/60 border border-purple-500/20 rounded-md px-2 py-1 text-xs text-slate-200 focus:outline-none focus:border-purple-500/60" />
+          </label>
+          <button id="btn-test-telegram" onclick="triggerTest('telegram')" title="Admin Ping"
+            class="text-xs bg-slate-800 hover:bg-slate-700 text-blue-300 border border-blue-500/30 px-3 py-2 rounded-lg transition-all flex items-center gap-2">
+            <i class="fab fa-telegram"></i> Test Telegram
+          </button>
+          <button id="btn-trigger-make" onclick="triggerTest('make')"
+            class="text-xs bg-slate-800 hover:bg-slate-700 text-purple-300 border border-purple-500/30 px-3 py-2 rounded-lg transition-all flex items-center gap-2">
+            <i class="fas fa-bolt"></i> Trigger Make
+          </button>
+          <button id="btn-simulate-retell" onclick="triggerTest('retell')"
+            class="text-xs bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-cyan-500/30 px-3 py-2 rounded-lg transition-all flex items-center gap-2">
+            <i class="fas fa-wave-square"></i> Simulate Retell
+          </button>
           <button id="create-test-ticket"
-            class="text-xs bg-slate-800 hover:bg-slate-700 text-purple-300 border border-purple-500/30 px-4 py-2 rounded-lg transition-all flex items-center gap-2">
+            class="text-xs bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-emerald-500/30 px-4 py-2 rounded-lg transition-all flex items-center gap-2">
             <i class="fas fa-plus"></i> Test Ticket
           </button>
-          <div
-            class="flex items-center gap-2 text-xs text-green-400 font-mono bg-slate-900/50 px-3 py-2 rounded-lg border border-slate-700">
-            <span class="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
-            LIVE SYNC
+        </div>
+        <div id="action-status"
+          class="flex flex-wrap items-center gap-4 text-xs font-mono bg-slate-900/50 px-3 py-2 rounded-lg border border-slate-700 text-slate-300">
+          <div>Last Action: <span id="status-action">—</span></div>
+          <div>HTTP: <span id="status-code">—</span></div>
+          <div class="flex items-center gap-2">
+            Correlation ID: <span id="status-correlation">—</span>
+            <button id="copy-correlation" class="text-xs text-cyan-300 border border-cyan-500/30 px-2 py-1 rounded-md disabled:opacity-40" disabled>
+              Copy
+            </button>
           </div>
+          <div class="text-red-300" id="status-error">—</div>
         </div>
       </div>
 
@@ -223,6 +255,143 @@
     const ticketsContainerEl = document.getElementById('tickets-container');
     const ticketsBodyEl = document.getElementById('tickets-body');
     const testBtn = document.getElementById('create-test-ticket');
+    const adminTokenInput = document.getElementById('admin-token-input');
+    const statusActionEl = document.getElementById('status-action');
+    const statusCodeEl = document.getElementById('status-code');
+    const statusCorrelationEl = document.getElementById('status-correlation');
+    const statusErrorEl = document.getElementById('status-error');
+    const copyCorrelationBtn = document.getElementById('copy-correlation');
+
+    function generateCorrelationId() {
+      if (window.crypto && window.crypto.randomUUID) {
+        return window.crypto.randomUUID();
+      }
+      return `cid_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+    }
+
+    function setStatus({ action, statusCode, correlationId, error }) {
+      if (statusActionEl) statusActionEl.textContent = action || '—';
+      if (statusCodeEl) statusCodeEl.textContent = statusCode || '—';
+      if (statusCorrelationEl) statusCorrelationEl.textContent = correlationId || '—';
+      if (statusErrorEl) statusErrorEl.textContent = error || '—';
+
+      if (copyCorrelationBtn) {
+        const hasCorrelation = Boolean(correlationId);
+        copyCorrelationBtn.disabled = !hasCorrelation;
+        copyCorrelationBtn.dataset.correlationId = correlationId || '';
+      }
+    }
+
+    async function triggerTest(kind) {
+      const button = (window.event && window.event.currentTarget)
+        ? window.event.currentTarget
+        : document.getElementById(`btn-${kind}`);
+
+      const originalHtml = button ? button.innerHTML : null;
+      if (button) {
+        button.disabled = true;
+        button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Working...';
+      }
+
+      const correlationId = generateCorrelationId();
+      const adminToken = adminTokenInput ? adminTokenInput.value.trim() : '';
+      let url = '';
+      let method = 'POST';
+      let headers = { 'Content-Type': 'application/json' };
+      let body = null;
+      let actionLabel = '';
+
+      if (kind === 'telegram') {
+        actionLabel = 'Admin Ping';
+        if (!adminToken) {
+          setStatus({ action: actionLabel, statusCode: '—', correlationId, error: 'Missing admin token' });
+          if (button) {
+            button.disabled = false;
+            button.innerHTML = originalHtml;
+          }
+          return;
+        }
+        url = `${API_BASE_URL}/events/deadletter`;
+        method = 'GET';
+        headers = {
+          'X-Admin-Token': adminToken,
+          'X-Correlation-Id': correlationId
+        };
+      } else if (kind === 'make') {
+        actionLabel = 'Trigger Make';
+        if (!adminToken) {
+          setStatus({ action: actionLabel, statusCode: '—', correlationId, error: 'Missing admin token' });
+          if (button) {
+            button.disabled = false;
+            button.innerHTML = originalHtml;
+          }
+          return;
+        }
+        url = `${API_BASE_URL}/integrations/make/trigger`;
+        headers['X-Admin-Token'] = adminToken;
+        body = JSON.stringify({
+          version: 'v1',
+          source: 'ui',
+          type: 'make.trigger',
+          idempotency_key: correlationId,
+          timestamp: Math.floor(Date.now() / 1000),
+          correlation_id: correlationId,
+          payload: { origin: 'dashboard' }
+        });
+      } else if (kind === 'retell') {
+        actionLabel = 'Simulate Retell';
+        url = `${API_BASE_URL}/webhooks/retell/simulate`;
+        body = JSON.stringify({
+          call_id: correlationId,
+          event: 'call_simulated',
+          transcript: 'Test call from dashboard',
+          sentiment: 'neutral'
+        });
+      } else {
+        if (button) {
+          button.disabled = false;
+          button.innerHTML = originalHtml;
+        }
+        return;
+      }
+
+      try {
+        const response = await fetch(url, { method, headers, body });
+        const responseText = await response.text();
+        let responseData = null;
+        try {
+          responseData = responseText ? JSON.parse(responseText) : null;
+        } catch (e) {
+          responseData = null;
+        }
+
+        const responseCorrelationId = responseData && responseData.correlation_id
+          ? responseData.correlation_id
+          : correlationId;
+        const errorMessage = response.ok
+          ? ''
+          : (responseData && (responseData.error || responseData.detail)) || responseText || 'Request failed';
+
+        setStatus({
+          action: actionLabel,
+          statusCode: response.status,
+          correlationId: responseCorrelationId,
+          error: errorMessage
+        });
+      } catch (error) {
+        setStatus({
+          action: actionLabel || kind,
+          statusCode: '—',
+          correlationId,
+          error: error && error.message ? error.message : 'Network error'
+        });
+      } finally {
+        if (button) {
+          button.disabled = false;
+          button.innerHTML = originalHtml;
+        }
+      }
+    }
 
     // Initialize
     function init() {
@@ -350,6 +519,32 @@
         testBtn.innerHTML = '<i class="fas fa-plus"></i> Test Ticket';
       }
     });
+
+    // Correlation ID Copy
+    if (copyCorrelationBtn) {
+      copyCorrelationBtn.addEventListener('click', async () => {
+        const correlationId = copyCorrelationBtn.dataset.correlationId || '';
+        if (!correlationId) return;
+        try {
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            await navigator.clipboard.writeText(correlationId);
+          }
+          setStatus({
+            action: statusActionEl ? statusActionEl.textContent : 'Copy',
+            statusCode: statusCodeEl ? statusCodeEl.textContent : '—',
+            correlationId,
+            error: ''
+          });
+        } catch (error) {
+          setStatus({
+            action: statusActionEl ? statusActionEl.textContent : 'Copy',
+            statusCode: statusCodeEl ? statusCodeEl.textContent : '—',
+            correlationId,
+            error: 'Copy failed'
+          });
+        }
+      });
+    }
 
     // Start
     init();
