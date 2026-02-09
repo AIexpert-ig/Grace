@@ -1,3 +1,4 @@
+import os
 import hashlib
 import json
 import os
@@ -53,6 +54,12 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 # --- FASTAPI APP ---
 app = FastAPI()
+
+BUILD_SHA = os.getenv("RAILWAY_GIT_COMMIT_SHA") or os.getenv("GITHUB_SHA") or "unknown"
+
+@app.get("/__build")
+def __build():
+    return {"sha": BUILD_SHA, "has_deadletter": True}
 
 app.add_middleware(
     CORSMiddleware,
