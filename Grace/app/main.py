@@ -54,7 +54,7 @@ BUILD_MARK = "grace-build-2026-02-09"
 @app.get("/__build")
 def __build():
     return {"sha": BUILD_SHA, "mark": BUILD_MARK}
-    
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -76,14 +76,6 @@ async def startup() -> None:
     if settings.ENABLE_MAKE_WEBHOOKS:
         bus.subscribe("ticket.created", handle_make_trigger)
     logger.info("System Online: Event Bus Active", extra={"correlation_id": "startup"})
-
-
-@app.get("/__build")
-def __build():
-    return {
-        "sha": BUILD_SHA,
-        "has_deadletter_route": True,
-    }
 
 
 def _error_response(status_code: int, error: str, correlation_id: str | None = None) -> JSONResponse:
