@@ -1,10 +1,17 @@
 import hashlib
 import json
+import os
 import time
 import uuid
 from datetime import datetime
 
-from fastapi import Depends, FastAPI, HTTPException, Request, WebSocket
+BUILD_SHA = (
+    os.getenv("RAILWAY_GIT_COMMIT_SHA")
+    or os.getenv("GITHUB_SHA")
+    or "unknown"
+)
+
+from fastapi import FastAPI, HTTPException, Request, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -68,6 +75,14 @@ async def startup() -> None:
     if settings.ENABLE_MAKE_WEBHOOKS:
         bus.subscribe("ticket.created", handle_make_trigger)
     logger.info("System Online: Event Bus Active", extra={"correlation_id": "startup"})
+
+
+@app.get("/__build")
+def __build():
+    return {
+        "sha": BUILD_SHA,
+        "has_deadletter_route": True,
+    }
 
 
 def _error_response(status_code: int, error: str, correlation_id: str | None = None) -> JSONResponse:
