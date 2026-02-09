@@ -5,12 +5,6 @@ import time
 import uuid
 from datetime import datetime
 
-BUILD_SHA = os.getenv("RAILWAY_GIT_COMMIT_SHA") or os.getenv("GITHUB_SHA") or "unknown"
-
-@app.get("/__build")
-def __build():
-    return {"sha": BUILD_SHA, "has_deadletter": True} 
-
 from fastapi import FastAPI, HTTPException, Request, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
