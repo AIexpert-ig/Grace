@@ -49,10 +49,12 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 app = FastAPI()
 
 BUILD_SHA = os.getenv("RAILWAY_GIT_COMMIT_SHA") or os.getenv("GITHUB_SHA") or "unknown"
+BUILD_MARK = "grace-build-2026-02-09"
 
 @app.get("/__build")
 def __build():
-    return {"sha": BUILD_SHA, "has_deadletter": True}
+    return {"sha": BUILD_SHA, "mark": BUILD_MARK}
+
 
 app.add_middleware(
     CORSMiddleware,
