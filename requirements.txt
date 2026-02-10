@@ -8,3 +8,4 @@ google-generativeai
 python-dotenv
 requests
 websockets
+pydantic-settings>=2.0,<3

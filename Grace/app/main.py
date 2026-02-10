@@ -53,7 +53,15 @@ BUILD_MARK = "grace-build-2026-02-09"
 
 @app.get("/__build")
 def __build():
-    return {"sha": BUILD_SHA, "mark": BUILD_MARK}
+    return {
+        "sha": BUILD_SHA,
+        "service": "Grace",
+        "routes": {
+            "deadletter": bool(settings.ADMIN_TOKEN),
+            "make_ingress": bool(settings.ENABLE_MAKE_WEBHOOKS),
+        },
+        "mark": BUILD_MARK,
+    }
 
 app.add_middleware(
     CORSMiddleware,
