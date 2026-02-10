@@ -65,9 +65,9 @@ app.add_middleware(
 
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
-if settings.GOOGLE_API_KEY:
-    genai.configure(api_key=settings.GOOGLE_API_KEY)
-
+api_key = getattr(settings, "GOOGLE_API_KEY", None) or getattr(settings, "google_api_key", None)
+if api_key:
+    genai.configure(api_key=api_key)
 
 @app.on_event("startup")
 async def startup() -> None:
