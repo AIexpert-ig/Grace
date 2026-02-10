@@ -439,6 +439,11 @@ async def handle_webhook(
     )
 
 
+@app.post("/telegram-webhook")
+async def telegram_webhook_alias(request: Request):
+    return await handle_webhook(request)
+
+
 # --- VOICE BRAIN (WEBSOCKET) ---
 @app.websocket("/llm-websocket/{call_id}")
 async def websocket_endpoint(websocket: WebSocket, call_id: str):
