@@ -108,6 +108,72 @@ async def test_webhook_valid_signature_accepted_200(monkeypatch, test_client):
 
 
 @pytest.mark.asyncio
+async def test_webhook_signature_with_prefix_accepted(monkeypatch, test_client):
+    _set_setting(monkeypatch, "RETELL_SIGNING_SECRET", "secret")
+
+    payload = {"event": "call"}
+    body = json.dumps(payload, separators=(",", ":")).encode("utf-8")
+    timestamp = str(int(time.time()))
+    signature = _sign("secret", timestamp, body)
+
+    res = await test_client.post(
+        "/webhook",
+        content=body,
+        headers={
+            "Content-Type": "application/json",
+            "X-Signature-Timestamp": timestamp,
+            "X-Signature": f"sha256={signature}",
+        },
+    )
+    assert res.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_webhook_wrong_canonicalization_fails(monkeypatch, test_client):
+    _set_setting(monkeypatch, "RETELL_SIGNING_SECRET", "secret")
+
+    payload = {"event": "call"}
+    body = json.dumps(payload, separators=(",", ":")).encode("utf-8")
+    timestamp = str(int(time.time()))
+    bad_message = f"{timestamp}{body.decode('utf-8')}".encode()
+    bad_signature = hmac.new(b"secret", bad_message, hashlib.sha256).hexdigest()
+
+    res = await test_client.post(
+        "/webhook",
+        content=body,
+        headers={
+            "Content-Type": "application/json",
+            "X-Signature-Timestamp": timestamp,
+            "X-Signature": bad_signature,
+        },
+    )
+    assert res.status_code == 401
+    assert res.json()["error"] == "signature_mismatch"
+
+
+@pytest.mark.asyncio
+async def test_webhook_wrong_secret_fails(monkeypatch, test_client):
+    _set_setting(monkeypatch, "RETELL_SIGNING_SECRET", "secret")
+
+    payload = {"event": "call"}
+    body = json.dumps(payload, separators=(",", ":")).encode("utf-8")
+    timestamp = str(int(time.time()))
+    signature = _sign("wrong", timestamp, body)
+
+    res = await test_client.post(
+        "/webhook",
+        content=body,
+        headers={
+            "Content-Type": "application/json",
+            "X-Signature-Timestamp": timestamp,
+            "X-Signature": signature,
+        },
+    )
+    assert res.status_code == 401
+    assert res.json()["error"] == "signature_mismatch"
+
+
+@pytest.mark.asyncio
 async def test_webhook_duplicate_idempotency_returns_duplicate(monkeypatch, test_client):
     _set_setting(monkeypatch, "RETELL_SIGNING_SECRET", "secret")
 

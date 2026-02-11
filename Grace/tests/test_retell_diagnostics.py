@@ -57,7 +57,7 @@ async def test_retell_diagnose_returns_signature(monkeypatch, test_client):
 
     assert res.status_code == 200
     data = res.json()
-    assert data["signed_string"] == "123.{\"event\":\"test\"}"
-    assert data["encoding"] == "hex"
-    assert data["signature_matches"] is False
-    assert data["computed_signature_prefix"] == _sign("sigsecret", "123", payload["raw_body"])[:8]
+    assert data["canonical_string_preview"] == "123.{\"event\":\"test\"}"
+    assert data["encoding"].startswith("hex")
+    assert data["match"] is False
+    assert data["expected_signature_hex_prefix"] == _sign("sigsecret", "123", payload["raw_body"])[:8]

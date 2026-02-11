@@ -57,7 +57,12 @@ def verify_hmac_signature(
     message = timestamp_str.encode() + b"." + raw_body
     expected = hmac.new(secret.encode(), message, hashlib.sha256).hexdigest()
 
-    if not hmac.compare_digest(expected, signature):
+    provided = str(signature).strip()
+    if provided.lower().startswith("sha256="):
+        provided = provided.split("=", 1)[1]
+    provided = provided.lower()
+
+    if not hmac.compare_digest(expected, provided):
         raise SignatureInvalidError()
 
 

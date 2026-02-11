@@ -4,6 +4,7 @@ set -euo pipefail
 BASE_URL="${BASE_URL:-http://127.0.0.1:8000}"
 ADMIN_TOKEN="${ADMIN_TOKEN:-}"
 TELEGRAM_WEBHOOK_SECRET="${TELEGRAM_WEBHOOK_SECRET:-}"
+RETELL_SIGNING_SECRET="${RETELL_SIGNING_SECRET:-}"
 
 pass() { printf 'PASS - %s (status=%s)\n' "$1" "$2"; }
 fail() { printf 'FAIL - %s (status=%s)\n' "$1" "$2"; }
@@ -52,6 +53,33 @@ check "GET /integrations/test/telegram" "GET" "$BASE_URL/integrations/test/teleg
 check "GET /integrations/test/make" "GET" "$BASE_URL/integrations/test/make"
 
 check_with_body "POST /webhook (missing headers)" "$BASE_URL/webhook" '{"event":"ping"}' "401"
+
+if [ -n "$RETELL_SIGNING_SECRET" ]; then
+  ts=$(date +%s)
+  body='{"event":"ping"}'
+  sig=$(python3 - <<PY
+import hmac, hashlib
+secret = "${RETELL_SIGNING_SECRET}"
+timestamp = "${ts}"
+body = '${body}'
+msg = f"{timestamp}.{body}".encode()
+print(hmac.new(secret.encode(), msg, hashlib.sha256).hexdigest())
+PY
+)
+  status=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
+    -H "Content-Type: application/json" \
+    -H "X-Signature-Timestamp: $ts" \
+    -H "X-Signature: $sig" \
+    -d "$body" \
+    "$BASE_URL/webhook")
+  if [ "$status" -ge 200 ] && [ "$status" -lt 300 ]; then
+    pass "POST /webhook (signed)" "$status"
+  else
+    fail "POST /webhook (signed)" "$status"
+  fi
+else
+  echo "SKIP - /webhook signed check (RETELL_SIGNING_SECRET not set)"
+fi
 
 if [ -n "$TELEGRAM_WEBHOOK_SECRET" ]; then
   status=$(curl -s -o /dev/null -w "%{http_code}" -X POST \

@@ -521,16 +521,23 @@ async def retell_diagnose(request: Request):
         signed_string.encode(),
         hashlib.sha256,
     ).hexdigest()
-    signature_matches = hmac.compare_digest(computed_signature, str(provided_signature))
+
+    provided = str(provided_signature).strip()
+    if provided.lower().startswith("sha256="):
+        provided = provided.split("=", 1)[1]
+    provided = provided.lower()
+
+    signature_matches = hmac.compare_digest(computed_signature, provided)
 
     return JSONResponse(
         status_code=200,
         content={
-            "computed_signature_prefix": computed_signature[:8],
+            "canonical_string_preview": signed_string[:64],
+            "expected_signature_hex_prefix": computed_signature[:8],
+            "received_signature_prefix": provided[:8],
+            "match": signature_matches,
             "timestamp_within_tolerance": timestamp_within_tolerance,
-            "signature_matches": signature_matches,
-            "encoding": "hex",
-            "signed_string": signed_string,
+            "encoding": "hex (sha256= prefix allowed)",
         },
     )
 
