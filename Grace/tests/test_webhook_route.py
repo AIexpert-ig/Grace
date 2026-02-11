@@ -44,7 +44,7 @@ async def test_webhook_invalid_signature_returns_401(monkeypatch, test_client):
         headers={"Content-Type": "application/json"},
     )
     assert res_missing.status_code == 401
-    assert res_missing.json()["error"] == "unauthorized"
+    assert res_missing.json()["error"] == "missing_signature_headers"
 
     res_invalid = await test_client.post(
         "/webhook",
@@ -56,7 +56,7 @@ async def test_webhook_invalid_signature_returns_401(monkeypatch, test_client):
         },
     )
     assert res_invalid.status_code == 401
-    assert res_invalid.json()["error"] == "unauthorized"
+    assert res_invalid.json()["error"] == "signature_mismatch"
 
 
 @pytest.mark.asyncio

@@ -16,9 +16,11 @@ class Settings(BaseSettings):  # pylint: disable=too-few-public-methods
     )
 
     PROJECT_NAME: str = "Grace AI Infrastructure"
+    ENV: str = "dev"
     ENABLE_TELEGRAM: bool = False
     ENABLE_MAKE_WEBHOOKS: bool = False
     ENABLE_RETELL_SIMULATION: bool = False
+    ENABLE_DIAGNOSTIC_ENDPOINTS: bool = False
     
     # SECURITY: Ensure these match your Railway Variables exactly
     TELEGRAM_BOT_TOKEN: str | None = None

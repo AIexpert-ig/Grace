@@ -1,5 +1,6 @@
 import os
 import hashlib
+import hmac
 import json
 import time
 import uuid
@@ -107,6 +108,18 @@ def _derive_retell_type(payload: object) -> str:
             if isinstance(value, str) and value.strip():
                 return value.strip()
     return "retell.webhook"
+
+
+def _require_admin_token(request: Request) -> JSONResponse | None:
+    if not settings.ADMIN_TOKEN:
+        return _error_response(503, "admin_token_missing")
+    if request.headers.get("X-Admin-Token") != settings.ADMIN_TOKEN:
+        return _error_response(401, "unauthorized")
+    return None
+
+
+def _diagnostics_enabled() -> bool:
+    return settings.ENV != "production" or settings.ENABLE_DIAGNOSTIC_ENDPOINTS
 
 
 # --- ROUTES ---
@@ -268,8 +281,12 @@ async def retell_simulate(request: Request):
 # --- TEST ENDPOINTS ---
 
 
+@app.get("/integrations/test/telegram")
 @app.post("/integrations/test/telegram")
-async def test_telegram():
+async def test_telegram(request: Request):
+    admin_error = _require_admin_token(request)
+    if admin_error:
+        return admin_error
     correlation_id = str(uuid.uuid4())
     await bus.publish(
         "ticket.created",
@@ -283,8 +300,12 @@ async def test_telegram():
     return {"status": "triggered", "correlation_id": correlation_id}
 
 
+@app.get("/integrations/test/make")
 @app.post("/integrations/test/make")
-async def test_make():
+async def test_make(request: Request):
+    admin_error = _require_admin_token(request)
+    if admin_error:
+        return admin_error
     correlation_id = str(uuid.uuid4())
     await handle_make_trigger({"type": "test_ping"}, correlation_id)
     return {"status": "triggered", "correlation_id": correlation_id}
@@ -396,8 +417,14 @@ async def handle_webhook(
             secret=settings.RETELL_SIGNING_SECRET,
             tolerance_seconds=settings.WEBHOOK_TIMESTAMP_TOLERANCE_SECONDS,
         )
-    except (SignatureMissingError, SignatureExpiredError, SignatureInvalidError):
-        return _error_response(401, "unauthorized")
+    except SignatureMissingError:
+        return _error_response(401, "missing_signature_headers")
+    except SignatureExpiredError:
+        return _error_response(401, "timestamp_invalid_or_expired")
+    except SignatureInvalidError as exc:
+        if exc.message == "Invalid timestamp":
+            return _error_response(401, "timestamp_invalid_or_expired")
+        return _error_response(401, "signature_mismatch")
 
     try:
         payload = json.loads(raw_body)
@@ -435,6 +462,47 @@ async def handle_webhook(
             "received": True,
             "status": "accepted",
             "correlation_id": envelope.correlation_id,
+        },
+    )
+
+
+@app.post("/webhooks/retell/diagnose")
+async def retell_diagnose(request: Request):
+    if not _diagnostics_enabled():
+        raise HTTPException(status_code=404, detail="Not Found")
+
+    admin_error = _require_admin_token(request)
+    if admin_error:
+        return admin_error
+
+    if not settings.RETELL_SIGNING_SECRET:
+        return _error_response(503, "retell_signing_secret_missing")
+
+    try:
+        data = await request.json()
+    except Exception:
+        return _error_response(400, "invalid_json")
+
+    timestamp = data.get("timestamp")
+    raw_body = data.get("raw_body")
+    if timestamp is None or raw_body is None:
+        return _error_response(400, "invalid_request")
+    if not isinstance(raw_body, str):
+        return _error_response(400, "invalid_request")
+
+    timestamp_str = str(timestamp)
+    signed_string = f"{timestamp_str}.{raw_body}"
+    signature = hmac.new(
+        settings.RETELL_SIGNING_SECRET.encode(),
+        signed_string.encode(),
+        hashlib.sha256,
+    ).hexdigest()
+
+    return JSONResponse(
+        status_code=200,
+        content={
+            "signature": signature,
+            "signed_string": signed_string,
         },
     )
 
