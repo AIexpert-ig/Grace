@@ -26,6 +26,7 @@ class Settings(BaseSettings):  # pylint: disable=too-few-public-methods
     TELEGRAM_BOT_TOKEN: str | None = None
     TELEGRAM_CHAT_ID: str | None = None
     TELEGRAM_ADMIN_IDS: str = ""
+    TELEGRAM_WEBHOOK_SECRET: str | None = None
     MAKE_WEBHOOK_URL: str | None = None
     MAKE_SIGNING_SECRET: str | None = None
     RETELL_SIGNING_SECRET: str | None = None

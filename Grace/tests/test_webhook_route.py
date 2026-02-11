@@ -60,6 +60,29 @@ async def test_webhook_invalid_signature_returns_401(monkeypatch, test_client):
 
 
 @pytest.mark.asyncio
+async def test_webhook_expired_timestamp_returns_401(monkeypatch, test_client):
+    _set_setting(monkeypatch, "RETELL_SIGNING_SECRET", "secret")
+    _set_setting(monkeypatch, "WEBHOOK_TIMESTAMP_TOLERANCE_SECONDS", 1)
+
+    payload = {"event": "call"}
+    body = json.dumps(payload, separators=(",", ":")).encode("utf-8")
+    timestamp = str(int(time.time()) - 10)
+    signature = _sign("secret", timestamp, body)
+
+    res = await test_client.post(
+        "/webhook",
+        content=body,
+        headers={
+            "Content-Type": "application/json",
+            "X-Signature-Timestamp": timestamp,
+            "X-Signature": signature,
+        },
+    )
+    assert res.status_code == 401
+    assert res.json()["error"] == "timestamp_invalid_or_expired"
+
+
+@pytest.mark.asyncio
 async def test_webhook_valid_signature_accepted_200(monkeypatch, test_client):
     _set_setting(monkeypatch, "RETELL_SIGNING_SECRET", "secret")
 

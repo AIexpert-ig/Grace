@@ -60,6 +60,8 @@ def __build():
         "routes": {
             "deadletter": bool(settings.ADMIN_TOKEN),
             "make_ingress": bool(settings.ENABLE_MAKE_WEBHOOKS),
+            "retell_diagnose": bool(_diagnostics_enabled()),
+            "telegram_webhook": bool(settings.ENABLE_TELEGRAM),
         },
         "mark": BUILD_MARK,
     }
@@ -120,6 +122,18 @@ def _require_admin_token(request: Request) -> JSONResponse | None:
 
 def _diagnostics_enabled() -> bool:
     return settings.ENV != "production" or settings.ENABLE_DIAGNOSTIC_ENDPOINTS
+
+
+def _is_valid_telegram_update(payload: object) -> bool:
+    if not isinstance(payload, dict):
+        return False
+    update_id = payload.get("update_id")
+    if not isinstance(update_id, int):
+        return False
+    for key in ("message", "edited_message", "channel_post", "callback_query"):
+        if key in payload:
+            return True
+    return False
 
 
 # --- ROUTES ---
@@ -485,31 +499,70 @@ async def retell_diagnose(request: Request):
 
     timestamp = data.get("timestamp")
     raw_body = data.get("raw_body")
-    if timestamp is None or raw_body is None:
+    provided_signature = data.get("signature")
+    if timestamp is None or raw_body is None or provided_signature is None:
         return _error_response(400, "invalid_request")
     if not isinstance(raw_body, str):
         return _error_response(400, "invalid_request")
 
+    try:
+        timestamp_int = int(timestamp)
+        timestamp_within_tolerance = (
+            abs(int(time.time()) - timestamp_int)
+            <= settings.WEBHOOK_TIMESTAMP_TOLERANCE_SECONDS
+        )
+    except (TypeError, ValueError):
+        timestamp_within_tolerance = False
+
     timestamp_str = str(timestamp)
     signed_string = f"{timestamp_str}.{raw_body}"
-    signature = hmac.new(
+    computed_signature = hmac.new(
         settings.RETELL_SIGNING_SECRET.encode(),
         signed_string.encode(),
         hashlib.sha256,
     ).hexdigest()
+    signature_matches = hmac.compare_digest(computed_signature, str(provided_signature))
 
     return JSONResponse(
         status_code=200,
         content={
-            "signature": signature,
+            "computed_signature_prefix": computed_signature[:8],
+            "timestamp_within_tolerance": timestamp_within_tolerance,
+            "signature_matches": signature_matches,
+            "encoding": "hex",
             "signed_string": signed_string,
         },
     )
 
 
 @app.post("/telegram-webhook")
-async def telegram_webhook_alias(request: Request):
-    return await handle_webhook(request)
+async def telegram_webhook(request: Request):
+    if not settings.ENABLE_TELEGRAM:
+        raise HTTPException(status_code=404, detail="Not Found")
+
+    secret_header = request.headers.get("X-Telegram-Bot-Api-Secret-Token")
+    if settings.TELEGRAM_WEBHOOK_SECRET:
+        if not secret_header:
+            return _error_response(401, "telegram_secret_missing")
+        if secret_header != settings.TELEGRAM_WEBHOOK_SECRET:
+            return _error_response(401, "telegram_secret_invalid")
+    else:
+        # No secret configured: accept only structurally valid Telegram updates.
+        try:
+            payload = await request.json()
+        except Exception:
+            return _error_response(400, "invalid_json")
+        if not _is_valid_telegram_update(payload):
+            return _error_response(400, "invalid_telegram_update")
+        return {"status": "ok"}
+
+    try:
+        payload = await request.json()
+    except Exception:
+        return _error_response(400, "invalid_json")
+    if not _is_valid_telegram_update(payload):
+        return _error_response(400, "invalid_telegram_update")
+    return {"status": "ok"}
 
 
 # --- VOICE BRAIN (WEBSOCKET) ---

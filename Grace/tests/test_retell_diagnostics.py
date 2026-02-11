@@ -46,6 +46,7 @@ async def test_retell_diagnose_returns_signature(monkeypatch, test_client):
     payload = {
         "timestamp": "123",
         "raw_body": "{\"event\":\"test\"}",
+        "signature": "placeholder",
     }
 
     res = await test_client.post(
@@ -57,4 +58,6 @@ async def test_retell_diagnose_returns_signature(monkeypatch, test_client):
     assert res.status_code == 200
     data = res.json()
     assert data["signed_string"] == "123.{\"event\":\"test\"}"
-    assert data["signature"] == _sign("sigsecret", "123", payload["raw_body"])
+    assert data["encoding"] == "hex"
+    assert data["signature_matches"] is False
+    assert data["computed_signature_prefix"] == _sign("sigsecret", "123", payload["raw_body"])[:8]
