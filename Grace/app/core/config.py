@@ -33,6 +33,7 @@ class Settings(BaseSettings):  # pylint: disable=too-few-public-methods
     WEBHOOK_TIMESTAMP_TOLERANCE_SECONDS: int = 300
     IDEMPOTENCY_TTL_SECONDS: int = 3600
     ADMIN_TOKEN: str | None = None
+    google_api_key: str | None = Field(default=None, validation_alias="GOOGLE_API_KEY")
     API_KEY: str = "grace_prod_key_99"
     HMAC_SECRET: str = "dubai_handshake_2026"  # Updated default to match our protocol
     

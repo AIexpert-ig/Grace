@@ -9,8 +9,6 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime
 from sqlalchemy.orm import sessionmaker, declarative_base
 from datetime import datetime
-import google.generativeai as genai
-
 from app.core.config import settings
 from app.core.events import bus, logger
 from app.services.telegram_bot import handle_ticket_created
@@ -43,8 +41,12 @@ app.add_middleware(
 
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
-if settings.GOOGLE_API_KEY:
-    genai.configure(api_key=settings.GOOGLE_API_KEY)
+if settings.google_api_key:
+    try:
+        import google.generativeai as genai
+        genai.configure(api_key=settings.google_api_key)
+    except Exception as exc:
+        logger.debug("Google GenerativeAI import/config failed: %s", exc)
 
 @app.on_event("startup")
 async def startup():
