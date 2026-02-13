@@ -26,7 +26,7 @@ class Escalation(Base):
     sentiment = Column(String, default="Neutral")
     created_at = Column(DateTime, default=datetime.utcnow)
 
-engine = create_engine(settings.DATABASE_URL)
+engine = create_engine(settings.DATABASE_URL_SYNC)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 app = FastAPI()

@@ -51,6 +51,15 @@ class Settings(BaseSettings):  # pylint: disable=too-few-public-methods
         elif url.startswith("postgres://"):
             return url.replace("postgres://", "postgresql+asyncpg://", 1)
         return url
+
+    @property
+    def DATABASE_URL_SYNC(self) -> str:
+        url = cast(str, self.database_url_raw)
+        if "+asyncpg" in url:
+            return url.replace("+asyncpg", "+psycopg2", 1)
+        if url.startswith("postgres://"):
+            return url.replace("postgres://", "postgresql://", 1)
+        return url
     
     OPENAI_API_KEY: str = ""
     PROPERTY_TIMEZONE: str = "Asia/Dubai"
