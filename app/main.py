@@ -49,7 +49,16 @@ if GOOGLE_API_KEY:
 
 @app.get("/")
 async def read_root():
-    return FileResponse("app/static/index.html")
+    return FileResponse(
+        "app/static/index.html",
+        media_type="text/html",
+        headers={
+            "Cache-Control": "no-store, max-age=0",
+            "Pragma": "no-cache",
+            "Expires": "0",
+            "Surrogate-Control": "no-store",
+        },
+    )
 
 @app.get("/health")
 def health_check():
