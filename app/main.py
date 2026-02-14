@@ -7,6 +7,7 @@ import logging
 from pathlib import Path
 from typing import Any
 from fastapi import FastAPI, WebSocket, Request, HTTPException
+from starlette.websockets import WebSocketDisconnect
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -104,6 +105,11 @@ def _clarify_response() -> str:
 
 def _loop_break_response() -> str:
     return "Good afternoon, how may I assist you today?"
+
+RETELL_CONNECT_GREETING = (
+    "Hello, thank you for calling Courtyard By Marriott, Al Barsha. "
+    "I am Grace, how may I assist you?"
+)
 
 def _retell_debug_marker_enabled() -> bool:
     value = os.getenv("RETELL_DEBUG_MARKER", "").strip().lower()
@@ -318,7 +324,7 @@ async def _retell_ws_handler(websocket: WebSocket, call_id: str | None = None):
         await websocket.send_json(
             {
                 "response_id": 0,
-                "content": "",
+                "content": RETELL_CONNECT_GREETING,
                 "content_complete": True,
                 "end_call": False,
             }
@@ -433,6 +439,11 @@ async def _retell_ws_handler(websocket: WebSocket, call_id: str | None = None):
             }
             await websocket.send_json(response_event)
 
+    except WebSocketDisconnect as e:
+        if e.code == 1000:
+            logger.info("RETELL_WS_DISCONNECT call_id=%s code=1000", call_id)
+        else:
+            logger.warning("RETELL_WS_DISCONNECT call_id=%s code=%s", call_id, e.code)
     except Exception as e:
         logger.exception("RETELL_WS_ERROR %s", e)
         try:
