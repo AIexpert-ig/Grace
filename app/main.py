@@ -1,18 +1,34 @@
 import os
 import json
+import time
+import hmac
+import hashlib
 from pathlib import Path
+from typing import Any
 from fastapi import FastAPI, WebSocket, Request, HTTPException
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime
 from sqlalchemy.orm import sessionmaker, declarative_base
 from datetime import datetime
 import google.generativeai as genai
+import httpx
 
 # --- CONFIGURATION ---
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:password@localhost:5432/railway")
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+def _get_admin_token() -> str | None:
+    return os.getenv("ADMIN_TOKEN")
+
+def _get_make_webhook_url() -> str | None:
+    return os.getenv("MAKE_WEBHOOK_URL")
+
+def _get_make_signing_secret() -> str | None:
+    return os.getenv("MAKE_SIGNING_SECRET")
+
+def _get_webhook_tolerance() -> int:
+    return int(os.getenv("WEBHOOK_TIMESTAMP_TOLERANCE_SECONDS", "300"))
 
 # --- DATABASE SETUP ---
 Base = declarative_base()
@@ -49,6 +65,91 @@ app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 if GOOGLE_API_KEY:
     genai.configure(api_key=GOOGLE_API_KEY)
 
+# --- RETELL CUSTOM LLM CONFIG ---
+SYSTEM_PROMPT = (
+    "You are Grace, a hotel concierge. "
+    "If user message is a greeting or unclear, ask a single clarifying question. "
+    "Never claim you 'noted a request' unless a concrete request exists. "
+    "If prior assistant message equals the candidate response, do NOT repeat; instead ask for clarification. "
+    "Be concise. No hallucinations."
+)
+
+# Rolling state keyed by call_id for loop prevention
+_RETELL_STATE: dict[str, dict[str, Any]] = {}
+
+def _get_latest_user_text(payload: dict) -> str:
+    transcript = payload.get("transcript")
+    if isinstance(transcript, list) and transcript:
+        last = transcript[-1]
+        if isinstance(last, dict):
+            content = last.get("content")
+            if isinstance(content, str):
+                return content.strip()
+    text = payload.get("user_text")
+    if isinstance(text, str):
+        return text.strip()
+    return ""
+
+def _is_unclear_text(text: str) -> bool:
+    if not text or not text.strip():
+        return True
+    lowered = text.strip().lower()
+    return lowered in {"hello", "hello?", "hi", "hi?", "hey", "hey?"}
+
+def _clarify_response() -> str:
+    return "I can hear you. How can I help—booking, directions, or a request for your room?"
+
+def _loop_break_response() -> str:
+    return "I may be missing your request. Tell me what you want to do (e.g., extend stay, late checkout, extra towels)."
+
+def _retell_state_for(call_id: str) -> dict[str, Any]:
+    state = _RETELL_STATE.get(call_id)
+    if not state:
+        state = {"last_assistant": [], "last_user": {"text": "", "ts": 0.0}}
+        _RETELL_STATE[call_id] = state
+    return state
+
+def _record_assistant(call_id: str, response: str) -> None:
+    state = _retell_state_for(call_id)
+    history = state["last_assistant"]
+    history.append(response.strip())
+    if len(history) > 3:
+        del history[:-3]
+
+def _user_repeated_recent(call_id: str, text: str) -> bool:
+    state = _retell_state_for(call_id)
+    last = state["last_user"]
+    now = time.time()
+    if last["text"] == text and (now - last["ts"]) <= 10:
+        return True
+    state["last_user"] = {"text": text, "ts": now}
+    return False
+
+def _auth_error(required_header: str, reason: str) -> JSONResponse:
+    return JSONResponse(
+        status_code=401,
+        content={"error": "unauthorized", "required_header": required_header, "reason": reason},
+    )
+
+def _get_httpx_client():
+    return httpx.AsyncClient()
+
+def _verify_hmac(raw_body: bytes, timestamp: str | None, signature: str | None, secret: str) -> tuple[bool, str]:
+    if not timestamp or not signature:
+        return False, "missing_signature_headers"
+    try:
+        ts_int = int(timestamp)
+    except (TypeError, ValueError):
+        return False, "timestamp_invalid_or_expired"
+    if abs(int(time.time()) - ts_int) > _get_webhook_tolerance():
+        return False, "timestamp_invalid_or_expired"
+    if signature.lower().startswith("sha256="):
+        signature = signature.split("=", 1)[1]
+    message = timestamp.encode() + b"." + raw_body
+    expected = hmac.new(secret.encode(), message, hashlib.sha256).hexdigest()
+    if not hmac.compare_digest(expected, signature):
+        return False, "signature_mismatch"
+    return True, "ok"
 # --- ROUTES ---
 
 @app.get("/")
@@ -71,6 +172,16 @@ async def read_root():
 @app.get("/health")
 def health_check():
     return {"status": "healthy", "service": "Grace Hotel AI"}
+
+@app.get("/admin/ping")
+def admin_ping(request: Request):
+    header = request.headers.get("X-Admin-Token")
+    admin_token = _get_admin_token()
+    if not admin_token:
+        return JSONResponse(status_code=503, content={"error": "admin_token_missing", "required_header": "X-Admin-Token"})
+    if not header or not hmac.compare_digest(header, admin_token):
+        return _auth_error("X-Admin-Token", "invalid_admin_token")
+    return {"status": "ok"}
 
 # --- DASHBOARD API ---
 
@@ -139,6 +250,47 @@ def delete_ticket(ticket_id: int):
     finally:
         db.close()
 
+@app.post("/integrations/make/trigger")
+async def make_trigger(request: Request):
+    raw_body = await request.body()
+    admin_header = request.headers.get("X-Admin-Token")
+    admin_token = _get_admin_token()
+    make_secret = _get_make_signing_secret()
+    make_webhook_url = _get_make_webhook_url()
+
+    if admin_token and admin_header and hmac.compare_digest(admin_header, admin_token):
+        pass
+    elif make_secret:
+        ok, reason = _verify_hmac(
+            raw_body=raw_body,
+            timestamp=request.headers.get("X-Signature-Timestamp"),
+            signature=request.headers.get("X-Signature"),
+            secret=make_secret,
+        )
+        if not ok:
+            return _auth_error("X-Signature", reason)
+    else:
+        return _auth_error("X-Admin-Token", "missing_admin_token")
+
+    if not make_webhook_url:
+        return JSONResponse(status_code=503, content={"error": "make_webhook_url_missing"})
+
+    try:
+        payload = json.loads(raw_body)
+    except Exception:
+        return JSONResponse(status_code=400, content={"error": "invalid_envelope"})
+
+    async with _get_httpx_client() as client:
+        resp = await client.post(
+            make_webhook_url,
+            json=payload,
+            headers={"X-Correlation-Id": payload.get("correlation_id", "")},
+            timeout=10,
+        )
+    if resp.status_code >= 400:
+        return JSONResponse(status_code=502, content={"error": "make_webhook_failed"})
+    return JSONResponse(status_code=200, content={"status": "sent", "correlation_id": payload.get("correlation_id")})
+
 # --- WEBHOOK ---
 @app.post("/webhook")
 async def handle_webhook(request: Request):
@@ -166,17 +318,39 @@ async def websocket_endpoint(websocket: WebSocket, call_id: str):
             data = await websocket.receive_json()
             
             if data.get("interaction_type") == "response_required":
-                user_text = data["transcript"][-1]["content"]
-                print(f"🗣️ User: {user_text}")
+                user_text = _get_latest_user_text(data)
+                state = _retell_state_for(call_id)
+                empty_text = _is_unclear_text(user_text)
+                repeated_user = _user_repeated_recent(call_id, user_text)
 
-                # AI Logic
-                ai_reply = "I have noted that request for you."
-                try:
-                    model = genai.GenerativeModel('gemini-1.5-flash')
-                    response = model.generate_content(f"You are a hotel concierge named Grace. User says: {user_text}. Keep it short.")
-                    ai_reply = response.text
-                except:
-                    ai_reply = "Certainly, I will take care of that right away."
+                if empty_text or repeated_user:
+                    ai_reply = _clarify_response()
+                    circuit_breaker = False
+                else:
+                    ai_reply = ""
+                    try:
+                        model = genai.GenerativeModel("gemini-1.5-flash")
+                        messages = [
+                            {"role": "system", "content": SYSTEM_PROMPT},
+                            {"role": "user", "content": user_text},
+                        ]
+                        response = model.generate_content(messages)
+                        ai_reply = (response.text or "").strip()
+                    except Exception:
+                        ai_reply = ""
+
+                    if not ai_reply:
+                        ai_reply = _clarify_response()
+
+                    last_assistant = state["last_assistant"]
+                    circuit_breaker = any(ai_reply.strip() == prev for prev in last_assistant[-2:])
+                    if circuit_breaker:
+                        ai_reply = _loop_break_response()
+
+                _record_assistant(call_id, ai_reply)
+                print(
+                    f"🧠 LLM turn call_id={call_id} empty={empty_text} loop_break={circuit_breaker}"
+                )
 
                 # SAVE TO DB LOGIC
                 if len(user_text) > 5:

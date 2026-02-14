@@ -190,6 +190,18 @@
             <p class="text-xs text-purple-400 font-mono">SYSTEM TIME</p>
             <p class="text-sm font-mono text-cyan-400" id="system-time">--:--:--</p>
           </div>
+          <div class="hidden lg:flex items-center gap-2 text-xs font-mono text-slate-300 bg-slate-900/60 border border-cyan-500/20 px-3 py-2 rounded-lg">
+            <label class="flex items-center gap-2">
+              <span class="text-cyan-300">Admin Token</span>
+              <input id="admin-token-input" type="password" placeholder="••••••"
+                class="bg-slate-900/60 border border-purple-500/20 rounded-md px-2 py-1 text-xs text-slate-200 focus:outline-none focus:border-purple-500/60" />
+            </label>
+            <label class="flex items-center gap-1 text-xs text-slate-400">
+              <input id="remember-token" type="checkbox" class="accent-cyan-400" />
+              Remember
+            </label>
+            <span id="auth-status" class="text-xs text-slate-400">Auth: —</span>
+          </div>
           <div
             class="flex items-center gap-2 text-xs text-green-400 font-mono border border-green-500/30 px-3 py-1 rounded-full bg-green-500/10">
             <div class="w-2 h-2 bg-green-500 rounded-full status-dot"></div>
@@ -297,6 +309,11 @@
         class="hidden mb-4 rounded-xl border border-red-500/40 bg-red-950/30 px-4 py-3 text-xs text-red-200 font-mono">
         <span class="text-red-300 font-semibold">SYSTEM ALERT:</span>
         <span id="error-message">Unable to load data.</span>
+      </div>
+      <div id="make-banner"
+        class="hidden mb-4 rounded-xl border border-amber-500/40 bg-amber-950/30 px-4 py-3 text-xs text-amber-200 font-mono">
+        <span class="text-amber-300 font-semibold">MAKE:</span>
+        <span id="make-message">MAKE_WEBHOOK_URL not set in Railway env.</span>
       </div>
 
       <div class="grid grid-cols-1 xl:grid-cols-12 gap-3 mb-4">
@@ -474,6 +491,8 @@
     const ticketsBodyEl = document.getElementById('tickets-body');
     const testBtn = document.getElementById('create-test-ticket');
     const adminTokenInput = document.getElementById('admin-token-input');
+    const rememberTokenEl = document.getElementById('remember-token');
+    const authStatusEl = document.getElementById('auth-status');
     const statusActionEl = document.getElementById('status-action');
     const statusCodeEl = document.getElementById('status-code');
     const statusCorrelationEl = document.getElementById('status-correlation');
@@ -481,6 +500,8 @@
     const copyCorrelationBtn = document.getElementById('copy-correlation');
     const errorBannerEl = document.getElementById('error-banner');
     const errorMessageEl = document.getElementById('error-message');
+    const makeBannerEl = document.getElementById('make-banner');
+    const makeMessageEl = document.getElementById('make-message');
     const searchInputEl = document.getElementById('search-input');
     const filterStatusEl = document.getElementById('filter-status');
     const filterSeverityEl = document.getElementById('filter-severity');
@@ -524,6 +545,40 @@
         return window.crypto.randomUUID();
       }
       return `cid_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+    }
+
+    function getStoredToken() {
+      const remember = rememberTokenEl && rememberTokenEl.checked;
+      const storage = remember ? window.localStorage : window.sessionStorage;
+      return storage.getItem('admin_token') || '';
+    }
+
+    function storeToken(value) {
+      if (!adminTokenInput) return;
+      const remember = rememberTokenEl && rememberTokenEl.checked;
+      const primary = remember ? window.localStorage : window.sessionStorage;
+      const secondary = remember ? window.sessionStorage : window.localStorage;
+      primary.setItem('admin_token', value);
+      secondary.removeItem('admin_token');
+    }
+
+    async function adminFetch(url, options = {}) {
+      const token = getStoredToken();
+      const headers = options.headers ? { ...options.headers } : {};
+      if (token) {
+        headers['X-Admin-Token'] = token;
+      }
+      return fetch(url, { ...options, headers });
+    }
+
+    async function checkAuthStatus() {
+      if (!authStatusEl) return;
+      try {
+        const res = await adminFetch(`${API_BASE_URL}/admin/ping`);
+        authStatusEl.textContent = res.ok ? 'Auth: Authorized' : 'Auth: Unauthorized';
+      } catch (e) {
+        authStatusEl.textContent = 'Auth: Unknown';
+      }
     }
 
     function setStatus({ action, statusCode, correlationId, error }) {
@@ -788,32 +843,14 @@
 
       if (kind === 'telegram') {
         actionLabel = 'Admin Ping';
-        if (!adminToken) {
-          setStatus({ action: actionLabel, statusCode: '—', correlationId, error: 'Missing admin token' });
-          if (button) {
-            button.disabled = false;
-            button.innerHTML = originalHtml;
-          }
-          return;
-        }
         url = `${API_BASE_URL}/events/deadletter`;
         method = 'GET';
         headers = {
-          'X-Admin-Token': adminToken,
           'X-Correlation-Id': correlationId
         };
       } else if (kind === 'make') {
         actionLabel = 'Trigger Make';
-        if (!adminToken) {
-          setStatus({ action: actionLabel, statusCode: '—', correlationId, error: 'Missing admin token' });
-          if (button) {
-            button.disabled = false;
-            button.innerHTML = originalHtml;
-          }
-          return;
-        }
         url = `${API_BASE_URL}/integrations/make/trigger`;
-        headers['X-Admin-Token'] = adminToken;
         body = JSON.stringify({
           version: 'v1',
           source: 'ui',
@@ -841,7 +878,7 @@
       }
 
       try {
-        const response = await fetch(url, { method, headers, body });
+        const response = await adminFetch(url, { method, headers, body });
         const responseText = await response.text();
         let responseData = null;
         try {
@@ -863,6 +900,11 @@
           correlationId: responseCorrelationId,
           error: errorMessage
         });
+
+        if (kind === 'make' && responseData && responseData.error === 'make_webhook_url_missing') {
+          if (makeBannerEl) makeBannerEl.classList.remove('hidden');
+          if (makeMessageEl) makeMessageEl.textContent = 'MAKE_WEBHOOK_URL not set in Railway env.';
+        }
       } catch (error) {
         setStatus({
           action: actionLabel || kind,
@@ -882,6 +924,22 @@
       searchInputEl.addEventListener('input', (event) => {
         state.filters.search = event.target.value || '';
         renderTable();
+      });
+    }
+
+    if (adminTokenInput) {
+      const stored = window.sessionStorage.getItem('admin_token') || window.localStorage.getItem('admin_token') || '';
+      if (stored) adminTokenInput.value = stored;
+      adminTokenInput.addEventListener('input', (event) => {
+        storeToken(event.target.value.trim());
+        checkAuthStatus();
+      });
+    }
+
+    if (rememberTokenEl) {
+      rememberTokenEl.addEventListener('change', () => {
+        if (!adminTokenInput) return;
+        storeToken(adminTokenInput.value.trim());
       });
     }
 
@@ -940,6 +998,7 @@
       fetchDashboardData();
       // Poll every 3 seconds for new tickets
       setInterval(fetchDashboardData, 3000);
+      checkAuthStatus();
     }
 
     // Live Clock

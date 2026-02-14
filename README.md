@@ -75,3 +75,16 @@ flowchart LR
   style DATA fill:#f8fafc,stroke:#e2e8f0,rx:20,ry:20;
   style OPS fill:#f8fafc,stroke:#e2e8f0,rx:20,ry:20;
 ```
+## Retell Custom LLM
+
+**Handler:** `WebSocket /llm-websocket/{call_id}` in `app/main.py`
+
+**Where prompts live**
+- `SYSTEM_PROMPT` constant in `app/main.py`
+- Guardrails enforced in the websocket handler before calling the model
+
+**Guardrails**
+- If user message is empty/unclear, respond with a clarifying question
+- Prevent repeating the last assistant message
+- Dedupe repeated user utterances within 10 seconds
+
