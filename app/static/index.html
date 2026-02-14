@@ -1,15 +1,15 @@
 <!DOCTYPE html>
-<!-- build: fde3e7c 2026-02-14T06:50:51Z -->
 <html lang="en">
 
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Grace AI Concierge | Command Center</title>
+  <title>Grace Hotel Concierge | Command Center</title>
   <meta name="description" content="AI-powered voice-native hotel concierge system">
   <link rel="icon" href="https://z-cdn.chatglm.cn/z-ai/static/logo.svg">
 
   <script src="https://cdn.tailwindcss.com"></script>
+
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
   <script>
@@ -19,8 +19,7 @@
           colors: {
             slate: { 950: '#020617', 900: '#0f172a', 800: '#1e293b' },
             purple: { 400: '#c084fc', 500: '#a855f7', 600: '#9333ea' },
-            cyan: { 400: '#22d3ee', 500: '#06b6d4' },
-            pink: { 400: '#f472b6', 500: '#ec4899' }
+            cyan: { 400: '#22d3ee', 500: '#06b6d4' }
           }
         }
       }
@@ -29,9 +28,55 @@
 
   <style>
     :root {
-      --panel-bg: rgba(8, 12, 20, 0.78);
-      --panel-border: rgba(34, 211, 238, 0.18);
-      --panel-glow: rgba(34, 211, 238, 0.2);
+      --neon-cyan: rgba(34, 211, 238, 0.9);
+      --neon-purple: rgba(168, 85, 247, 0.9);
+      --neon-pink: rgba(236, 72, 153, 0.8);
+      --panel-bg: rgba(10, 15, 25, 0.75);
+    }
+
+    @keyframes pulse {
+
+      0%,
+      100% {
+        opacity: 1;
+      }
+
+      50% {
+        opacity: 0.6;
+      }
+    }
+
+    .glass-card {
+      background: rgba(15, 23, 42, 0.8);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(168, 85, 247, 0.3);
+      box-shadow: 0 8px 32px rgba(168, 85, 247, 0.3);
+    }
+
+    .status-dot {
+      animation: pulse 2s infinite;
+    }
+
+    .hud-panel {
+      background: var(--panel-bg);
+      backdrop-filter: blur(18px);
+      border: 1px solid rgba(94, 234, 212, 0.15);
+      box-shadow: 0 0 0 1px rgba(14, 116, 144, 0.2), 0 20px 60px rgba(8, 47, 73, 0.4);
+      position: relative;
+    }
+
+    .hud-panel::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      pointer-events: none;
+      box-shadow: inset 0 0 25px rgba(56, 189, 248, 0.12);
+    }
+
+    .neon-border {
+      border: 1px solid rgba(34, 211, 238, 0.35);
+      box-shadow: 0 0 18px rgba(34, 211, 238, 0.2);
     }
 
     .scanlines {
@@ -41,56 +86,25 @@
       background: linear-gradient(to bottom, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
       background-size: 100% 4px;
       mix-blend-mode: soft-light;
-      opacity: 0.35;
+      opacity: 0.3;
       z-index: 1;
     }
 
-    .grid-overlay {
+    .grain {
       position: fixed;
       inset: 0;
       pointer-events: none;
-      background-image: linear-gradient(rgba(148, 163, 184, 0.08) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(148, 163, 184, 0.08) 1px, transparent 1px);
-      background-size: 60px 60px;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.08'/%3E%3C/svg%3E");
       opacity: 0.25;
       z-index: 1;
     }
 
-    .glass-panel {
-      background: var(--panel-bg);
-      border: 1px solid var(--panel-border);
-      backdrop-filter: blur(16px);
-      box-shadow: 0 0 24px rgba(30, 64, 175, 0.2), 0 20px 60px rgba(15, 23, 42, 0.55);
-    }
-
     .glow-hover:hover {
-      box-shadow: 0 0 30px var(--panel-glow);
-      transform: translateY(-2px);
-    }
-
-    .status-dot {
-      animation: pulse 2s infinite;
-    }
-
-    @keyframes pulse {
-      0%,
-      100% {
-        opacity: 1;
-      }
-      50% {
-        opacity: 0.55;
-      }
-    }
-
-    .truncate-lines {
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
+      box-shadow: 0 0 20px rgba(94, 234, 212, 0.4);
     }
 
     .modal-enter {
-      animation: modalIn 0.2s ease-out;
+      animation: modalIn 0.25s ease-out;
     }
 
     @keyframes modalIn {
@@ -104,6 +118,22 @@
       }
     }
 
+    .skeleton {
+      background: linear-gradient(90deg, rgba(30, 41, 59, 0.2) 25%, rgba(51, 65, 85, 0.5) 50%, rgba(30, 41, 59, 0.2) 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.6s infinite;
+    }
+
+    @keyframes shimmer {
+      0% {
+        background-position: -200% 0;
+      }
+      100% {
+        background-position: 200% 0;
+      }
+    }
+
+    /* Custom Scrollbar */
     ::-webkit-scrollbar {
       width: 8px;
     }
@@ -124,13 +154,22 @@
 </head>
 
 <body class="bg-gradient-to-br from-slate-950 via-purple-950/20 to-slate-950 min-h-screen text-white overflow-x-hidden">
-  <div class="grid-overlay"></div>
+  <div class="fixed inset-0 opacity-5 pointer-events-none">
+    <div class="absolute inset-0"
+      style="background-image: linear-gradient(#a855f7 1px, transparent 1px), linear-gradient(90deg, #a855f7 1px, transparent 1px); background-size: 50px 50px;">
+    </div>
+  </div>
   <div class="scanlines"></div>
+  <div class="grain"></div>
 
-  <div class="fixed top-1/4 left-1/4 w-96 h-96 bg-purple-600/10 rounded-full blur-3xl animate-pulse pointer-events-none"></div>
-  <div class="fixed bottom-1/4 right-1/4 w-96 h-96 bg-cyan-600/10 rounded-full blur-3xl animate-pulse pointer-events-none delay-1000"></div>
+  <div
+    class="fixed top-1/4 left-1/4 w-96 h-96 bg-purple-600/10 rounded-full blur-3xl animate-pulse pointer-events-none">
+  </div>
+  <div
+    class="fixed bottom-1/4 right-1/4 w-96 h-96 bg-cyan-600/10 rounded-full blur-3xl animate-pulse pointer-events-none delay-1000">
+  </div>
 
-  <header class="sticky top-0 z-40 border-b border-purple-500/20 backdrop-blur-xl bg-slate-950/80">
+  <header class="sticky top-0 z-50 border-b border-purple-500/20 backdrop-blur-xl bg-slate-950/80">
     <div class="container mx-auto px-4 py-4">
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-4">
@@ -139,66 +178,119 @@
             <span class="absolute -top-1 -right-1 h-3 w-3 bg-green-500 rounded-full status-dot"></span>
           </div>
           <div>
-            <h1 class="text-2xl font-bold bg-gradient-to-r from-purple-400 via-cyan-400 to-purple-400 bg-clip-text text-transparent">
-              GRACE AI
-            </h1>
-            <p class="text-xs text-slate-400 font-mono tracking-widest">CONCIERGE COMMAND CENTER</p>
+            <h1
+              class="text-2xl font-bold bg-gradient-to-r from-purple-400 via-cyan-400 to-purple-400 bg-clip-text text-transparent">
+              GRACE AI</h1>
+            <p class="text-xs text-slate-400 font-mono tracking-widest">HOTEL CONCIERGE V36</p>
           </div>
         </div>
+
         <div class="flex items-center gap-6">
           <div class="text-right hidden md:block">
             <p class="text-xs text-purple-400 font-mono">SYSTEM TIME</p>
             <p class="text-sm font-mono text-cyan-400" id="system-time">--:--:--</p>
           </div>
-          <div class="flex items-center gap-2 text-xs text-green-400 font-mono border border-green-500/30 px-3 py-1 rounded-full bg-green-500/10">
+          <div
+            class="flex items-center gap-2 text-xs text-green-400 font-mono border border-green-500/30 px-3 py-1 rounded-full bg-green-500/10">
             <div class="w-2 h-2 bg-green-500 rounded-full status-dot"></div>
             OPERATIONAL
           </div>
         </div>
       </div>
     </div>
+    <div class="h-[1px] w-full bg-gradient-to-r from-transparent via-purple-600 to-transparent opacity-50"></div>
   </header>
 
   <main class="container mx-auto px-4 py-8 relative z-10">
+
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-      <div class="glass-panel rounded-2xl p-6 glow-hover transition-all">
+      <div class="glass-card hud-panel rounded-2xl p-6 relative overflow-hidden group hover:border-purple-500/50 transition-all">
+        <div
+          class="absolute top-0 right-0 w-32 h-32 bg-purple-600/20 rounded-full blur-3xl group-hover:bg-purple-600/30 transition-all">
+        </div>
         <div class="flex justify-between items-start mb-4">
           <h2 class="text-sm text-purple-400 font-mono uppercase">Total Tickets</h2>
           <i class="fas fa-database text-cyan-400 text-xl"></i>
         </div>
-        <div class="text-4xl font-bold text-white" id="stat-total">0</div>
+        <div class="text-4xl font-bold text-white" id="total-tickets">0</div>
         <p class="text-xs text-slate-500 mt-2 font-mono">LIFETIME LOGS</p>
       </div>
 
-      <div class="glass-panel rounded-2xl p-6 glow-hover transition-all">
-        <div class="flex justify-between items-start mb-4">
-          <h2 class="text-sm text-green-400 font-mono uppercase">Open Tickets</h2>
-          <i class="fas fa-signal text-green-400 text-xl"></i>
+      <div class="glass-card hud-panel rounded-2xl p-6 relative overflow-hidden group hover:border-green-500/50 transition-all">
+        <div
+          class="absolute top-0 right-0 w-32 h-32 bg-green-600/20 rounded-full blur-3xl group-hover:bg-green-600/30 transition-all">
         </div>
-        <div class="text-4xl font-bold text-white" id="stat-open">0</div>
-        <p class="text-xs text-slate-500 mt-2 font-mono">ACTIVE REQUESTS</p>
+        <div class="flex justify-between items-start mb-4">
+          <h2 class="text-sm text-green-400 font-mono uppercase">System Status</h2>
+          <i class="fas fa-server text-green-400 text-xl"></i>
+        </div>
+        <div class="text-2xl font-bold text-white mt-1">Listening</div>
+        <p class="text-xs text-slate-500 mt-2 font-mono">WEBHOOK ACTIVE</p>
       </div>
 
-      <div class="glass-panel rounded-2xl p-6 glow-hover transition-all">
+      <div class="glass-card hud-panel rounded-2xl p-6 relative overflow-hidden group hover:border-cyan-500/50 transition-all">
+        <div
+          class="absolute top-0 right-0 w-32 h-32 bg-cyan-600/20 rounded-full blur-3xl group-hover:bg-cyan-600/30 transition-all">
+        </div>
         <div class="flex justify-between items-start mb-4">
-          <h2 class="text-sm text-cyan-400 font-mono uppercase">Sentiment</h2>
+          <h2 class="text-sm text-cyan-400 font-mono uppercase">AI Model</h2>
           <i class="fas fa-brain text-purple-400 text-xl"></i>
         </div>
-        <div class="text-4xl font-bold text-white" id="stat-sentiment">98%</div>
-        <p class="text-xs text-slate-500 mt-2 font-mono">AI CONFIDENCE</p>
+        <div class="text-2xl font-bold text-white mt-1">Gemini Flash</div>
+        <p class="text-xs text-slate-500 mt-2 font-mono">LATENCY: LOW</p>
       </div>
     </div>
 
-    <div class="glass-panel rounded-2xl p-6">
-      <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
+    <div class="glass-card hud-panel rounded-2xl p-6 min-h-[600px]">
+      <div class="flex items-center justify-between mb-4">
         <h2 class="text-xl font-bold flex items-center gap-3">
-          <i class="fas fa-list text-purple-400"></i>
-          <span class="bg-gradient-to-r from-purple-400 to-cyan-400 bg-clip-text text-transparent">Live Tickets</span>
+          <i class="fas fa-list-ul text-purple-400"></i>
+          <span class="bg-gradient-to-r from-purple-400 to-cyan-400 bg-clip-text text-transparent">Live Incoming
+            Feed</span>
         </h2>
-        <button id="create-test-ticket"
-          class="text-xs bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-emerald-500/30 px-4 py-2 rounded-lg transition-all flex items-center gap-2">
-          <i class="fas fa-plus"></i> Test Ticket
-        </button>
+        <div
+          class="flex items-center gap-2 text-xs text-green-400 font-mono bg-slate-900/50 px-3 py-2 rounded-lg border border-slate-700">
+          <span class="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
+          LIVE SYNC
+        </div>
+      </div>
+
+      <div class="flex flex-col gap-3 mb-6">
+        <div class="flex flex-wrap items-center gap-3">
+          <label class="flex items-center gap-2 text-xs text-slate-300 font-mono">
+            <span class="text-purple-300">Admin Token</span>
+            <input id="admin-token-input" type="password" placeholder="••••••"
+              class="bg-slate-900/60 border border-purple-500/20 rounded-md px-2 py-1 text-xs text-slate-200 focus:outline-none focus:border-purple-500/60" />
+          </label>
+          <button id="btn-test-telegram" onclick="triggerTest('telegram')" title="Admin Ping"
+            class="text-xs bg-slate-800 hover:bg-slate-700 text-blue-300 border border-blue-500/30 px-3 py-2 rounded-lg transition-all flex items-center gap-2">
+            <i class="fab fa-telegram"></i> Test Telegram
+          </button>
+          <button id="btn-trigger-make" onclick="triggerTest('make')"
+            class="text-xs bg-slate-800 hover:bg-slate-700 text-purple-300 border border-purple-500/30 px-3 py-2 rounded-lg transition-all flex items-center gap-2">
+            <i class="fas fa-bolt"></i> Trigger Make
+          </button>
+          <button id="btn-simulate-retell" onclick="triggerTest('retell')"
+            class="text-xs bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-cyan-500/30 px-3 py-2 rounded-lg transition-all flex items-center gap-2">
+            <i class="fas fa-wave-square"></i> Simulate Retell
+          </button>
+          <button id="create-test-ticket"
+            class="text-xs bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-emerald-500/30 px-4 py-2 rounded-lg transition-all flex items-center gap-2">
+            <i class="fas fa-plus"></i> Test Ticket
+          </button>
+        </div>
+        <div id="action-status"
+          class="flex flex-wrap items-center gap-4 text-xs font-mono bg-slate-900/50 px-3 py-2 rounded-lg border border-slate-700 text-slate-300">
+          <div>Last Action: <span id="status-action">—</span></div>
+          <div>HTTP: <span id="status-code">—</span></div>
+          <div class="flex items-center gap-2">
+            Correlation ID: <span id="status-correlation">—</span>
+            <button id="copy-correlation" class="text-xs text-cyan-300 border border-cyan-500/30 px-2 py-1 rounded-md disabled:opacity-40" disabled>
+              Copy
+            </button>
+          </div>
+          <div class="text-red-300" id="status-error">—</div>
+        </div>
       </div>
 
       <div id="error-banner"
@@ -207,27 +299,44 @@
         <span id="error-message">Unable to load data.</span>
       </div>
 
-      <div class="grid grid-cols-1 xl:grid-cols-12 gap-4 mb-6">
-        <div class="xl:col-span-6">
+      <div class="grid grid-cols-1 xl:grid-cols-12 gap-3 mb-4">
+        <div class="xl:col-span-5">
           <label class="flex items-center gap-2 text-xs text-slate-300 font-mono">
             <i class="fas fa-search text-cyan-400"></i>
-            <input id="search-input" type="text" placeholder="Search guest, room, issue..."
+            <input id="search-input" type="text" placeholder="Search guest, room, summary, status..."
               class="w-full bg-slate-900/60 border border-cyan-500/20 rounded-md px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-cyan-400/80" />
           </label>
         </div>
-        <div class="xl:col-span-3">
+        <div class="xl:col-span-2">
           <select id="filter-status"
             class="w-full bg-slate-900/60 border border-purple-500/20 rounded-md px-3 py-2 text-xs text-purple-200 focus:outline-none focus:border-purple-400/80">
             <option value="all">All Status</option>
             <option value="OPEN">Open</option>
             <option value="RESOLVED">Resolved</option>
-            <option value="CLOSED">Closed</option>
           </select>
         </div>
-        <div class="xl:col-span-3">
+        <div class="xl:col-span-2">
+          <select id="filter-severity"
+            class="w-full bg-slate-900/60 border border-pink-500/20 rounded-md px-3 py-2 text-xs text-pink-200 focus:outline-none focus:border-pink-400/80">
+            <option value="all">All Severity</option>
+            <option value="high">High</option>
+            <option value="medium">Medium</option>
+            <option value="low">Low</option>
+          </select>
+        </div>
+        <div class="xl:col-span-2">
+          <select id="filter-source"
+            class="w-full bg-slate-900/60 border border-emerald-500/20 rounded-md px-3 py-2 text-xs text-emerald-200 focus:outline-none focus:border-emerald-400/80">
+            <option value="all">All Sources</option>
+            <option value="voice">Voice</option>
+            <option value="web">Web</option>
+            <option value="staff">Staff</option>
+          </select>
+        </div>
+        <div class="xl:col-span-1">
           <button id="sort-created"
             class="w-full bg-slate-900/60 border border-cyan-500/30 rounded-md px-3 py-2 text-xs text-cyan-200 hover:bg-cyan-500/10 transition-all">
-            Sort: Newest
+            Created ⬇
           </button>
         </div>
       </div>
@@ -243,16 +352,32 @@
         <p class="text-sm opacity-70 mt-1">Awaiting new signals...</p>
       </div>
 
-      <div id="tickets-grid" class="hidden grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"></div>
+      <div id="tickets-container" class="hidden overflow-x-auto">
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="border-b border-cyan-500/20 text-xs font-mono text-cyan-300 uppercase tracking-wider">
+              <th class="p-4">Severity</th>
+              <th class="p-4">Status</th>
+              <th class="p-4">Source</th>
+              <th class="p-4">Guest / Room</th>
+              <th class="p-4 w-1/3">Summary</th>
+              <th class="p-4">Created</th>
+            </tr>
+          </thead>
+          <tbody id="tickets-body" class="text-sm divide-y divide-cyan-500/10">
+          </tbody>
+        </table>
+      </div>
     </div>
   </main>
 
   <div id="ticket-modal" class="fixed inset-0 z-[100] hidden items-center justify-center">
     <div id="modal-overlay" class="absolute inset-0 bg-slate-950/80 backdrop-blur-sm"></div>
-    <div class="relative w-[95%] max-w-3xl max-h-[90vh] overflow-hidden rounded-2xl border border-cyan-500/30 bg-slate-950/90 shadow-2xl shadow-cyan-500/20 modal-enter">
+    <div
+      class="relative w-[95%] max-w-5xl max-h-[90vh] overflow-hidden rounded-2xl border border-cyan-500/30 bg-slate-950/90 shadow-2xl shadow-cyan-500/20 modal-enter">
       <div class="flex items-center justify-between border-b border-cyan-500/20 px-6 py-4">
         <div>
-          <p class="text-xs text-cyan-300 font-mono">INCIDENT REPORT</p>
+          <p class="text-xs text-cyan-300 font-mono">TICKET REPORT</p>
           <h3 class="text-lg font-semibold text-white" id="modal-title">Ticket</h3>
           <p class="text-xs text-slate-400 font-mono" id="modal-created">—</p>
         </div>
@@ -261,75 +386,105 @@
           Close
         </button>
       </div>
-      <div class="px-6 py-4 space-y-4 overflow-y-auto max-h-[70vh]">
+      <div class="px-6 py-4 space-y-4">
         <div class="flex flex-wrap items-center gap-3 text-xs font-mono">
           <span id="modal-id" class="px-2 py-1 rounded bg-slate-900/60 border border-cyan-500/20">ID: —</span>
+          <span id="modal-severity" class="px-2 py-1 rounded bg-slate-900/60 border border-pink-500/30">Severity: —</span>
           <span id="modal-status" class="px-2 py-1 rounded bg-slate-900/60 border border-purple-500/30">Status: —</span>
-          <span id="modal-sentiment" class="px-2 py-1 rounded bg-slate-900/60 border border-pink-500/30">Sentiment: —</span>
+          <span id="modal-correlation" class="px-2 py-1 rounded bg-slate-900/60 border border-emerald-500/30">Correlation: —</span>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-          <div class="p-3 rounded-lg bg-slate-900/60 border border-cyan-500/10">
-            <p class="text-xs text-cyan-300 font-mono">Guest</p>
-            <p id="modal-guest" class="text-white font-semibold">—</p>
+        <div class="flex flex-wrap gap-2">
+          <button class="tab-button text-xs px-3 py-2 rounded-md border border-cyan-500/30 text-cyan-200 hover:bg-cyan-500/10" data-tab="overview">Overview</button>
+          <button class="tab-button text-xs px-3 py-2 rounded-md border border-slate-600/40 text-slate-300 hover:bg-slate-800/60" data-tab="transcript">Transcript</button>
+          <button class="tab-button text-xs px-3 py-2 rounded-md border border-slate-600/40 text-slate-300 hover:bg-slate-800/60" data-tab="actions">Actions</button>
+          <button class="tab-button text-xs px-3 py-2 rounded-md border border-slate-600/40 text-slate-300 hover:bg-slate-800/60" data-tab="raw">Raw JSON</button>
+        </div>
+
+        <div id="tab-overview" class="tab-panel space-y-3">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+            <div class="p-3 rounded-lg bg-slate-900/60 border border-cyan-500/10">
+              <p class="text-xs text-cyan-300 font-mono">Guest</p>
+              <p id="modal-guest" class="text-white font-semibold">—</p>
+            </div>
+            <div class="p-3 rounded-lg bg-slate-900/60 border border-cyan-500/10">
+              <p class="text-xs text-cyan-300 font-mono">Room</p>
+              <p id="modal-room" class="text-white font-semibold">—</p>
+            </div>
+            <div class="p-3 rounded-lg bg-slate-900/60 border border-cyan-500/10">
+              <p class="text-xs text-cyan-300 font-mono">Source</p>
+              <p id="modal-source" class="text-white font-semibold">—</p>
+            </div>
+            <div class="p-3 rounded-lg bg-slate-900/60 border border-cyan-500/10">
+              <p class="text-xs text-cyan-300 font-mono">Sentiment</p>
+              <p id="modal-sentiment" class="text-white font-semibold">—</p>
+            </div>
           </div>
-          <div class="p-3 rounded-lg bg-slate-900/60 border border-cyan-500/10">
-            <p class="text-xs text-cyan-300 font-mono">Room</p>
-            <p id="modal-room" class="text-white font-semibold">—</p>
-          </div>
-          <div class="p-3 rounded-lg bg-slate-900/60 border border-cyan-500/10">
-            <p class="text-xs text-cyan-300 font-mono">Status</p>
-            <p id="modal-status-text" class="text-white font-semibold">—</p>
-          </div>
-          <div class="p-3 rounded-lg bg-slate-900/60 border border-cyan-500/10">
-            <p class="text-xs text-cyan-300 font-mono">Sentiment</p>
-            <p id="modal-sentiment-text" class="text-white font-semibold">—</p>
+          <div class="p-4 rounded-lg bg-slate-900/60 border border-purple-500/20">
+            <p class="text-xs text-purple-300 font-mono">Summary</p>
+            <p id="modal-summary" class="text-slate-200 mt-2 leading-relaxed">—</p>
           </div>
         </div>
 
-        <div class="p-4 rounded-lg bg-slate-900/60 border border-purple-500/20">
-          <p class="text-xs text-purple-300 font-mono">Issue</p>
-          <p id="modal-issue" class="text-slate-200 mt-2 leading-relaxed">—</p>
+        <div id="tab-transcript" class="tab-panel hidden">
+          <div class="p-4 rounded-lg bg-slate-900/60 border border-cyan-500/10">
+            <p class="text-xs text-cyan-300 font-mono">Transcript</p>
+            <p id="modal-transcript" class="text-slate-200 mt-2 leading-relaxed">—</p>
+          </div>
         </div>
 
-        <div class="p-4 rounded-lg bg-slate-900/60 border border-cyan-500/20">
-          <div class="flex items-center justify-between">
+        <div id="tab-actions" class="tab-panel hidden">
+          <div class="p-4 rounded-lg bg-slate-900/60 border border-emerald-500/20 space-y-3">
+            <p class="text-xs text-emerald-300 font-mono">Recommended Actions</p>
+            <ul id="modal-actions" class="text-slate-200 text-sm list-disc list-inside space-y-1">
+              <li>Dispatch staff to confirm request.</li>
+              <li>Log resolution time in concierge journal.</li>
+              <li>Follow up with guest within 10 minutes.</li>
+            </ul>
+          </div>
+        </div>
+
+        <div id="tab-raw" class="tab-panel hidden">
+          <div class="p-4 rounded-lg bg-slate-900/60 border border-cyan-500/20">
             <p class="text-xs text-cyan-300 font-mono">Raw JSON</p>
-            <button id="modal-copy-json"
-              class="text-xs text-cyan-200 border border-cyan-500/30 px-2 py-1 rounded-md hover:bg-cyan-500/10 transition-all">
-              Copy JSON
-            </button>
-          </div>
-          <div class="mt-2 max-h-[220px] overflow-auto rounded-md bg-slate-950/70 border border-slate-700 p-3 text-xs text-slate-200">
-            <pre id="modal-raw" class="whitespace-pre-wrap break-words">—</pre>
+            <div class="mt-2 max-h-[240px] overflow-auto rounded-md bg-slate-950/70 border border-slate-700 p-3 text-xs text-slate-200">
+              <pre id="modal-raw" class="whitespace-pre-wrap break-words">—</pre>
+            </div>
           </div>
         </div>
       </div>
     </div>
   </div>
 
-  <footer class="border-t border-purple-500/10 bg-slate-950/80 mt-10 py-6">
-    <div class="container mx-auto px-4 text-center space-y-1">
+  <footer class="border-t border-purple-500/10 bg-slate-950/80 mt-auto py-6">
+    <div class="container mx-auto px-4 text-center">
       <p class="text-xs text-slate-600 font-mono">GRACE AI SYSTEM // POWERED BY RAILWAY & GEMINI</p>
-      <p class="text-xs text-cyan-300 font-mono" id="build-marker">build: unknown</p>
-      <p class="text-xs text-purple-300 font-mono" id="deploy-marker">__DEPLOY_MARKER__</p>
     </div>
   </footer>
 
   <script>
+    // 🚀 AUTO-DETECT API URL (Fixes the localhost issue)
     const API_BASE_URL = window.location.origin;
 
-    const statTotalEl = document.getElementById('stat-total');
-    const statOpenEl = document.getElementById('stat-open');
-    const statSentimentEl = document.getElementById('stat-sentiment');
+    // DOM Elements
+    const totalTicketsEl = document.getElementById('total-tickets');
     const loadingStateEl = document.getElementById('loading-state');
     const emptyStateEl = document.getElementById('empty-state');
-    const ticketsGridEl = document.getElementById('tickets-grid');
+    const ticketsContainerEl = document.getElementById('tickets-container');
+    const ticketsBodyEl = document.getElementById('tickets-body');
     const testBtn = document.getElementById('create-test-ticket');
+    const adminTokenInput = document.getElementById('admin-token-input');
+    const statusActionEl = document.getElementById('status-action');
+    const statusCodeEl = document.getElementById('status-code');
+    const statusCorrelationEl = document.getElementById('status-correlation');
+    const statusErrorEl = document.getElementById('status-error');
+    const copyCorrelationBtn = document.getElementById('copy-correlation');
     const errorBannerEl = document.getElementById('error-banner');
     const errorMessageEl = document.getElementById('error-message');
     const searchInputEl = document.getElementById('search-input');
     const filterStatusEl = document.getElementById('filter-status');
+    const filterSeverityEl = document.getElementById('filter-severity');
+    const filterSourceEl = document.getElementById('filter-source');
     const sortCreatedBtn = document.getElementById('sort-created');
     const modalEl = document.getElementById('ticket-modal');
     const modalOverlayEl = document.getElementById('modal-overlay');
@@ -337,16 +492,18 @@
     const modalTitleEl = document.getElementById('modal-title');
     const modalCreatedEl = document.getElementById('modal-created');
     const modalIdEl = document.getElementById('modal-id');
-    const modalStatusBadgeEl = document.getElementById('modal-status');
-    const modalSentimentBadgeEl = document.getElementById('modal-sentiment');
+    const modalSeverityEl = document.getElementById('modal-severity');
+    const modalStatusEl = document.getElementById('modal-status');
+    const modalCorrelationEl = document.getElementById('modal-correlation');
     const modalGuestEl = document.getElementById('modal-guest');
     const modalRoomEl = document.getElementById('modal-room');
-    const modalStatusTextEl = document.getElementById('modal-status-text');
-    const modalSentimentTextEl = document.getElementById('modal-sentiment-text');
-    const modalIssueEl = document.getElementById('modal-issue');
+    const modalSourceEl = document.getElementById('modal-source');
+    const modalSentimentEl = document.getElementById('modal-sentiment');
+    const modalSummaryEl = document.getElementById('modal-summary');
+    const modalTranscriptEl = document.getElementById('modal-transcript');
     const modalRawEl = document.getElementById('modal-raw');
-    const modalCopyJsonBtn = document.getElementById('modal-copy-json');
-    const buildMarkerEl = document.getElementById('build-marker');
+    const tabButtons = Array.from(document.querySelectorAll('.tab-button'));
+    const tabPanels = Array.from(document.querySelectorAll('.tab-panel'));
 
     const state = {
       tickets: [],
@@ -356,32 +513,108 @@
       sortDir: 'desc',
       filters: {
         search: '',
-        status: 'all'
+        status: 'all',
+        severity: 'all',
+        source: 'all'
       }
     };
 
-    function formatLocalDateTime(isoString) {
+    function generateCorrelationId() {
+      if (window.crypto && window.crypto.randomUUID) {
+        return window.crypto.randomUUID();
+      }
+      return `cid_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+    }
+
+    function setStatus({ action, statusCode, correlationId, error }) {
+      if (statusActionEl) statusActionEl.textContent = action || '—';
+      if (statusCodeEl) statusCodeEl.textContent = statusCode || '—';
+      if (statusCorrelationEl) statusCorrelationEl.textContent = correlationId || '—';
+      if (statusErrorEl) statusErrorEl.textContent = error || '—';
+
+      if (copyCorrelationBtn) {
+        const hasCorrelation = Boolean(correlationId);
+        copyCorrelationBtn.disabled = !hasCorrelation;
+        copyCorrelationBtn.dataset.correlationId = correlationId || '';
+      }
+    }
+
+    function formatDateTime(isoString) {
       if (!isoString) {
-        return { display: '—', utc: 'unknown' };
+        return { display: '—', relative: 'unknown' };
       }
       const date = new Date(isoString);
       if (Number.isNaN(date.getTime())) {
-        return { display: '—', utc: 'invalid' };
+        return { display: '—', relative: 'unknown' };
       }
-      const pad = (value) => value.toString().padStart(2, '0');
-      const display = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
-      const utc = `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())} ${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())} UTC`;
-      return { display, utc };
+      const display = date.toLocaleString('en-GB', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      }).replace(',', ' •');
+      return { display, relative: relativeTime(date) };
+    }
+
+    function relativeTime(date) {
+      const diffMs = Date.now() - date.getTime();
+      const seconds = Math.floor(diffMs / 1000);
+      if (seconds < 60) return `${seconds}s ago`;
+      const minutes = Math.floor(seconds / 60);
+      if (minutes < 60) return `${minutes}m ago`;
+      const hours = Math.floor(minutes / 60);
+      if (hours < 24) return `${hours}h ago`;
+      const days = Math.floor(hours / 24);
+      return `${days}d ago`;
+    }
+
+    function deriveSeverity(ticket) {
+      const sentiment = (ticket.sentiment || '').toLowerCase();
+      const issue = (ticket.issue || '').toLowerCase();
+      if (sentiment.includes('negative') || issue.includes('urgent') || issue.includes('emergency')) {
+        return 'high';
+      }
+      if (sentiment.includes('positive')) {
+        return 'low';
+      }
+      return 'medium';
+    }
+
+    function deriveSource(ticket) {
+      const guest = (ticket.guest_name || '').toLowerCase();
+      const issue = (ticket.issue || '').toLowerCase();
+      if (guest.includes('voice') || issue.includes('call') || issue.includes('phone')) return 'voice';
+      if (guest.includes('staff')) return 'staff';
+      return 'web';
+    }
+
+    function normalizeTickets(tickets) {
+      return (tickets || []).map(ticket => ({
+        ...ticket,
+        _severity: deriveSeverity(ticket),
+        _source: deriveSource(ticket)
+      }));
     }
 
     function applyFilters() {
       const search = state.filters.search.toLowerCase();
       const status = state.filters.status;
+      const severity = state.filters.severity;
+      const source = state.filters.source;
 
       let filtered = state.tickets.filter(t => {
-        const haystack = [t.guest_name, t.room_number, t.issue].join(' ').toLowerCase();
+        const haystack = [
+          t.guest_name,
+          t.room_number,
+          t.issue,
+          t.status,
+          t.sentiment
+        ].join(' ').toLowerCase();
         if (search && !haystack.includes(search)) return false;
         if (status !== 'all' && t.status !== status) return false;
+        if (severity !== 'all' && t._severity !== severity) return false;
+        if (source !== 'all' && t._source !== source) return false;
         return true;
       });
 
@@ -392,6 +625,22 @@
       });
 
       state.filtered = filtered;
+    }
+
+    function renderSkeletonRows() {
+      ticketsBodyEl.innerHTML = '';
+      for (let i = 0; i < 6; i += 1) {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td class="p-4"><div class="h-4 w-16 rounded skeleton"></div></td>
+          <td class="p-4"><div class="h-4 w-20 rounded skeleton"></div></td>
+          <td class="p-4"><div class="h-4 w-16 rounded skeleton"></div></td>
+          <td class="p-4"><div class="h-4 w-24 rounded skeleton"></div></td>
+          <td class="p-4"><div class="h-4 w-48 rounded skeleton"></div></td>
+          <td class="p-4"><div class="h-4 w-24 rounded skeleton"></div></td>
+        `;
+        ticketsBodyEl.appendChild(row);
+      }
     }
 
     function renderError() {
@@ -411,44 +660,56 @@
 
       if (!state.filtered.length) {
         emptyStateEl.classList.remove('hidden');
-        ticketsGridEl.classList.add('hidden');
-        ticketsGridEl.innerHTML = '';
+        ticketsContainerEl.classList.add('hidden');
+        ticketsBodyEl.innerHTML = '';
         return;
       }
 
       emptyStateEl.classList.add('hidden');
-      ticketsGridEl.classList.remove('hidden');
-      ticketsGridEl.innerHTML = '';
+      ticketsContainerEl.classList.remove('hidden');
+      ticketsBodyEl.innerHTML = '';
 
-      state.filtered.forEach(ticket => {
-        const { display, utc } = formatLocalDateTime(ticket.created_at);
-        const statusClass = ticket.status === 'OPEN'
-          ? 'bg-red-500/20 text-red-300 border-red-500/40'
-          : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40';
-        const sentiment = ticket.sentiment || 'Neutral';
-        const sentimentClass = sentiment.toLowerCase().includes('negative')
+      state.filtered.forEach(t => {
+        const { display, relative } = formatDateTime(t.created_at);
+        const issueText = t.issue || "No details";
+        const severity = t._severity;
+        const source = t._source;
+
+        const severityBadge = severity === 'high'
           ? 'bg-pink-500/20 text-pink-300 border-pink-500/40'
-          : sentiment.toLowerCase().includes('positive')
+          : severity === 'low'
             ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
-            : 'bg-cyan-500/20 text-cyan-200 border-cyan-500/40';
+            : 'bg-yellow-500/20 text-yellow-200 border-yellow-500/40';
 
-        const card = document.createElement('div');
-        card.className = 'glass-panel rounded-2xl p-4 glow-hover transition-all cursor-pointer';
-        card.innerHTML = `
-          <div class="flex items-center justify-between mb-2">
-            <div class="text-xs font-mono text-slate-400">Ticket #${ticket.id ?? '—'}</div>
-            <span class="px-2 py-1 rounded-full border text-xs font-mono ${statusClass}">${ticket.status}</span>
-          </div>
-          <div class="text-lg font-semibold text-white">${ticket.guest_name || 'Unknown Guest'}</div>
-          <div class="text-xs text-cyan-300 font-mono">Room ${ticket.room_number || '—'}</div>
-          <div class="flex items-center gap-2 mt-3">
-            <span class="px-2 py-1 rounded-full border text-xs font-mono ${sentimentClass}">${sentiment}</span>
-            <span class="text-xs text-slate-400 font-mono" title="${utc}">${display}</span>
-          </div>
-          <p class="mt-3 text-sm text-slate-300 truncate-lines">${ticket.issue || 'No details provided.'}</p>
+        const statusBadge = t.status === 'OPEN'
+          ? 'bg-red-500/20 text-red-300 border-red-500/30'
+          : 'bg-green-500/20 text-green-300 border-green-500/30';
+
+        const row = document.createElement('tr');
+        row.className = 'border-b border-cyan-500/10 hover:bg-cyan-500/5 transition-all cursor-pointer';
+        row.innerHTML = `
+          <td class="p-4">
+            <span class="px-2 py-1 rounded border text-xs font-mono ${severityBadge}">${severity.toUpperCase()}</span>
+          </td>
+          <td class="p-4">
+            <span class="px-2 py-1 rounded border text-xs font-mono ${statusBadge}">${t.status}</span>
+          </td>
+          <td class="p-4 text-xs font-mono text-cyan-200">${source.toUpperCase()}</td>
+          <td class="p-4">
+            <div class="text-white font-semibold">${t.guest_name || 'Unknown'}</div>
+            <div class="text-xs text-cyan-300 font-mono">Room ${t.room_number || '—'}</div>
+          </td>
+          <td class="p-4 text-slate-300">
+            <div class="line-clamp-2" title="${issueText}">${issueText}</div>
+            <div class="text-xs text-slate-400 mt-1">${t.sentiment || 'Neutral'}</div>
+          </td>
+          <td class="p-4 text-xs text-slate-300 font-mono whitespace-nowrap">
+            <div>${display}</div>
+            <div class="text-cyan-400">${relative}</div>
+          </td>
         `;
-        card.addEventListener('click', () => openModal(ticket));
-        ticketsGridEl.appendChild(card);
+        row.addEventListener('click', () => openModal(t));
+        ticketsBodyEl.appendChild(row);
       });
     }
 
@@ -456,7 +717,8 @@
       if (state.loading) {
         loadingStateEl.classList.remove('hidden');
         emptyStateEl.classList.add('hidden');
-        ticketsGridEl.classList.add('hidden');
+        ticketsContainerEl.classList.remove('hidden');
+        renderSkeletonRows();
         renderError();
         return;
       }
@@ -464,71 +726,155 @@
       renderTickets();
     }
 
+    function setTab(tabName) {
+      tabButtons.forEach(btn => {
+        const active = btn.dataset.tab === tabName;
+        btn.classList.toggle('text-cyan-200', active);
+        btn.classList.toggle('border-cyan-500/30', active);
+        btn.classList.toggle('text-slate-300', !active);
+        btn.classList.toggle('border-slate-600/40', !active);
+      });
+      tabPanels.forEach(panel => {
+        panel.classList.toggle('hidden', panel.id !== `tab-${tabName}`);
+      });
+    }
+
     function openModal(ticket) {
-      const { display, utc } = formatLocalDateTime(ticket.created_at);
-      modalTitleEl.textContent = `Ticket #${ticket.id ?? '—'}`;
-      modalCreatedEl.textContent = `${display} (${utc})`;
+      if (!modalEl) return;
+      const { display, relative } = formatDateTime(ticket.created_at);
+      modalTitleEl.textContent = `Ticket ${ticket.id ?? '—'}`;
+      modalCreatedEl.textContent = `${display} • ${relative}`;
       modalIdEl.textContent = `ID: ${ticket.id ?? '—'}`;
-      modalStatusBadgeEl.textContent = `Status: ${ticket.status}`;
-      modalSentimentBadgeEl.textContent = `Sentiment: ${ticket.sentiment || 'Neutral'}`;
+      modalSeverityEl.textContent = `Severity: ${ticket._severity.toUpperCase()}`;
+      modalStatusEl.textContent = `Status: ${ticket.status}`;
+      modalCorrelationEl.textContent = `Correlation: ${ticket.correlation_id ?? '—'}`;
       modalGuestEl.textContent = ticket.guest_name || 'Unknown';
       modalRoomEl.textContent = ticket.room_number || '—';
-      modalStatusTextEl.textContent = ticket.status || '—';
-      modalSentimentTextEl.textContent = ticket.sentiment || 'Neutral';
-      modalIssueEl.textContent = ticket.issue || 'No details provided.';
+      modalSourceEl.textContent = ticket._source.toUpperCase();
+      modalSentimentEl.textContent = ticket.sentiment || 'Neutral';
+      modalSummaryEl.textContent = ticket.issue || 'No details';
+      modalTranscriptEl.textContent = ticket.issue || 'No transcript available.';
       modalRawEl.textContent = JSON.stringify(ticket, null, 2);
-
+      setTab('overview');
       modalEl.classList.remove('hidden');
       modalEl.classList.add('flex');
-      modalCloseEl.focus();
+      if (modalCloseEl) modalCloseEl.focus();
     }
 
     function closeModal() {
+      if (!modalEl) return;
       modalEl.classList.add('hidden');
       modalEl.classList.remove('flex');
     }
 
-    async function fetchDashboardData() {
-      state.loading = true;
-      renderTable();
-      try {
-        const [statsRes, ticketsRes] = await Promise.all([
-          fetch(`${API_BASE_URL}/staff/dashboard-stats`),
-          fetch(`${API_BASE_URL}/staff/recent-tickets`)
-        ]);
+    async function triggerTest(kind) {
+      const button = (window.event && window.event.currentTarget)
+        ? window.event.currentTarget
+        : document.getElementById(`btn-${kind}`);
 
-        if (!statsRes.ok) throw new Error(`Stats error ${statsRes.status}`);
-        if (!ticketsRes.ok) throw new Error(`Tickets error ${ticketsRes.status}`);
-
-        const stats = await statsRes.json();
-        const tickets = await ticketsRes.json();
-
-        if (statTotalEl) statTotalEl.textContent = stats.total_tickets || 0;
-        if (statOpenEl) statOpenEl.textContent = stats.open_tickets || 0;
-        if (statSentimentEl) statSentimentEl.textContent = `${stats.sentiment_score || 0}%`;
-
-        state.tickets = tickets;
-        state.error = null;
-      } catch (error) {
-        state.error = error && error.message ? error.message : 'Failed to load data';
-        state.tickets = [];
-      } finally {
-        state.loading = false;
-        renderTable();
+      const originalHtml = button ? button.innerHTML : null;
+      if (button) {
+        button.disabled = true;
+        button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Working...';
       }
-    }
 
-    async function fetchBuildMarker() {
-      if (!buildMarkerEl) return;
+      const correlationId = generateCorrelationId();
+      const adminToken = adminTokenInput ? adminTokenInput.value.trim() : '';
+      let url = '';
+      let method = 'POST';
+      let headers = { 'Content-Type': 'application/json' };
+      let body = null;
+      let actionLabel = '';
+
+      if (kind === 'telegram') {
+        actionLabel = 'Admin Ping';
+        if (!adminToken) {
+          setStatus({ action: actionLabel, statusCode: '—', correlationId, error: 'Missing admin token' });
+          if (button) {
+            button.disabled = false;
+            button.innerHTML = originalHtml;
+          }
+          return;
+        }
+        url = `${API_BASE_URL}/events/deadletter`;
+        method = 'GET';
+        headers = {
+          'X-Admin-Token': adminToken,
+          'X-Correlation-Id': correlationId
+        };
+      } else if (kind === 'make') {
+        actionLabel = 'Trigger Make';
+        if (!adminToken) {
+          setStatus({ action: actionLabel, statusCode: '—', correlationId, error: 'Missing admin token' });
+          if (button) {
+            button.disabled = false;
+            button.innerHTML = originalHtml;
+          }
+          return;
+        }
+        url = `${API_BASE_URL}/integrations/make/trigger`;
+        headers['X-Admin-Token'] = adminToken;
+        body = JSON.stringify({
+          version: 'v1',
+          source: 'ui',
+          type: 'make.trigger',
+          idempotency_key: correlationId,
+          timestamp: Math.floor(Date.now() / 1000),
+          correlation_id: correlationId,
+          payload: { origin: 'dashboard' }
+        });
+      } else if (kind === 'retell') {
+        actionLabel = 'Simulate Retell';
+        url = `${API_BASE_URL}/webhooks/retell/simulate`;
+        body = JSON.stringify({
+          call_id: correlationId,
+          event: 'call_simulated',
+          transcript: 'Test call from dashboard',
+          sentiment: 'neutral'
+        });
+      } else {
+        if (button) {
+          button.disabled = false;
+          button.innerHTML = originalHtml;
+        }
+        return;
+      }
+
       try {
-        const response = await fetch(`${API_BASE_URL}/__build`);
-        if (!response.ok) throw new Error('build unavailable');
-        const data = await response.json();
-        const sha = data.sha || 'unknown';
-        const mark = data.mark || 'unknown';
-        buildMarkerEl.textContent = `build: ${sha} • ${mark}`;
+        const response = await fetch(url, { method, headers, body });
+        const responseText = await response.text();
+        let responseData = null;
+        try {
+          responseData = responseText ? JSON.parse(responseText) : null;
+        } catch (e) {
+          responseData = null;
+        }
+
+        const responseCorrelationId = responseData && responseData.correlation_id
+          ? responseData.correlation_id
+          : correlationId;
+        const errorMessage = response.ok
+          ? ''
+          : (responseData && (responseData.error || responseData.detail)) || responseText || 'Request failed';
+
+        setStatus({
+          action: actionLabel,
+          statusCode: response.status,
+          correlationId: responseCorrelationId,
+          error: errorMessage
+        });
       } catch (error) {
-        buildMarkerEl.textContent = 'build: unknown';
+        setStatus({
+          action: actionLabel || kind,
+          statusCode: '—',
+          correlationId,
+          error: error && error.message ? error.message : 'Network error'
+        });
+      } finally {
+        if (button) {
+          button.disabled = false;
+          button.innerHTML = originalHtml;
+        }
       }
     }
 
@@ -546,10 +892,24 @@
       });
     }
 
+    if (filterSeverityEl) {
+      filterSeverityEl.addEventListener('change', (event) => {
+        state.filters.severity = event.target.value;
+        renderTable();
+      });
+    }
+
+    if (filterSourceEl) {
+      filterSourceEl.addEventListener('change', (event) => {
+        state.filters.source = event.target.value;
+        renderTable();
+      });
+    }
+
     if (sortCreatedBtn) {
       sortCreatedBtn.addEventListener('click', () => {
         state.sortDir = state.sortDir === 'desc' ? 'asc' : 'desc';
-        sortCreatedBtn.textContent = state.sortDir === 'desc' ? 'Sort: Newest' : 'Sort: Oldest';
+        sortCreatedBtn.textContent = state.sortDir === 'desc' ? 'Created ⬇' : 'Created ⬆';
         renderTable();
       });
     }
@@ -568,48 +928,21 @@
       }
     });
 
-    if (modalCopyJsonBtn) {
-      modalCopyJsonBtn.addEventListener('click', async () => {
-        const rawText = modalRawEl ? modalRawEl.textContent : '';
-        if (!rawText) return;
-        const original = modalCopyJsonBtn.textContent;
-        try {
-          if (navigator.clipboard && navigator.clipboard.writeText) {
-            await navigator.clipboard.writeText(rawText);
-          }
-          modalCopyJsonBtn.textContent = 'Copied';
-        } catch (error) {
-          modalCopyJsonBtn.textContent = 'Failed';
-        } finally {
-          setTimeout(() => {
-            modalCopyJsonBtn.textContent = original;
-          }, 1500);
-        }
+    if (tabButtons.length) {
+      tabButtons.forEach(button => {
+        button.addEventListener('click', () => setTab(button.dataset.tab));
       });
     }
 
-    if (testBtn) {
-      testBtn.addEventListener('click', async () => {
-        testBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
-        try {
-          await fetch(`${API_BASE_URL}/staff/escalate`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              guest_name: "Test Guest",
-              room_number: "101",
-              issue: "I need extra towels and soap please."
-            })
-          });
-          setTimeout(() => fetchDashboardData(), 1000);
-        } catch (e) {
-          console.error(e);
-        } finally {
-          testBtn.innerHTML = '<i class="fas fa-plus"></i> Test Ticket';
-        }
-      });
+    // Initialize
+    function init() {
+      startClock();
+      fetchDashboardData();
+      // Poll every 3 seconds for new tickets
+      setInterval(fetchDashboardData, 3000);
     }
 
+    // Live Clock
     function startClock() {
       const update = () => {
         const now = new Date();
@@ -619,13 +952,88 @@
       setInterval(update, 1000);
     }
 
-    function init() {
-      startClock();
-      fetchBuildMarker();
-      fetchDashboardData();
-      setInterval(fetchDashboardData, 3000);
+    // Fetch Data from Grace Backend
+    async function fetchDashboardData() {
+      state.loading = true;
+      renderTable();
+      try {
+        const [statsRes, ticketsRes] = await Promise.all([
+          fetch(`${API_BASE_URL}/staff/dashboard-stats`),
+          fetch(`${API_BASE_URL}/staff/recent-tickets`)
+        ]);
+
+        if (!statsRes.ok) {
+          throw new Error(`Stats error ${statsRes.status}`);
+        }
+        if (!ticketsRes.ok) {
+          throw new Error(`Tickets error ${ticketsRes.status}`);
+        }
+
+        const stats = await statsRes.json();
+        const tickets = await ticketsRes.json();
+
+        if (totalTicketsEl) totalTicketsEl.innerText = stats.total_tickets || 0;
+
+        state.tickets = normalizeTickets(tickets);
+        state.error = null;
+      } catch (error) {
+        state.error = error && error.message ? error.message : 'Failed to load data';
+        state.tickets = [];
+      } finally {
+        state.loading = false;
+        renderTable();
+      }
     }
 
+    // Test Ticket Button Logic
+    testBtn.addEventListener('click', async () => {
+      testBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
+      try {
+        await fetch(`${API_BASE_URL}/staff/escalate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            guest_name: "Test Guest",
+            room_number: "101",
+            issue: "I need extra towels and soap please."
+          })
+        });
+        setTimeout(() => fetchDashboardData(), 1000); // Quick refresh
+      } catch (e) {
+        console.error(e);
+        alert("Error creating ticket");
+      } finally {
+        testBtn.innerHTML = '<i class="fas fa-plus"></i> Test Ticket';
+      }
+    });
+
+    // Correlation ID Copy
+    if (copyCorrelationBtn) {
+      copyCorrelationBtn.addEventListener('click', async () => {
+        const correlationId = copyCorrelationBtn.dataset.correlationId || '';
+        if (!correlationId) return;
+        try {
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            await navigator.clipboard.writeText(correlationId);
+          }
+          setStatus({
+            action: statusActionEl ? statusActionEl.textContent : 'Copy',
+            statusCode: statusCodeEl ? statusCodeEl.textContent : '—',
+            correlationId,
+            error: ''
+          });
+        } catch (error) {
+          setStatus({
+            action: statusActionEl ? statusActionEl.textContent : 'Copy',
+            statusCode: statusCodeEl ? statusCodeEl.textContent : '—',
+            correlationId,
+            error: 'Copy failed'
+          });
+        }
+      });
+    }
+
+    // Start
     init();
   </script>
 </body>
