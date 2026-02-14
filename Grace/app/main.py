@@ -9,6 +9,7 @@ import time
 from datetime import datetime
 
 from fastapi import FastAPI, WebSocket, Request, HTTPException
+from starlette.websockets import WebSocketDisconnect
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -631,7 +632,16 @@ async def _retell_ws_handler(websocket: WebSocket, call_id: str | None = None) -
         )
 
         while True:
-            data = await websocket.receive_json()
+            try:
+                data = await websocket.receive_json()
+            except WebSocketDisconnect as e:
+                code = getattr(e, "code", None)
+                reason = getattr(e, "reason", None)
+                if code == 1000:
+                    logger.info("RETELL_WS_CLOSED_NORMAL call_id=%s code=%s reason=%s", call_id, code, reason)
+                else:
+                    logger.warning("RETELL_WS_CLOSED call_id=%s code=%s reason=%s", call_id, code, reason)
+                return
             interaction_type = data.get("interaction_type")
             call_id = data.get("call_id") or data.get("conversation_id") or call_id
             response_id_in = data.get("response_id")
@@ -669,7 +679,7 @@ async def _retell_ws_handler(websocket: WebSocket, call_id: str | None = None) -
                         ai_reply = ""
 
                 if not ai_reply:
-                    ai_reply = "I’m experiencing a technical issue. How may I assist you today?"
+                    ai_reply = "I'm experiencing a technical issue. How may I assist you today?"
 
                 state = _retell_state(call_id or "unknown")
                 last_assistant = state["last_assistant"]
@@ -718,8 +728,8 @@ async def _retell_ws_handler(websocket: WebSocket, call_id: str | None = None) -
                     "end_call": False,
                 }
             )
-    except Exception as e:
-        logger.exception("RETELL_WS_ERROR %s", e)
+    except Exception:
+        logger.exception("RETELL_WS_ERROR_UNEXPECTED call_id=%s", call_id)
         try:
             await websocket.close()
         except Exception:
