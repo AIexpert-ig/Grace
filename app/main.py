@@ -105,6 +105,10 @@ def _clarify_response() -> str:
 def _loop_break_response() -> str:
     return "Good afternoon, how may I assist you today?"
 
+def _retell_debug_marker_enabled() -> bool:
+    value = os.getenv("RETELL_DEBUG_MARKER", "").strip().lower()
+    return value in {"1", "true", "yes", "on"}
+
 def _retell_state_for(call_id: str) -> dict[str, Any]:
     state = _RETELL_STATE.get(call_id)
     if not state:
@@ -328,8 +332,9 @@ async def _retell_ws_handler(websocket: WebSocket, call_id: str | None = None):
             user_text = _get_latest_user_text(data)
             user_preview = (user_text[:40] + "…") if len(user_text) > 40 else user_text
             logger.info(
-                "RETELL_WS_RECV call_id=%s interaction_type=%s response_id=%s preview=%s",
+                "RETELL_WS_RECV call_id=%s path=%s interaction_type=%s response_id=%s preview=%s",
                 call_id,
+                path,
                 interaction_type,
                 response_id_in,
                 user_preview,
@@ -389,11 +394,16 @@ async def _retell_ws_handler(websocket: WebSocket, call_id: str | None = None):
                 response_id = response_counter
 
             duration_ms = int((time.time() - start_time) * 1000)
+            content_to_send = ai_reply
+            if _retell_debug_marker_enabled():
+                content_to_send = f"GRACE_WS_OK: {content_to_send}"
+
             logger.info(
-                "RETELL_WS_SEND call_id=%s response_id=%s preview=%s duration_ms=%s",
+                "RETELL_WS_SEND call_id=%s path=%s response_id=%s preview=%s duration_ms=%s",
                 call_id,
+                path,
                 response_id,
-                (ai_reply[:40] + "…") if len(ai_reply) > 40 else ai_reply,
+                (content_to_send[:40] + "…") if len(content_to_send) > 40 else content_to_send,
                 duration_ms,
             )
 
@@ -417,7 +427,7 @@ async def _retell_ws_handler(websocket: WebSocket, call_id: str | None = None):
 
             response_event = {
                 "response_id": response_id,
-                "content": ai_reply,
+                "content": content_to_send,
                 "content_complete": True,
                 "end_call": False
             }

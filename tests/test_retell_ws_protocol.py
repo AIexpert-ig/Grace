@@ -47,3 +47,33 @@ def test_response_required_response_shape():
         assert response["response_id"] == 9
         assert isinstance(response["response_id"], int)
         assert "response_type" not in response
+
+
+def test_debug_marker_enabled(monkeypatch):
+    monkeypatch.setenv("RETELL_DEBUG_MARKER", "1")
+    client = TestClient(app)
+    with client.websocket_connect("/llm-websocket") as ws:
+        ws.receive_json()
+        ws.send_json({
+            "interaction_type": "response_required",
+            "response_id": 5,
+            "transcript": [{"role": "user", "content": "Hello"}],
+        })
+        response = ws.receive_json()
+        assert response["response_id"] == 5
+        assert response["content"].startswith("GRACE_WS_OK: ")
+
+
+def test_debug_marker_disabled(monkeypatch):
+    monkeypatch.delenv("RETELL_DEBUG_MARKER", raising=False)
+    client = TestClient(app)
+    with client.websocket_connect("/llm-websocket") as ws:
+        ws.receive_json()
+        ws.send_json({
+            "interaction_type": "response_required",
+            "response_id": 6,
+            "transcript": [{"role": "user", "content": "Hello"}],
+        })
+        response = ws.receive_json()
+        assert response["response_id"] == 6
+        assert not response["content"].startswith("GRACE_WS_OK: ")

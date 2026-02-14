@@ -88,3 +88,7 @@ flowchart LR
 - Prevent repeating the last assistant message
 - Dedupe repeated user utterances within 10 seconds
 
+**Debug marker (temporary)**
+- To verify Retell is using our Custom LLM, set `RETELL_DEBUG_MARKER=1` in Railway env vars and redeploy.
+- When enabled, every response will be prefixed with `GRACE_WS_OK: `.
+- Disable after verification by unsetting `RETELL_DEBUG_MARKER` or setting it to `0`.
