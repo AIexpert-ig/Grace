@@ -7,9 +7,12 @@ def test_ws_handshake_on_path_with_call_id():
     client = TestClient(app)
     with client.websocket_connect("/llm-websocket/call_test") as ws:
         msg = ws.receive_json()
-        assert msg["response_id"] == 0
-        assert msg["content"] == ""
-        assert msg["content_complete"] is True
+        assert msg == {
+            "response_id": 0,
+            "content": "",
+            "content_complete": True,
+            "end_call": False,
+        }
 
 
 def test_update_only_no_response():
@@ -18,6 +21,7 @@ def test_update_only_no_response():
         ws.receive_json()
         ws.send_json({
             "interaction_type": "update_only",
+            "response_id": 99,
             "transcript": [{"role": "user", "content": "Hello"}],
         })
         ws.send_json({
@@ -27,10 +31,10 @@ def test_update_only_no_response():
         })
         response = ws.receive_json()
         assert response["response_id"] == 7
-        assert response["content"].startswith("MARKER_9F6D:")
+        assert "response_type" not in response
 
 
-def test_response_required_marker():
+def test_response_required_response_shape():
     client = TestClient(app)
     with client.websocket_connect("/llm-websocket") as ws:
         ws.receive_json()
@@ -41,4 +45,5 @@ def test_response_required_marker():
         })
         response = ws.receive_json()
         assert response["response_id"] == 9
-        assert response["content"].startswith("MARKER_9F6D:")
+        assert isinstance(response["response_id"], int)
+        assert "response_type" not in response

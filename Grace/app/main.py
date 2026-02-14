@@ -572,38 +572,164 @@ async def telegram_webhook(request: Request):
         return _error_response(400, "invalid_telegram_update")
     return {"status": "ok"}
 
+SYSTEM_PROMPT = (
+    "You are the AI concierge for Courtyard by Marriott Al Barsha in Dubai.\n"
+    "Be concise, polite, and helpful.\n"
+    "If the guest greeting is unclear, ask how you may assist.\n"
+    "Never acknowledge a request unless one exists.\n"
+    "Do not repeat yourself."
+)
+
+_RETELL_STATE: dict[str, dict[str, Any]] = {}
+
+def _retell_state(call_id: str) -> dict[str, Any]:
+    state = _RETELL_STATE.get(call_id)
+    if not state:
+        state = {"last_assistant": []}
+        _RETELL_STATE[call_id] = state
+    return state
+
+def _last_user_text(data: dict) -> str:
+    transcript = data.get("transcript")
+    if isinstance(transcript, list):
+        for item in reversed(transcript):
+            if isinstance(item, dict) and item.get("role") == "user":
+                content = item.get("content")
+                if isinstance(content, str) and content.strip():
+                    return content.strip()
+    return ""
+
+def _is_unclear(text: str) -> bool:
+    if not text or not text.strip():
+        return True
+    lowered = text.strip().lower()
+    return lowered in {"hello", "hello?", "hi", "hi?", "hey", "hey?"}
+
+def _clarify() -> str:
+    return "Good afternoon, how may I assist you today?"
+
+def _loop_break() -> str:
+    return "Good afternoon, how may I assist you today?"
+
 # Voice WebSocket
-@app.websocket("/llm-websocket/{call_id}")
-async def websocket_endpoint(websocket: WebSocket, call_id: str):
+async def _retell_ws_handler(websocket: WebSocket, call_id: str | None = None) -> None:
     await websocket.accept()
-    cid = call_id
+    logger = logging.getLogger("retell")
+    path = websocket.scope.get("path")
+    logger.info("RETELL_WS_ACCEPT call_id=%s path=%s", call_id, path)
+    response_counter = 0
+
     try:
-        await websocket.send_json({"response_type": "response", "response_id": "init", "content": "Good morning, Grace speaking.", "content_complete": True, "end_call": False})
+        await websocket.send_json(
+            {
+                "response_id": 0,
+                "content": "",
+                "content_complete": True,
+                "end_call": False,
+            }
+        )
+
         while True:
             data = await websocket.receive_json()
-            if data.get("interaction_type") == "response_required":
-                user_text = data["transcript"][-1]["content"]
+            interaction_type = data.get("interaction_type")
+            call_id = data.get("call_id") or data.get("conversation_id") or call_id
+            response_id_in = data.get("response_id")
+            user_text = _last_user_text(data)
+            preview = (user_text[:40] + "…") if len(user_text) > 40 else user_text
+            logger.info(
+                "RETELL_WS_RECV call_id=%s interaction_type=%s response_id=%s preview=%s",
+                call_id,
+                interaction_type,
+                response_id_in,
+                preview,
+            )
 
-                ai_reply = "I've noted that request."
+            if interaction_type == "update_only":
+                continue
+            if interaction_type != "response_required":
+                continue
+
+            if _is_unclear(user_text):
+                ai_reply = _clarify()
+            else:
+                ai_reply = ""
                 if settings.google_api_key:
                     try:
                         import google.generativeai as genai
-                        model = genai.GenerativeModel('gemini-1.5-flash')
-                        response = model.generate_content(f"You are a hotel concierge. User: {user_text}. Keep it short.")
-                        ai_reply = response.text
+                        model = genai.GenerativeModel("gemini-1.5-flash")
+                        response = model.generate_content(
+                            [
+                                {"role": "system", "content": SYSTEM_PROMPT},
+                                {"role": "user", "content": user_text},
+                            ]
+                        )
+                        ai_reply = (response.text or "").strip()
                     except Exception:
-                        pass
+                        ai_reply = ""
 
-                if len(user_text) > 5:
-                    db = SessionLocal()
-                    try:
-                        t = Escalation(guest_name="Voice Guest", room_number="Unknown", issue=user_text, status="OPEN", sentiment="Neutral")
-                        db.add(t)
-                        db.commit()
-                        await bus.publish("ticket.created", {"guest_name": "Voice Guest", "issue": user_text}, cid)
-                    finally:
-                        db.close()
+                if not ai_reply:
+                    ai_reply = "I’m experiencing a technical issue. How may I assist you today?"
 
-                await websocket.send_json({"response_type": "response", "response_id": data["response_id"], "content": ai_reply, "content_complete": True, "end_call": False})
-    except Exception:
-        pass
+                state = _retell_state(call_id or "unknown")
+                last_assistant = state["last_assistant"]
+                if any(ai_reply.strip() == prev for prev in last_assistant[-2:]):
+                    ai_reply = _loop_break()
+                last_assistant.append(ai_reply.strip())
+                if len(last_assistant) > 3:
+                    del last_assistant[:-3]
+
+            try:
+                resp_id_int = int(response_id_in)
+                response_counter = max(response_counter, resp_id_int)
+                response_id = resp_id_int
+            except Exception:
+                response_counter += 1
+                response_id = response_counter
+
+            logger.info(
+                "RETELL_WS_SEND call_id=%s response_id=%s preview=%s",
+                call_id,
+                response_id,
+                (ai_reply[:40] + "…") if len(ai_reply) > 40 else ai_reply,
+            )
+
+            if len(user_text) > 5:
+                db = SessionLocal()
+                try:
+                    t = Escalation(
+                        guest_name="Voice Guest",
+                        room_number="Unknown",
+                        issue=user_text,
+                        status="OPEN",
+                        sentiment="Neutral",
+                    )
+                    db.add(t)
+                    db.commit()
+                    await bus.publish("ticket.created", {"guest_name": "Voice Guest", "issue": user_text}, call_id)
+                finally:
+                    db.close()
+
+            await websocket.send_json(
+                {
+                    "response_id": response_id,
+                    "content": ai_reply,
+                    "content_complete": True,
+                    "end_call": False,
+                }
+            )
+    except Exception as e:
+        logger.exception("RETELL_WS_ERROR %s", e)
+        try:
+            await websocket.close()
+        except Exception:
+            pass
+
+
+@app.websocket("/llm-websocket")
+async def websocket_endpoint_root(websocket: WebSocket):
+    await _retell_ws_handler(websocket)
+
+
+@app.websocket("/llm-websocket/{call_id}")
+async def websocket_endpoint_with_id(websocket: WebSocket, call_id: str):
+    await _retell_ws_handler(websocket, call_id)

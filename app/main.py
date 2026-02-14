@@ -307,7 +307,7 @@ async def _retell_ws_handler(websocket: WebSocket, call_id: str | None = None):
     logger = logging.getLogger("retell")
     start_time = time.time()
     path = getattr(websocket.scope, "get", lambda *_args: None)("path") if hasattr(websocket, "scope") else None
-    logger.info("RETELL_WS_CONNECTED path=%s call_id=%s", path, call_id)
+    logger.info("RETELL_WS_ACCEPT call_id=%s path=%s", call_id, path)
     response_counter = 0
 
     try:
@@ -328,8 +328,7 @@ async def _retell_ws_handler(websocket: WebSocket, call_id: str | None = None):
             user_text = _get_latest_user_text(data)
             user_preview = (user_text[:40] + "…") if len(user_text) > 40 else user_text
             logger.info(
-                "RETELL_WS_RECV path=%s call_id=%s interaction_type=%s response_id=%s user_preview=%s",
-                path,
+                "RETELL_WS_RECV call_id=%s interaction_type=%s response_id=%s preview=%s",
                 call_id,
                 interaction_type,
                 response_id_in,
@@ -391,7 +390,8 @@ async def _retell_ws_handler(websocket: WebSocket, call_id: str | None = None):
 
             duration_ms = int((time.time() - start_time) * 1000)
             logger.info(
-                "RETELL_WS_SEND response_id=%s content_preview=%s duration_ms=%s",
+                "RETELL_WS_SEND call_id=%s response_id=%s preview=%s duration_ms=%s",
+                call_id,
                 response_id,
                 (ai_reply[:40] + "…") if len(ai_reply) > 40 else ai_reply,
                 duration_ms,
@@ -417,7 +417,7 @@ async def _retell_ws_handler(websocket: WebSocket, call_id: str | None = None):
 
             response_event = {
                 "response_id": response_id,
-                "content": f"MARKER_9F6D:{ai_reply}",
+                "content": ai_reply,
                 "content_complete": True,
                 "end_call": False
             }
