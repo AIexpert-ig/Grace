@@ -17,7 +17,7 @@ def test_repetition_triggers_loop_breaker():
     state = app_main._retell_state_for(call_id)
     candidate = "I have noted that request."
     assert candidate in state["last_assistant"]
-    assert app_main._loop_break_response().startswith("I may be missing")
+    assert app_main._loop_break_response().startswith("Good afternoon")
 
 
 def test_user_repeat_within_window():

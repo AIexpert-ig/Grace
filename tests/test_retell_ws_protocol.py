@@ -1,6 +1,6 @@
 from fastapi.testclient import TestClient
 
-from app.main import app
+from app.main import app, RETELL_CONNECT_GREETING
 
 
 def test_ws_handshake_on_path_with_call_id():
@@ -9,7 +9,7 @@ def test_ws_handshake_on_path_with_call_id():
         msg = ws.receive_json()
         assert msg == {
             "response_id": 0,
-            "content": "",
+            "content": RETELL_CONNECT_GREETING,
             "content_complete": True,
             "end_call": False,
         }
@@ -41,12 +41,14 @@ def test_response_required_response_shape():
         ws.send_json({
             "interaction_type": "response_required",
             "response_id": 9,
-            "transcript": [{"role": "user", "content": ""}],
+            "transcript": [{"role": "user", "content": "Hello?"}],
         })
         response = ws.receive_json()
         assert response["response_id"] == 9
         assert isinstance(response["response_id"], int)
         assert "response_type" not in response
+        assert "I've noted that request" not in response["content"]
+        assert response["content"] == "Good afternoon, how may I assist you today?"
 
 
 def test_debug_marker_enabled(monkeypatch):
@@ -77,3 +79,10 @@ def test_debug_marker_disabled(monkeypatch):
         response = ws.receive_json()
         assert response["response_id"] == 6
         assert not response["content"].startswith("GRACE_WS_OK: ")
+
+
+def test_ws_normal_close_no_error():
+    client = TestClient(app)
+    with client.websocket_connect("/llm-websocket/call_test") as ws:
+        ws.receive_json()
+        ws.close()

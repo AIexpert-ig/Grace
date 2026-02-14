@@ -1,6 +1,6 @@
 from fastapi.testclient import TestClient
 
-from app.main import app
+from app.main import app, RETELL_CONNECT_GREETING
 
 
 def test_retell_update_only_no_response():
@@ -8,7 +8,7 @@ def test_retell_update_only_no_response():
     with client.websocket_connect("/llm-websocket") as ws:
         init_msg = ws.receive_json()
         assert init_msg["response_id"] == 0
-        assert init_msg["content"] == ""
+        assert init_msg["content"] == RETELL_CONNECT_GREETING
         assert init_msg["content_complete"] is True
 
         ws.send_json({

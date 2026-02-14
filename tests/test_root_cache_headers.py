@@ -8,4 +8,5 @@ async def test_root_cache_headers_and_build_stamp(test_client):
     cache_control = response.headers.get("cache-control", "").lower()
     assert "no-store" in cache_control
     assert "max-age=0" in cache_control.replace(" ", "")
-    assert "id=\"build-marker\"" in response.text
+    assert "id=\"deploy-marker\"" in response.text
+    assert "DEPLOY_MARKER=" in response.text
