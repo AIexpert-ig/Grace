@@ -1,16 +1,15 @@
 <!DOCTYPE html>
-<!-- build: 273a600 2026-02-13T09:00:16Z -->
+<!-- build: fde3e7c 2026-02-14T06:50:51Z -->
 <html lang="en">
 
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Grace Hotel Concierge | Command Center</title>
+  <title>Grace AI Concierge | Command Center</title>
   <meta name="description" content="AI-powered voice-native hotel concierge system">
   <link rel="icon" href="https://z-cdn.chatglm.cn/z-ai/static/logo.svg">
 
   <script src="https://cdn.tailwindcss.com"></script>
-
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
   <script>
@@ -20,7 +19,8 @@
           colors: {
             slate: { 950: '#020617', 900: '#0f172a', 800: '#1e293b' },
             purple: { 400: '#c084fc', 500: '#a855f7', 600: '#9333ea' },
-            cyan: { 400: '#22d3ee', 500: '#06b6d4' }
+            cyan: { 400: '#22d3ee', 500: '#06b6d4' },
+            pink: { 400: '#f472b6', 500: '#ec4899' }
           }
         }
       }
@@ -29,49 +29,9 @@
 
   <style>
     :root {
-      --neon-cyan: rgba(34, 211, 238, 0.9);
-      --neon-purple: rgba(168, 85, 247, 0.9);
-      --neon-pink: rgba(236, 72, 153, 0.8);
-      --panel-bg: rgba(10, 15, 25, 0.75);
-    }
-
-    @keyframes pulse {
-      0%,
-      100% {
-        opacity: 1;
-      }
-
-      50% {
-        opacity: 0.6;
-      }
-    }
-
-    .glass-card {
-      background: rgba(15, 23, 42, 0.8);
-      backdrop-filter: blur(16px);
-      border: 1px solid rgba(168, 85, 247, 0.3);
-      box-shadow: 0 8px 32px rgba(168, 85, 247, 0.3);
-    }
-
-    .status-dot {
-      animation: pulse 2s infinite;
-    }
-
-    .hud-panel {
-      background: var(--panel-bg);
-      backdrop-filter: blur(18px);
-      border: 1px solid rgba(94, 234, 212, 0.15);
-      box-shadow: 0 0 0 1px rgba(14, 116, 144, 0.2), 0 20px 60px rgba(8, 47, 73, 0.4);
-      position: relative;
-    }
-
-    .hud-panel::after {
-      content: "";
-      position: absolute;
-      inset: 0;
-      border-radius: inherit;
-      pointer-events: none;
-      box-shadow: inset 0 0 25px rgba(56, 189, 248, 0.12);
+      --panel-bg: rgba(8, 12, 20, 0.78);
+      --panel-border: rgba(34, 211, 238, 0.18);
+      --panel-glow: rgba(34, 211, 238, 0.2);
     }
 
     .scanlines {
@@ -81,21 +41,56 @@
       background: linear-gradient(to bottom, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
       background-size: 100% 4px;
       mix-blend-mode: soft-light;
-      opacity: 0.3;
+      opacity: 0.35;
       z-index: 1;
     }
 
-    .grain {
+    .grid-overlay {
       position: fixed;
       inset: 0;
       pointer-events: none;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.08'/%3E%3C/svg%3E");
+      background-image: linear-gradient(rgba(148, 163, 184, 0.08) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(148, 163, 184, 0.08) 1px, transparent 1px);
+      background-size: 60px 60px;
       opacity: 0.25;
       z-index: 1;
     }
 
+    .glass-panel {
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      backdrop-filter: blur(16px);
+      box-shadow: 0 0 24px rgba(30, 64, 175, 0.2), 0 20px 60px rgba(15, 23, 42, 0.55);
+    }
+
+    .glow-hover:hover {
+      box-shadow: 0 0 30px var(--panel-glow);
+      transform: translateY(-2px);
+    }
+
+    .status-dot {
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%,
+      100% {
+        opacity: 1;
+      }
+      50% {
+        opacity: 0.55;
+      }
+    }
+
+    .truncate-lines {
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
     .modal-enter {
-      animation: modalIn 0.25s ease-out;
+      animation: modalIn 0.2s ease-out;
     }
 
     @keyframes modalIn {
@@ -106,21 +101,6 @@
       to {
         opacity: 1;
         transform: translateY(0) scale(1);
-      }
-    }
-
-    .skeleton {
-      background: linear-gradient(90deg, rgba(30, 41, 59, 0.2) 25%, rgba(51, 65, 85, 0.5) 50%, rgba(30, 41, 59, 0.2) 75%);
-      background-size: 200% 100%;
-      animation: shimmer 1.6s infinite;
-    }
-
-    @keyframes shimmer {
-      0% {
-        background-position: -200% 0;
-      }
-      100% {
-        background-position: 200% 0;
       }
     }
 
@@ -144,18 +124,13 @@
 </head>
 
 <body class="bg-gradient-to-br from-slate-950 via-purple-950/20 to-slate-950 min-h-screen text-white overflow-x-hidden">
-  <div class="fixed inset-0 opacity-5 pointer-events-none">
-    <div class="absolute inset-0"
-      style="background-image: linear-gradient(#a855f7 1px, transparent 1px), linear-gradient(90deg, #a855f7 1px, transparent 1px); background-size: 50px 50px;">
-    </div>
-  </div>
+  <div class="grid-overlay"></div>
   <div class="scanlines"></div>
-  <div class="grain"></div>
 
   <div class="fixed top-1/4 left-1/4 w-96 h-96 bg-purple-600/10 rounded-full blur-3xl animate-pulse pointer-events-none"></div>
   <div class="fixed bottom-1/4 right-1/4 w-96 h-96 bg-cyan-600/10 rounded-full blur-3xl animate-pulse pointer-events-none delay-1000"></div>
 
-  <header class="sticky top-0 z-50 border-b border-purple-500/20 backdrop-blur-xl bg-slate-950/80">
+  <header class="sticky top-0 z-40 border-b border-purple-500/20 backdrop-blur-xl bg-slate-950/80">
     <div class="container mx-auto px-4 py-4">
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-4">
@@ -164,11 +139,12 @@
             <span class="absolute -top-1 -right-1 h-3 w-3 bg-green-500 rounded-full status-dot"></span>
           </div>
           <div>
-            <h1 class="text-2xl font-bold bg-gradient-to-r from-purple-400 via-cyan-400 to-purple-400 bg-clip-text text-transparent">GRACE AI</h1>
+            <h1 class="text-2xl font-bold bg-gradient-to-r from-purple-400 via-cyan-400 to-purple-400 bg-clip-text text-transparent">
+              GRACE AI
+            </h1>
             <p class="text-xs text-slate-400 font-mono tracking-widest">CONCIERGE COMMAND CENTER</p>
           </div>
         </div>
-
         <div class="flex items-center gap-6">
           <div class="text-right hidden md:block">
             <p class="text-xs text-purple-400 font-mono">SYSTEM TIME</p>
@@ -181,47 +157,43 @@
         </div>
       </div>
     </div>
-    <div class="h-[1px] w-full bg-gradient-to-r from-transparent via-purple-600 to-transparent opacity-50"></div>
   </header>
 
   <main class="container mx-auto px-4 py-8 relative z-10">
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-      <div class="glass-card hud-panel rounded-2xl p-6 relative overflow-hidden group hover:border-purple-500/50 transition-all">
-        <div class="absolute top-0 right-0 w-32 h-32 bg-purple-600/20 rounded-full blur-3xl group-hover:bg-purple-600/30 transition-all"></div>
+      <div class="glass-panel rounded-2xl p-6 glow-hover transition-all">
         <div class="flex justify-between items-start mb-4">
           <h2 class="text-sm text-purple-400 font-mono uppercase">Total Tickets</h2>
           <i class="fas fa-database text-cyan-400 text-xl"></i>
         </div>
-        <div class="text-4xl font-bold text-white" id="total-tickets">0</div>
+        <div class="text-4xl font-bold text-white" id="stat-total">0</div>
         <p class="text-xs text-slate-500 mt-2 font-mono">LIFETIME LOGS</p>
       </div>
 
-      <div class="glass-card hud-panel rounded-2xl p-6 relative overflow-hidden group hover:border-green-500/50 transition-all">
-        <div class="absolute top-0 right-0 w-32 h-32 bg-green-600/20 rounded-full blur-3xl group-hover:bg-green-600/30 transition-all"></div>
+      <div class="glass-panel rounded-2xl p-6 glow-hover transition-all">
         <div class="flex justify-between items-start mb-4">
           <h2 class="text-sm text-green-400 font-mono uppercase">Open Tickets</h2>
           <i class="fas fa-signal text-green-400 text-xl"></i>
         </div>
-        <div class="text-4xl font-bold text-white" id="open-tickets">0</div>
+        <div class="text-4xl font-bold text-white" id="stat-open">0</div>
         <p class="text-xs text-slate-500 mt-2 font-mono">ACTIVE REQUESTS</p>
       </div>
 
-      <div class="glass-card hud-panel rounded-2xl p-6 relative overflow-hidden group hover:border-cyan-500/50 transition-all">
-        <div class="absolute top-0 right-0 w-32 h-32 bg-cyan-600/20 rounded-full blur-3xl group-hover:bg-cyan-600/30 transition-all"></div>
+      <div class="glass-panel rounded-2xl p-6 glow-hover transition-all">
         <div class="flex justify-between items-start mb-4">
           <h2 class="text-sm text-cyan-400 font-mono uppercase">Sentiment</h2>
           <i class="fas fa-brain text-purple-400 text-xl"></i>
         </div>
-        <div class="text-4xl font-bold text-white" id="sentiment-score">98%</div>
+        <div class="text-4xl font-bold text-white" id="stat-sentiment">98%</div>
         <p class="text-xs text-slate-500 mt-2 font-mono">AI CONFIDENCE</p>
       </div>
     </div>
 
-    <div class="glass-card hud-panel rounded-2xl p-6 min-h-[600px]">
-      <div class="flex items-center justify-between mb-4">
+    <div class="glass-panel rounded-2xl p-6">
+      <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
         <h2 class="text-xl font-bold flex items-center gap-3">
-          <i class="fas fa-list-ul text-purple-400"></i>
-          <span class="bg-gradient-to-r from-purple-400 to-cyan-400 bg-clip-text text-transparent">Live Incoming Feed</span>
+          <i class="fas fa-list text-purple-400"></i>
+          <span class="bg-gradient-to-r from-purple-400 to-cyan-400 bg-clip-text text-transparent">Live Tickets</span>
         </h2>
         <button id="create-test-ticket"
           class="text-xs bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-emerald-500/30 px-4 py-2 rounded-lg transition-all flex items-center gap-2">
@@ -235,143 +207,49 @@
         <span id="error-message">Unable to load data.</span>
       </div>
 
-      <div class="grid grid-cols-1 xl:grid-cols-12 gap-3 mb-4">
+      <div class="grid grid-cols-1 xl:grid-cols-12 gap-4 mb-6">
         <div class="xl:col-span-6">
           <label class="flex items-center gap-2 text-xs text-slate-300 font-mono">
             <i class="fas fa-search text-cyan-400"></i>
-            <input id="search-input" type="text" placeholder="Search guest, room, summary, status..."
+            <input id="search-input" type="text" placeholder="Search guest, room, issue..."
               class="w-full bg-slate-900/60 border border-cyan-500/20 rounded-md px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-cyan-400/80" />
           </label>
         </div>
-        <div class="xl:col-span-2">
-          <select id="filter-severity"
-            class="w-full bg-slate-900/60 border border-pink-500/20 rounded-md px-3 py-2 text-xs text-pink-200 focus:outline-none focus:border-pink-400/80">
-            <option value="all">All Severity</option>
-            <option value="high">High</option>
-            <option value="medium">Medium</option>
-            <option value="low">Low</option>
+        <div class="xl:col-span-3">
+          <select id="filter-status"
+            class="w-full bg-slate-900/60 border border-purple-500/20 rounded-md px-3 py-2 text-xs text-purple-200 focus:outline-none focus:border-purple-400/80">
+            <option value="all">All Status</option>
+            <option value="OPEN">Open</option>
+            <option value="RESOLVED">Resolved</option>
+            <option value="CLOSED">Closed</option>
           </select>
         </div>
-        <div class="xl:col-span-2">
-          <select id="filter-source"
-            class="w-full bg-slate-900/60 border border-emerald-500/20 rounded-md px-3 py-2 text-xs text-emerald-200 focus:outline-none focus:border-emerald-400/80">
-            <option value="all">All Sources</option>
-            <option value="voice">Voice</option>
-            <option value="web">Web</option>
-            <option value="staff">Staff</option>
-          </select>
-        </div>
-        <div class="xl:col-span-2">
+        <div class="xl:col-span-3">
           <button id="sort-created"
             class="w-full bg-slate-900/60 border border-cyan-500/30 rounded-md px-3 py-2 text-xs text-cyan-200 hover:bg-cyan-500/10 transition-all">
-            Created ⬇
+            Sort: Newest
           </button>
         </div>
       </div>
 
-      <div class="flex flex-wrap items-center gap-2 mb-4">
-        <span class="text-xs font-mono text-slate-400">Status:</span>
-        <button class="status-chip text-xs px-3 py-1 rounded-full border border-cyan-500/30 text-cyan-200 hover:bg-cyan-500/10 transition-all"
-          data-status="all">All</button>
-        <button class="status-chip text-xs px-3 py-1 rounded-full border border-red-500/30 text-red-200 hover:bg-red-500/10 transition-all"
-          data-status="OPEN">Open</button>
-        <button class="status-chip text-xs px-3 py-1 rounded-full border border-green-500/30 text-green-200 hover:bg-green-500/10 transition-all"
-          data-status="RESOLVED">Resolved</button>
+      <div id="loading-state" class="flex flex-col items-center justify-center h-64 text-slate-400">
+        <div class="w-12 h-12 border-4 border-cyan-500/30 border-t-cyan-400 rounded-full animate-spin mb-4"></div>
+        <p class="font-mono text-sm">SYNCING CONCIERGE GRID...</p>
       </div>
 
-      <div class="grid grid-cols-1 xl:grid-cols-12 gap-6">
-        <div class="xl:col-span-8 space-y-4">
-          <div id="loading-state" class="flex flex-col items-center justify-center h-64 text-slate-400">
-            <div class="w-12 h-12 border-4 border-cyan-500/30 border-t-cyan-400 rounded-full animate-spin mb-4"></div>
-            <p class="font-mono text-sm">SYNCING CONCIERGE GRID...</p>
-          </div>
-
-          <div id="empty-state" class="hidden flex flex-col items-center justify-center h-64 text-slate-500">
-            <i class="fas fa-inbox text-4xl mb-4 opacity-50"></i>
-            <p>No active requests found.</p>
-            <p class="text-sm opacity-70 mt-1">Awaiting new signals...</p>
-          </div>
-
-          <div id="tickets-container" class="hidden overflow-x-auto">
-            <table class="w-full text-left border-collapse">
-              <thead>
-                <tr class="border-b border-cyan-500/20 text-xs font-mono text-cyan-300 uppercase tracking-wider">
-                  <th class="p-4">ID</th>
-                  <th class="p-4">Severity</th>
-                  <th class="p-4">Status</th>
-                  <th class="p-4">Category</th>
-                  <th class="p-4">Guest / Room</th>
-                  <th class="p-4 w-1/3">Summary</th>
-                  <th class="p-4">Created</th>
-                </tr>
-              </thead>
-              <tbody id="tickets-body" class="text-sm divide-y divide-cyan-500/10"></tbody>
-            </table>
-          </div>
-        </div>
-
-        <aside class="xl:col-span-4 space-y-4">
-          <div class="hud-panel rounded-2xl p-5 border border-cyan-500/20">
-            <div class="flex items-center justify-between mb-4">
-              <h3 class="text-sm font-mono text-cyan-300 uppercase tracking-widest">AI Insights</h3>
-              <i class="fas fa-chart-line text-cyan-400"></i>
-            </div>
-            <div class="space-y-3 text-sm">
-              <div class="flex items-center justify-between text-slate-300">
-                <span>Total Tickets</span>
-                <span id="insight-total" class="text-white font-semibold">—</span>
-              </div>
-              <div class="flex items-center justify-between text-slate-300">
-                <span>Open Alerts</span>
-                <span id="insight-open" class="text-red-300 font-semibold">—</span>
-              </div>
-              <div class="flex items-center justify-between text-slate-300">
-                <span>Resolved</span>
-                <span id="insight-resolved" class="text-emerald-300 font-semibold">—</span>
-              </div>
-              <div class="flex items-center justify-between text-slate-300">
-                <span>High Severity</span>
-                <span id="insight-high" class="text-pink-300 font-semibold">—</span>
-              </div>
-              <div class="mt-4 rounded-lg border border-slate-700/60 bg-slate-900/60 p-3">
-                <p class="text-xs text-purple-300 font-mono">Top Category</p>
-                <p id="insight-category" class="text-white font-semibold mt-1">—</p>
-              </div>
-              <div class="mt-3 rounded-lg border border-slate-700/60 bg-slate-900/60 p-3">
-                <p class="text-xs text-cyan-300 font-mono">Latest Signal</p>
-                <p id="insight-latest" class="text-slate-200 text-sm mt-1">—</p>
-              </div>
-            </div>
-          </div>
-
-          <div class="hud-panel rounded-2xl p-5 border border-purple-500/20">
-            <div class="flex items-center justify-between mb-3">
-              <h3 class="text-sm font-mono text-purple-300 uppercase tracking-widest">AI Forecast</h3>
-              <i class="fas fa-satellite-dish text-purple-400"></i>
-            </div>
-            <p class="text-xs text-slate-400 font-mono leading-relaxed">
-              Predictive routing prioritizes <span class="text-cyan-300">high-severity</span> escalations and
-              recommends concierge follow-ups within <span class="text-purple-300">10 minutes</span>.
-            </p>
-            <div class="mt-4 grid grid-cols-2 gap-2 text-xs font-mono">
-              <div class="rounded-lg border border-cyan-500/20 bg-slate-900/60 p-2">
-                <p class="text-cyan-300">Avg Response</p>
-                <p class="text-white font-semibold">4m 12s</p>
-              </div>
-              <div class="rounded-lg border border-purple-500/20 bg-slate-900/60 p-2">
-                <p class="text-purple-300">Escalation Risk</p>
-                <p class="text-white font-semibold">Low</p>
-              </div>
-            </div>
-          </div>
-        </aside>
+      <div id="empty-state" class="hidden flex flex-col items-center justify-center h-64 text-slate-500">
+        <i class="fas fa-inbox text-4xl mb-4 opacity-50"></i>
+        <p>No active requests found.</p>
+        <p class="text-sm opacity-70 mt-1">Awaiting new signals...</p>
       </div>
+
+      <div id="tickets-grid" class="hidden grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"></div>
     </div>
   </main>
 
   <div id="ticket-modal" class="fixed inset-0 z-[100] hidden items-center justify-center">
     <div id="modal-overlay" class="absolute inset-0 bg-slate-950/80 backdrop-blur-sm"></div>
-    <div class="relative w-[95%] max-w-5xl max-h-[90vh] overflow-hidden rounded-2xl border border-cyan-500/30 bg-slate-950/90 shadow-2xl shadow-cyan-500/20 modal-enter">
+    <div class="relative w-[95%] max-w-3xl max-h-[90vh] overflow-hidden rounded-2xl border border-cyan-500/30 bg-slate-950/90 shadow-2xl shadow-cyan-500/20 modal-enter">
       <div class="flex items-center justify-between border-b border-cyan-500/20 px-6 py-4">
         <div>
           <p class="text-xs text-cyan-300 font-mono">INCIDENT REPORT</p>
@@ -383,104 +261,74 @@
           Close
         </button>
       </div>
-      <div class="px-6 py-4 space-y-4">
+      <div class="px-6 py-4 space-y-4 overflow-y-auto max-h-[70vh]">
         <div class="flex flex-wrap items-center gap-3 text-xs font-mono">
           <span id="modal-id" class="px-2 py-1 rounded bg-slate-900/60 border border-cyan-500/20">ID: —</span>
-          <span id="modal-severity" class="px-2 py-1 rounded bg-slate-900/60 border border-pink-500/30">Severity: —</span>
           <span id="modal-status" class="px-2 py-1 rounded bg-slate-900/60 border border-purple-500/30">Status: —</span>
-          <span id="modal-correlation" class="px-2 py-1 rounded bg-slate-900/60 border border-emerald-500/30">Correlation: —</span>
+          <span id="modal-sentiment" class="px-2 py-1 rounded bg-slate-900/60 border border-pink-500/30">Sentiment: —</span>
         </div>
 
-        <div class="flex flex-wrap gap-2">
-          <button class="tab-button text-xs px-3 py-2 rounded-md border border-cyan-500/30 text-cyan-200 hover:bg-cyan-500/10" data-tab="overview">Overview</button>
-          <button class="tab-button text-xs px-3 py-2 rounded-md border border-slate-600/40 text-slate-300 hover:bg-slate-800/60" data-tab="transcript">Transcript</button>
-          <button class="tab-button text-xs px-3 py-2 rounded-md border border-slate-600/40 text-slate-300 hover:bg-slate-800/60" data-tab="actions">Actions</button>
-          <button class="tab-button text-xs px-3 py-2 rounded-md border border-slate-600/40 text-slate-300 hover:bg-slate-800/60" data-tab="raw">Raw JSON</button>
-        </div>
-
-        <div id="tab-overview" class="tab-panel space-y-3">
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-            <div class="p-3 rounded-lg bg-slate-900/60 border border-cyan-500/10">
-              <p class="text-xs text-cyan-300 font-mono">Guest</p>
-              <p id="modal-guest" class="text-white font-semibold">—</p>
-            </div>
-            <div class="p-3 rounded-lg bg-slate-900/60 border border-cyan-500/10">
-              <p class="text-xs text-cyan-300 font-mono">Room</p>
-              <p id="modal-room" class="text-white font-semibold">—</p>
-            </div>
-            <div class="p-3 rounded-lg bg-slate-900/60 border border-cyan-500/10">
-              <p class="text-xs text-cyan-300 font-mono">Category</p>
-              <p id="modal-source" class="text-white font-semibold">—</p>
-            </div>
-            <div class="p-3 rounded-lg bg-slate-900/60 border border-cyan-500/10">
-              <p class="text-xs text-cyan-300 font-mono">Sentiment</p>
-              <p id="modal-sentiment" class="text-white font-semibold">—</p>
-            </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+          <div class="p-3 rounded-lg bg-slate-900/60 border border-cyan-500/10">
+            <p class="text-xs text-cyan-300 font-mono">Guest</p>
+            <p id="modal-guest" class="text-white font-semibold">—</p>
           </div>
-          <div class="p-4 rounded-lg bg-slate-900/60 border border-purple-500/20">
-            <p class="text-xs text-purple-300 font-mono">Summary</p>
-            <p id="modal-summary" class="text-slate-200 mt-2 leading-relaxed">—</p>
+          <div class="p-3 rounded-lg bg-slate-900/60 border border-cyan-500/10">
+            <p class="text-xs text-cyan-300 font-mono">Room</p>
+            <p id="modal-room" class="text-white font-semibold">—</p>
+          </div>
+          <div class="p-3 rounded-lg bg-slate-900/60 border border-cyan-500/10">
+            <p class="text-xs text-cyan-300 font-mono">Status</p>
+            <p id="modal-status-text" class="text-white font-semibold">—</p>
+          </div>
+          <div class="p-3 rounded-lg bg-slate-900/60 border border-cyan-500/10">
+            <p class="text-xs text-cyan-300 font-mono">Sentiment</p>
+            <p id="modal-sentiment-text" class="text-white font-semibold">—</p>
           </div>
         </div>
 
-        <div id="tab-transcript" class="tab-panel hidden">
-          <div class="p-4 rounded-lg bg-slate-900/60 border border-cyan-500/10">
-            <p class="text-xs text-cyan-300 font-mono">Transcript</p>
-            <p id="modal-transcript" class="text-slate-200 mt-2 leading-relaxed">—</p>
-          </div>
+        <div class="p-4 rounded-lg bg-slate-900/60 border border-purple-500/20">
+          <p class="text-xs text-purple-300 font-mono">Issue</p>
+          <p id="modal-issue" class="text-slate-200 mt-2 leading-relaxed">—</p>
         </div>
 
-        <div id="tab-actions" class="tab-panel hidden">
-          <div class="p-4 rounded-lg bg-slate-900/60 border border-emerald-500/20 space-y-3">
-            <p class="text-xs text-emerald-300 font-mono">Recommended Actions</p>
-            <ul id="modal-actions" class="text-slate-200 text-sm list-disc list-inside space-y-1">
-              <li>Dispatch staff to confirm request.</li>
-              <li>Log resolution time in concierge journal.</li>
-              <li>Follow up with guest within 10 minutes.</li>
-            </ul>
+        <div class="p-4 rounded-lg bg-slate-900/60 border border-cyan-500/20">
+          <div class="flex items-center justify-between">
+            <p class="text-xs text-cyan-300 font-mono">Raw JSON</p>
+            <button id="modal-copy-json"
+              class="text-xs text-cyan-200 border border-cyan-500/30 px-2 py-1 rounded-md hover:bg-cyan-500/10 transition-all">
+              Copy JSON
+            </button>
           </div>
-        </div>
-
-        <div id="tab-raw" class="tab-panel hidden">
-          <div class="p-4 rounded-lg bg-slate-900/60 border border-cyan-500/20">
-            <div class="flex items-center justify-between">
-              <p class="text-xs text-cyan-300 font-mono">Raw JSON</p>
-              <button id="modal-copy-json"
-                class="text-xs text-cyan-200 border border-cyan-500/30 px-2 py-1 rounded-md hover:bg-cyan-500/10 transition-all">
-                Copy JSON
-              </button>
-            </div>
-            <div class="mt-2 max-h-[240px] overflow-auto rounded-md bg-slate-950/70 border border-slate-700 p-3 text-xs text-slate-200">
-              <pre id="modal-raw" class="whitespace-pre-wrap break-words">—</pre>
-            </div>
+          <div class="mt-2 max-h-[220px] overflow-auto rounded-md bg-slate-950/70 border border-slate-700 p-3 text-xs text-slate-200">
+            <pre id="modal-raw" class="whitespace-pre-wrap break-words">—</pre>
           </div>
         </div>
       </div>
     </div>
   </div>
 
-  <footer class="border-t border-purple-500/10 bg-slate-950/80 mt-auto py-6">
-    <div class="container mx-auto px-4 text-center">
+  <footer class="border-t border-purple-500/10 bg-slate-950/80 mt-10 py-6">
+    <div class="container mx-auto px-4 text-center space-y-1">
       <p class="text-xs text-slate-600 font-mono">GRACE AI SYSTEM // POWERED BY RAILWAY & GEMINI</p>
+      <p class="text-xs text-cyan-300 font-mono" id="build-marker">build: unknown</p>
     </div>
   </footer>
 
   <script>
     const API_BASE_URL = window.location.origin;
 
-    const totalTicketsEl = document.getElementById('total-tickets');
-    const openTicketsEl = document.getElementById('open-tickets');
-    const sentimentScoreEl = document.getElementById('sentiment-score');
+    const statTotalEl = document.getElementById('stat-total');
+    const statOpenEl = document.getElementById('stat-open');
+    const statSentimentEl = document.getElementById('stat-sentiment');
     const loadingStateEl = document.getElementById('loading-state');
     const emptyStateEl = document.getElementById('empty-state');
-    const ticketsContainerEl = document.getElementById('tickets-container');
-    const ticketsBodyEl = document.getElementById('tickets-body');
+    const ticketsGridEl = document.getElementById('tickets-grid');
     const testBtn = document.getElementById('create-test-ticket');
     const errorBannerEl = document.getElementById('error-banner');
     const errorMessageEl = document.getElementById('error-message');
     const searchInputEl = document.getElementById('search-input');
-    const filterSeverityEl = document.getElementById('filter-severity');
-    const filterSourceEl = document.getElementById('filter-source');
+    const filterStatusEl = document.getElementById('filter-status');
     const sortCreatedBtn = document.getElementById('sort-created');
     const modalEl = document.getElementById('ticket-modal');
     const modalOverlayEl = document.getElementById('modal-overlay');
@@ -488,26 +336,16 @@
     const modalTitleEl = document.getElementById('modal-title');
     const modalCreatedEl = document.getElementById('modal-created');
     const modalIdEl = document.getElementById('modal-id');
-    const modalSeverityEl = document.getElementById('modal-severity');
-    const modalStatusEl = document.getElementById('modal-status');
-    const modalCorrelationEl = document.getElementById('modal-correlation');
+    const modalStatusBadgeEl = document.getElementById('modal-status');
+    const modalSentimentBadgeEl = document.getElementById('modal-sentiment');
     const modalGuestEl = document.getElementById('modal-guest');
     const modalRoomEl = document.getElementById('modal-room');
-    const modalSourceEl = document.getElementById('modal-source');
-    const modalSentimentEl = document.getElementById('modal-sentiment');
-    const modalSummaryEl = document.getElementById('modal-summary');
-    const modalTranscriptEl = document.getElementById('modal-transcript');
+    const modalStatusTextEl = document.getElementById('modal-status-text');
+    const modalSentimentTextEl = document.getElementById('modal-sentiment-text');
+    const modalIssueEl = document.getElementById('modal-issue');
     const modalRawEl = document.getElementById('modal-raw');
     const modalCopyJsonBtn = document.getElementById('modal-copy-json');
-    const insightTotalEl = document.getElementById('insight-total');
-    const insightOpenEl = document.getElementById('insight-open');
-    const insightResolvedEl = document.getElementById('insight-resolved');
-    const insightHighEl = document.getElementById('insight-high');
-    const insightCategoryEl = document.getElementById('insight-category');
-    const insightLatestEl = document.getElementById('insight-latest');
-    const statusChipButtons = Array.from(document.querySelectorAll('.status-chip'));
-    const tabButtons = Array.from(document.querySelectorAll('.tab-button'));
-    const tabPanels = Array.from(document.querySelectorAll('.tab-panel'));
+    const buildMarkerEl = document.getElementById('build-marker');
 
     const state = {
       tickets: [],
@@ -517,98 +355,32 @@
       sortDir: 'desc',
       filters: {
         search: '',
-        status: 'all',
-        severity: 'all',
-        source: 'all'
+        status: 'all'
       }
     };
 
-    function formatDateTime(isoString) {
+    function formatLocalDateTime(isoString) {
       if (!isoString) {
-        return { display: '—', relative: 'unknown' };
+        return { display: '—', utc: 'unknown' };
       }
       const date = new Date(isoString);
       if (Number.isNaN(date.getTime())) {
-        return { display: '—', relative: 'unknown' };
+        return { display: '—', utc: 'invalid' };
       }
-      const display = date.toLocaleString('en-GB', {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      }).replace(',', ' •');
-      return { display, relative: relativeTime(date) };
-    }
-
-    function relativeTime(date) {
-      const diffMs = Date.now() - date.getTime();
-      const seconds = Math.floor(diffMs / 1000);
-      if (seconds < 60) return `${seconds}s ago`;
-      const minutes = Math.floor(seconds / 60);
-      if (minutes < 60) return `${minutes}m ago`;
-      const hours = Math.floor(minutes / 60);
-      if (hours < 24) return `${hours}h ago`;
-      const days = Math.floor(hours / 24);
-      return `${days}d ago`;
-    }
-
-    function deriveSeverity(ticket) {
-      const sentiment = (ticket.sentiment || '').toLowerCase();
-      const issue = (ticket.issue || '').toLowerCase();
-      if (sentiment.includes('negative') || issue.includes('urgent') || issue.includes('emergency')) {
-        return 'high';
-      }
-      if (sentiment.includes('positive')) {
-        return 'low';
-      }
-      return 'medium';
-    }
-
-    function deriveSource(ticket) {
-      const guest = (ticket.guest_name || '').toLowerCase();
-      const issue = (ticket.issue || '').toLowerCase();
-      if (guest.includes('voice') || issue.includes('call') || issue.includes('phone')) return 'voice';
-      if (guest.includes('staff')) return 'staff';
-      return 'web';
-    }
-
-    function deriveCategory(ticket) {
-      const issue = (ticket.issue || '').toLowerCase();
-      if (issue.includes('towel') || issue.includes('room') || issue.includes('housekeeping')) return 'Housekeeping';
-      if (issue.includes('ac') || issue.includes('air') || issue.includes('maintenance') || issue.includes('broken')) return 'Maintenance';
-      if (issue.includes('food') || issue.includes('meal') || issue.includes('breakfast')) return 'Dining';
-      if (issue.includes('booking') || issue.includes('reservation')) return 'Front Desk';
-      return 'Concierge';
-    }
-
-    function normalizeTickets(tickets) {
-      return (tickets || []).map(ticket => ({
-        ...ticket,
-        _severity: deriveSeverity(ticket),
-        _source: deriveSource(ticket),
-        _category: deriveCategory(ticket)
-      }));
+      const pad = (value) => value.toString().padStart(2, '0');
+      const display = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+      const utc = `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())} ${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())} UTC`;
+      return { display, utc };
     }
 
     function applyFilters() {
       const search = state.filters.search.toLowerCase();
       const status = state.filters.status;
-      const severity = state.filters.severity;
-      const source = state.filters.source;
 
       let filtered = state.tickets.filter(t => {
-        const haystack = [
-          t.guest_name,
-          t.room_number,
-          t.issue,
-          t.status,
-          t.sentiment
-        ].join(' ').toLowerCase();
+        const haystack = [t.guest_name, t.room_number, t.issue].join(' ').toLowerCase();
         if (search && !haystack.includes(search)) return false;
         if (status !== 'all' && t.status !== status) return false;
-        if (severity !== 'all' && t._severity !== severity) return false;
-        if (source !== 'all' && t._source !== source) return false;
         return true;
       });
 
@@ -619,38 +391,6 @@
       });
 
       state.filtered = filtered;
-    }
-
-    function syncStatusChips() {
-      statusChipButtons.forEach(button => {
-        const active = button.dataset.status === state.filters.status;
-        button.classList.toggle('bg-cyan-500/10', active);
-        button.classList.toggle('ring-1', active);
-        button.classList.toggle('ring-cyan-400/60', active);
-      });
-    }
-
-    function setStatusFilter(value) {
-      state.filters.status = value;
-      syncStatusChips();
-      renderTable();
-    }
-
-    function renderSkeletonRows() {
-      ticketsBodyEl.innerHTML = '';
-      for (let i = 0; i < 6; i += 1) {
-        const row = document.createElement('tr');
-        row.innerHTML = `
-          <td class="p-4"><div class="h-4 w-10 rounded skeleton"></div></td>
-          <td class="p-4"><div class="h-4 w-16 rounded skeleton"></div></td>
-          <td class="p-4"><div class="h-4 w-20 rounded skeleton"></div></td>
-          <td class="p-4"><div class="h-4 w-16 rounded skeleton"></div></td>
-          <td class="p-4"><div class="h-4 w-24 rounded skeleton"></div></td>
-          <td class="p-4"><div class="h-4 w-48 rounded skeleton"></div></td>
-          <td class="p-4"><div class="h-4 w-24 rounded skeleton"></div></td>
-        `;
-        ticketsBodyEl.appendChild(row);
-      }
     }
 
     function renderError() {
@@ -670,147 +410,125 @@
 
       if (!state.filtered.length) {
         emptyStateEl.classList.remove('hidden');
-        ticketsContainerEl.classList.add('hidden');
-        ticketsBodyEl.innerHTML = '';
+        ticketsGridEl.classList.add('hidden');
+        ticketsGridEl.innerHTML = '';
         return;
       }
 
       emptyStateEl.classList.add('hidden');
-      ticketsContainerEl.classList.remove('hidden');
-      ticketsBodyEl.innerHTML = '';
+      ticketsGridEl.classList.remove('hidden');
+      ticketsGridEl.innerHTML = '';
 
-      state.filtered.forEach(t => {
-        const { display, relative } = formatDateTime(t.created_at);
-        const issueText = t.issue || "No details";
-        const severity = t._severity;
-        const source = t._source;
-
-        const severityBadge = severity === 'high'
+      state.filtered.forEach(ticket => {
+        const { display, utc } = formatLocalDateTime(ticket.created_at);
+        const statusClass = ticket.status === 'OPEN'
+          ? 'bg-red-500/20 text-red-300 border-red-500/40'
+          : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40';
+        const sentiment = ticket.sentiment || 'Neutral';
+        const sentimentClass = sentiment.toLowerCase().includes('negative')
           ? 'bg-pink-500/20 text-pink-300 border-pink-500/40'
-          : severity === 'low'
+          : sentiment.toLowerCase().includes('positive')
             ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
-            : 'bg-yellow-500/20 text-yellow-200 border-yellow-500/40';
+            : 'bg-cyan-500/20 text-cyan-200 border-cyan-500/40';
 
-        const statusBadge = t.status === 'OPEN'
-          ? 'bg-red-500/20 text-red-300 border-red-500/30'
-          : 'bg-green-500/20 text-green-300 border-green-500/30';
-
-        const row = document.createElement('tr');
-        row.className = 'border-b border-cyan-500/10 hover:bg-cyan-500/5 transition-all cursor-pointer';
-        row.innerHTML = `
-          <td class="p-4 text-xs font-mono text-slate-200">#${t.id ?? '—'}</td>
-          <td class="p-4">
-            <span class="px-2 py-1 rounded border text-xs font-mono ${severityBadge}">${severity.toUpperCase()}</span>
-          </td>
-          <td class="p-4">
-            <span class="px-2 py-1 rounded border text-xs font-mono ${statusBadge}">${t.status}</span>
-          </td>
-          <td class="p-4">
-            <div class="text-white font-semibold">${t._category}</div>
-            <div class="text-xs text-cyan-300 font-mono">${source.toUpperCase()}</div>
-          </td>
-          <td class="p-4">
-            <div class="text-white font-semibold">${t.guest_name || 'Unknown'}</div>
-            <div class="text-xs text-cyan-300 font-mono">Room ${t.room_number || '—'}</div>
-          </td>
-          <td class="p-4 text-slate-300">
-            <div class="line-clamp-2" title="${issueText}">${issueText}</div>
-            <div class="text-xs text-slate-400 mt-1">${t.sentiment || 'Neutral'}</div>
-          </td>
-          <td class="p-4 text-xs text-slate-300 font-mono whitespace-nowrap">
-            <div>${display}</div>
-            <div class="text-cyan-400">${relative}</div>
-          </td>
+        const card = document.createElement('div');
+        card.className = 'glass-panel rounded-2xl p-4 glow-hover transition-all cursor-pointer';
+        card.innerHTML = `
+          <div class="flex items-center justify-between mb-2">
+            <div class="text-xs font-mono text-slate-400">Ticket #${ticket.id ?? '—'}</div>
+            <span class="px-2 py-1 rounded-full border text-xs font-mono ${statusClass}">${ticket.status}</span>
+          </div>
+          <div class="text-lg font-semibold text-white">${ticket.guest_name || 'Unknown Guest'}</div>
+          <div class="text-xs text-cyan-300 font-mono">Room ${ticket.room_number || '—'}</div>
+          <div class="flex items-center gap-2 mt-3">
+            <span class="px-2 py-1 rounded-full border text-xs font-mono ${sentimentClass}">${sentiment}</span>
+            <span class="text-xs text-slate-400 font-mono" title="${utc}">${display}</span>
+          </div>
+          <p class="mt-3 text-sm text-slate-300 truncate-lines">${ticket.issue || 'No details provided.'}</p>
         `;
-        row.addEventListener('click', () => openModal(t));
-        ticketsBodyEl.appendChild(row);
+        card.addEventListener('click', () => openModal(ticket));
+        ticketsGridEl.appendChild(card);
       });
-    }
-
-    function renderInsights() {
-      const total = state.tickets.length;
-      const openCount = state.tickets.filter(t => t.status === 'OPEN').length;
-      const resolvedCount = state.tickets.filter(t => t.status === 'RESOLVED').length;
-      const highCount = state.tickets.filter(t => t._severity === 'high').length;
-
-      if (insightTotalEl) insightTotalEl.textContent = total.toString();
-      if (insightOpenEl) insightOpenEl.textContent = openCount.toString();
-      if (insightResolvedEl) insightResolvedEl.textContent = resolvedCount.toString();
-      if (insightHighEl) insightHighEl.textContent = highCount.toString();
-
-      const categoryCounts = state.tickets.reduce((acc, ticket) => {
-        const key = ticket._category || 'Concierge';
-        acc[key] = (acc[key] || 0) + 1;
-        return acc;
-      }, {});
-      const topCategory = Object.keys(categoryCounts).sort((a, b) => categoryCounts[b] - categoryCounts[a])[0];
-      if (insightCategoryEl) insightCategoryEl.textContent = topCategory || '—';
-
-      const latestTicket = [...state.tickets].sort((a, b) => {
-        const aTime = new Date(a.created_at || 0).getTime();
-        const bTime = new Date(b.created_at || 0).getTime();
-        return bTime - aTime;
-      })[0];
-      if (insightLatestEl) {
-        insightLatestEl.textContent = latestTicket
-          ? `${latestTicket.guest_name || 'Guest'} • ${latestTicket.issue || 'No details'}`
-          : '—';
-      }
     }
 
     function renderTable() {
       if (state.loading) {
         loadingStateEl.classList.remove('hidden');
         emptyStateEl.classList.add('hidden');
-        ticketsContainerEl.classList.remove('hidden');
-        renderSkeletonRows();
+        ticketsGridEl.classList.add('hidden');
         renderError();
         return;
       }
       applyFilters();
       renderTickets();
-      renderInsights();
-    }
-
-    function setTab(tabName) {
-      tabButtons.forEach(btn => {
-        const active = btn.dataset.tab === tabName;
-        btn.classList.toggle('text-cyan-200', active);
-        btn.classList.toggle('border-cyan-500/30', active);
-        btn.classList.toggle('text-slate-300', !active);
-        btn.classList.toggle('border-slate-600/40', !active);
-      });
-      tabPanels.forEach(panel => {
-        panel.classList.toggle('hidden', panel.id !== `tab-${tabName}`);
-      });
     }
 
     function openModal(ticket) {
-      if (!modalEl) return;
-      const { display, relative } = formatDateTime(ticket.created_at);
-      modalTitleEl.textContent = `Ticket ${ticket.id ?? '—'}`;
-      modalCreatedEl.textContent = `${display} • ${relative}`;
+      const { display, utc } = formatLocalDateTime(ticket.created_at);
+      modalTitleEl.textContent = `Ticket #${ticket.id ?? '—'}`;
+      modalCreatedEl.textContent = `${display} (${utc})`;
       modalIdEl.textContent = `ID: ${ticket.id ?? '—'}`;
-      modalSeverityEl.textContent = `Severity: ${ticket._severity.toUpperCase()}`;
-      modalStatusEl.textContent = `Status: ${ticket.status}`;
-      modalCorrelationEl.textContent = `Correlation: ${ticket.correlation_id ?? '—'}`;
+      modalStatusBadgeEl.textContent = `Status: ${ticket.status}`;
+      modalSentimentBadgeEl.textContent = `Sentiment: ${ticket.sentiment || 'Neutral'}`;
       modalGuestEl.textContent = ticket.guest_name || 'Unknown';
       modalRoomEl.textContent = ticket.room_number || '—';
-      modalSourceEl.textContent = `${ticket._category} • ${ticket._source.toUpperCase()}`;
-      modalSentimentEl.textContent = ticket.sentiment || 'Neutral';
-      modalSummaryEl.textContent = ticket.issue || 'No details';
-      modalTranscriptEl.textContent = ticket.issue || 'No transcript available.';
+      modalStatusTextEl.textContent = ticket.status || '—';
+      modalSentimentTextEl.textContent = ticket.sentiment || 'Neutral';
+      modalIssueEl.textContent = ticket.issue || 'No details provided.';
       modalRawEl.textContent = JSON.stringify(ticket, null, 2);
-      setTab('overview');
+
       modalEl.classList.remove('hidden');
       modalEl.classList.add('flex');
-      if (modalCloseEl) modalCloseEl.focus();
+      modalCloseEl.focus();
     }
 
     function closeModal() {
-      if (!modalEl) return;
       modalEl.classList.add('hidden');
       modalEl.classList.remove('flex');
+    }
+
+    async function fetchDashboardData() {
+      state.loading = true;
+      renderTable();
+      try {
+        const [statsRes, ticketsRes] = await Promise.all([
+          fetch(`${API_BASE_URL}/staff/dashboard-stats`),
+          fetch(`${API_BASE_URL}/staff/recent-tickets`)
+        ]);
+
+        if (!statsRes.ok) throw new Error(`Stats error ${statsRes.status}`);
+        if (!ticketsRes.ok) throw new Error(`Tickets error ${ticketsRes.status}`);
+
+        const stats = await statsRes.json();
+        const tickets = await ticketsRes.json();
+
+        if (statTotalEl) statTotalEl.textContent = stats.total_tickets || 0;
+        if (statOpenEl) statOpenEl.textContent = stats.open_tickets || 0;
+        if (statSentimentEl) statSentimentEl.textContent = `${stats.sentiment_score || 0}%`;
+
+        state.tickets = tickets;
+        state.error = null;
+      } catch (error) {
+        state.error = error && error.message ? error.message : 'Failed to load data';
+        state.tickets = [];
+      } finally {
+        state.loading = false;
+        renderTable();
+      }
+    }
+
+    async function fetchBuildMarker() {
+      if (!buildMarkerEl) return;
+      try {
+        const response = await fetch(`${API_BASE_URL}/__build`);
+        if (!response.ok) throw new Error('build unavailable');
+        const data = await response.json();
+        const sha = data.sha || 'unknown';
+        const mark = data.mark || 'unknown';
+        buildMarkerEl.textContent = `build: ${sha} • ${mark}`;
+      } catch (error) {
+        buildMarkerEl.textContent = 'build: unknown';
+      }
     }
 
     if (searchInputEl) {
@@ -820,16 +538,9 @@
       });
     }
 
-    if (filterSeverityEl) {
-      filterSeverityEl.addEventListener('change', (event) => {
-        state.filters.severity = event.target.value;
-        renderTable();
-      });
-    }
-
-    if (filterSourceEl) {
-      filterSourceEl.addEventListener('change', (event) => {
-        state.filters.source = event.target.value;
+    if (filterStatusEl) {
+      filterStatusEl.addEventListener('change', (event) => {
+        state.filters.status = event.target.value;
         renderTable();
       });
     }
@@ -837,17 +548,8 @@
     if (sortCreatedBtn) {
       sortCreatedBtn.addEventListener('click', () => {
         state.sortDir = state.sortDir === 'desc' ? 'asc' : 'desc';
-        sortCreatedBtn.textContent = state.sortDir === 'desc' ? 'Created ⬇' : 'Created ⬆';
+        sortCreatedBtn.textContent = state.sortDir === 'desc' ? 'Sort: Newest' : 'Sort: Oldest';
         renderTable();
-      });
-    }
-
-    if (statusChipButtons.length) {
-      statusChipButtons.forEach(button => {
-        button.addEventListener('click', () => {
-          const value = button.dataset.status || 'all';
-          setStatusFilter(value);
-        });
       });
     }
 
@@ -865,12 +567,6 @@
       }
     });
 
-    if (tabButtons.length) {
-      tabButtons.forEach(button => {
-        button.addEventListener('click', () => setTab(button.dataset.tab));
-      });
-    }
-
     if (modalCopyJsonBtn) {
       modalCopyJsonBtn.addEventListener('click', async () => {
         const rawText = modalRawEl ? modalRawEl.textContent : '';
@@ -881,66 +577,14 @@
             await navigator.clipboard.writeText(rawText);
           }
           modalCopyJsonBtn.textContent = 'Copied';
-          setTimeout(() => {
-            modalCopyJsonBtn.textContent = original;
-          }, 1500);
         } catch (error) {
           modalCopyJsonBtn.textContent = 'Failed';
+        } finally {
           setTimeout(() => {
             modalCopyJsonBtn.textContent = original;
           }, 1500);
         }
       });
-    }
-
-    function init() {
-      startClock();
-      syncStatusChips();
-      fetchDashboardData();
-      setInterval(fetchDashboardData, 3000);
-    }
-
-    function startClock() {
-      const update = () => {
-        const now = new Date();
-        document.getElementById('system-time').innerText = now.toLocaleTimeString();
-      };
-      update();
-      setInterval(update, 1000);
-    }
-
-    async function fetchDashboardData() {
-      state.loading = true;
-      renderTable();
-      try {
-        const [statsRes, ticketsRes] = await Promise.all([
-          fetch(`${API_BASE_URL}/staff/dashboard-stats`),
-          fetch(`${API_BASE_URL}/staff/recent-tickets`)
-        ]);
-
-        if (!statsRes.ok) {
-          throw new Error(`Stats error ${statsRes.status}`);
-        }
-        if (!ticketsRes.ok) {
-          throw new Error(`Tickets error ${ticketsRes.status}`);
-        }
-
-        const stats = await statsRes.json();
-        const tickets = await ticketsRes.json();
-
-        if (totalTicketsEl) totalTicketsEl.innerText = stats.total_tickets || 0;
-        if (openTicketsEl) openTicketsEl.innerText = stats.open_tickets || 0;
-        if (sentimentScoreEl) sentimentScoreEl.innerText = `${stats.sentiment_score || 0}%`;
-
-        state.tickets = normalizeTickets(tickets);
-        state.error = null;
-      } catch (error) {
-        state.error = error && error.message ? error.message : 'Failed to load data';
-        state.tickets = [];
-      } finally {
-        state.loading = false;
-        renderTable();
-      }
     }
 
     if (testBtn) {
@@ -963,6 +607,22 @@
           testBtn.innerHTML = '<i class="fas fa-plus"></i> Test Ticket';
         }
       });
+    }
+
+    function startClock() {
+      const update = () => {
+        const now = new Date();
+        document.getElementById('system-time').innerText = now.toLocaleTimeString();
+      };
+      update();
+      setInterval(update, 1000);
+    }
+
+    function init() {
+      startClock();
+      fetchBuildMarker();
+      fetchDashboardData();
+      setInterval(fetchDashboardData, 3000);
     }
 
     init();

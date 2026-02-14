@@ -1,7 +1,7 @@
 import os
 import json
 from fastapi import FastAPI, WebSocket, Request, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime
@@ -49,14 +49,16 @@ if GOOGLE_API_KEY:
 
 @app.get("/")
 async def read_root():
-    return FileResponse(
-        "app/static/index.html",
-        media_type="text/html",
+    index_path = os.path.join(os.path.dirname(__file__), "static", "index.html")
+    with open(index_path, "r", encoding="utf-8") as handle:
+        content = handle.read()
+    return HTMLResponse(
+        content=content,
+        status_code=200,
         headers={
-            "Cache-Control": "no-store, max-age=0",
+            "Cache-Control": "no-store, max-age=0, must-revalidate",
             "Pragma": "no-cache",
             "Expires": "0",
-            "Surrogate-Control": "no-store",
         },
     )
 
