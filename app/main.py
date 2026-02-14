@@ -3,6 +3,7 @@ import json
 import time
 import hmac
 import hashlib
+import logging
 from pathlib import Path
 from typing import Any
 from fastapi import FastAPI, WebSocket, Request, HTTPException
@@ -67,11 +68,13 @@ if GOOGLE_API_KEY:
 
 # --- RETELL CUSTOM LLM CONFIG ---
 SYSTEM_PROMPT = (
-    "You are Grace, a hotel concierge. "
-    "If user message is a greeting or unclear, ask a single clarifying question. "
-    "Never claim you 'noted a request' unless a concrete request exists. "
-    "If prior assistant message equals the candidate response, do NOT repeat; instead ask for clarification. "
-    "Be concise. No hallucinations."
+    "You are Grace, the concierge for Courtyard by Marriott Al Barsha. "
+    "Be concise, polite, and helpful. "
+    "If the user is greeting or unclear, ask a single clarifying question. "
+    "Never claim an action was done unless confirmed. "
+    "Collect room number if needed. Escalate if the request is critical or safety-related. "
+    "If prior assistant message equals the candidate response, do NOT repeat; ask for clarification. "
+    "No hallucinations."
 )
 
 # Rolling state keyed by call_id for loop prevention
@@ -79,14 +82,16 @@ _RETELL_STATE: dict[str, dict[str, Any]] = {}
 
 def _get_latest_user_text(payload: dict) -> str:
     transcript = payload.get("transcript")
-    if isinstance(transcript, list) and transcript:
-        last = transcript[-1]
-        if isinstance(last, dict):
-            content = last.get("content")
-            if isinstance(content, str):
+    if isinstance(transcript, list):
+        for item in reversed(transcript):
+            if not isinstance(item, dict):
+                continue
+            role = item.get("role")
+            content = item.get("content")
+            if role == "user" and isinstance(content, str) and content.strip():
                 return content.strip()
     text = payload.get("user_text")
-    if isinstance(text, str):
+    if isinstance(text, str) and text.strip():
         return text.strip()
     return ""
 
@@ -302,83 +307,119 @@ async def handle_webhook(request: Request):
 @app.websocket("/llm-websocket/{call_id}")
 async def websocket_endpoint(websocket: WebSocket, call_id: str):
     await websocket.accept()
-    print(f"🧠 AI Connected: {call_id}")
+    logger = logging.getLogger("retell")
+    logger.info("retell_ws_connected call_id=%s", call_id)
+    response_counter = 0
 
     try:
-        welcome_event = {
-            "response_type": "response",
-            "response_id": "init_welcome",
-            "content": "Good morning, this is Grace at the front desk. How may I assist you?",
-            "content_complete": True,
-            "end_call": False
-        }
-        await websocket.send_json(welcome_event)
+        await websocket.send_json(
+            {
+                "response_id": 0,
+                "content": "",
+                "content_complete": True,
+                "end_call": False,
+            }
+        )
 
         while True:
             data = await websocket.receive_json()
-            
-            if data.get("interaction_type") == "response_required":
-                user_text = _get_latest_user_text(data)
-                state = _retell_state_for(call_id)
-                empty_text = _is_unclear_text(user_text)
-                repeated_user = _user_repeated_recent(call_id, user_text)
+            interaction_type = data.get("interaction_type")
+            user_text = _get_latest_user_text(data)
+            user_preview = (user_text[:32] + "…") if len(user_text) > 32 else user_text
+            logger.info(
+                "retell_ws_in call_id=%s interaction_type=%s user_text=%s",
+                call_id,
+                interaction_type,
+                user_preview,
+            )
 
-                if empty_text or repeated_user:
-                    ai_reply = _clarify_response()
-                    circuit_breaker = False
-                else:
+            if interaction_type == "update_only":
+                continue
+
+            if interaction_type != "response_required":
+                continue
+
+            state = _retell_state_for(call_id)
+            empty_text = _is_unclear_text(user_text)
+            repeated_user = _user_repeated_recent(call_id, user_text)
+
+            if empty_text or repeated_user:
+                ai_reply = "Hello! How can I help you today at Courtyard by Marriott Al Barsha?"
+                circuit_breaker = False
+            else:
+                ai_reply = ""
+                try:
+                    model = genai.GenerativeModel("gemini-1.5-flash")
+                    transcript = data.get("transcript")
+                    history = []
+                    if isinstance(transcript, list):
+                        for item in transcript[-6:]:
+                            if not isinstance(item, dict):
+                                continue
+                            role = item.get("role")
+                            content = item.get("content")
+                            if role in {"user", "assistant"} and isinstance(content, str) and content.strip():
+                                history.append({"role": role, "content": content.strip()})
+                    messages = [{"role": "system", "content": SYSTEM_PROMPT}] + history
+                    if not messages or messages[-1].get("role") != "user":
+                        messages.append({"role": "user", "content": user_text})
+                    response = model.generate_content(messages)
+                    ai_reply = (response.text or "").strip()
+                except Exception:
                     ai_reply = ""
-                    try:
-                        model = genai.GenerativeModel("gemini-1.5-flash")
-                        messages = [
-                            {"role": "system", "content": SYSTEM_PROMPT},
-                            {"role": "user", "content": user_text},
-                        ]
-                        response = model.generate_content(messages)
-                        ai_reply = (response.text or "").strip()
-                    except Exception:
-                        ai_reply = ""
 
-                    if not ai_reply:
-                        ai_reply = _clarify_response()
+                if not ai_reply:
+                    ai_reply = "I’m having a technical issue. How can I help you today?"
 
-                    last_assistant = state["last_assistant"]
-                    circuit_breaker = any(ai_reply.strip() == prev for prev in last_assistant[-2:])
-                    if circuit_breaker:
-                        ai_reply = _loop_break_response()
+                last_assistant = state["last_assistant"]
+                circuit_breaker = any(ai_reply.strip() == prev for prev in last_assistant[-2:])
+                if circuit_breaker:
+                    ai_reply = _loop_break_response()
 
-                _record_assistant(call_id, ai_reply)
-                print(
-                    f"🧠 LLM turn call_id={call_id} empty={empty_text} loop_break={circuit_breaker}"
-                )
+            _record_assistant(call_id, ai_reply)
 
-                # SAVE TO DB LOGIC
-                if len(user_text) > 5:
-                    db = SessionLocal()
-                    try:
-                        new_ticket = Escalation(
-                            guest_name="Voice Call Guest",
-                            room_number="Unknown",
-                            issue=user_text,
-                            status="OPEN",
-                            sentiment="Neutral"
-                        )
-                        db.add(new_ticket)
-                        db.commit()
-                        print("✅ Real-time Ticket Saved!")
-                    except Exception as e:
-                        print(f"❌ DB Error: {e}")
-                    finally:
-                        db.close()
+            resp_id = data.get("response_id")
+            try:
+                resp_id_int = int(resp_id)
+                response_counter = max(response_counter, resp_id_int)
+                response_id = resp_id_int
+            except Exception:
+                response_counter += 1
+                response_id = response_counter
 
-                response_event = {
-                    "response_type": "response",
-                    "response_id": data["response_id"],
-                    "content": ai_reply,
-                    "content_complete": True,
-                    "end_call": False
-                }
-                await websocket.send_json(response_event)
+            logger.info(
+                "retell_ws_out call_id=%s response_id=%s empty=%s loop_break=%s",
+                call_id,
+                response_id,
+                empty_text,
+                circuit_breaker,
+            )
+
+            # SAVE TO DB LOGIC
+            if len(user_text) > 5:
+                db = SessionLocal()
+                try:
+                    new_ticket = Escalation(
+                        guest_name="Voice Call Guest",
+                        room_number="Unknown",
+                        issue=user_text,
+                        status="OPEN",
+                        sentiment="Neutral"
+                    )
+                    db.add(new_ticket)
+                    db.commit()
+                except Exception:
+                    pass
+                finally:
+                    db.close()
+
+            response_event = {
+                "response_id": response_id,
+                "content": ai_reply,
+                "content_complete": True,
+                "end_call": False
+            }
+            await websocket.send_json(response_event)
 
     except Exception as e:
-        print(f"⚠️ Connection Closed: {e}")
+        logger.info("retell_ws_closed call_id=%s error=%s", call_id, e)
