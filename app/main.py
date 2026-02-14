@@ -1,7 +1,8 @@
 import os
 import json
+from pathlib import Path
 from fastapi import FastAPI, WebSocket, Request, HTTPException
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime
@@ -40,7 +41,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.mount("/static", StaticFiles(directory="app/static"), name="static")
+STATIC_DIR = Path(__file__).resolve().parent / "static"
+INDEX_PATH = STATIC_DIR / "index.html"
+
+app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 if GOOGLE_API_KEY:
     genai.configure(api_key=GOOGLE_API_KEY)
@@ -49,9 +53,11 @@ if GOOGLE_API_KEY:
 
 @app.get("/")
 async def read_root():
-    index_path = os.path.join(os.path.dirname(__file__), "static", "index.html")
-    with open(index_path, "r", encoding="utf-8") as handle:
+    with INDEX_PATH.open("r", encoding="utf-8") as handle:
         content = handle.read()
+    build_sha = os.getenv("RAILWAY_GIT_COMMIT_SHA") or os.getenv("GITHUB_SHA") or "unknown"
+    marker = f"DEPLOY_MARKER=2077_UI_V2_{build_sha[:7]}"
+    content = content.replace("__DEPLOY_MARKER__", marker)
     return HTMLResponse(
         content=content,
         status_code=200,
