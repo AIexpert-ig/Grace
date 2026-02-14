@@ -93,6 +93,17 @@ def _error_response(status_code: int, error: str, correlation_id: str | None = N
     return JSONResponse(status_code=status_code, content=payload)
 
 
+def _auth_error(required_header: str, reason: str) -> JSONResponse:
+    return JSONResponse(
+        status_code=401,
+        content={
+            "error": "unauthorized",
+            "required_header": required_header,
+            "reason": reason,
+        },
+    )
+
+
 def _parse_envelope(data: dict) -> EventEnvelope | None:
     try:
         return EventEnvelope(**data)
@@ -203,15 +214,42 @@ async def make_trigger(request: Request):
     if not settings.ENABLE_MAKE_WEBHOOKS:
         raise HTTPException(status_code=404, detail="Not Found")
 
-    admin_error = _require_admin_token(request)
-    if admin_error:
-        return admin_error
+    raw_body = await request.body()
+    admin_header = request.headers.get("X-Admin-Token")
+    admin_ok = False
+
+    if settings.ADMIN_TOKEN and admin_header:
+        if hmac.compare_digest(admin_header, settings.ADMIN_TOKEN):
+            admin_ok = True
+        else:
+            return _auth_error("X-Admin-Token", "invalid_admin_token")
+
+    if not admin_ok:
+        if settings.MAKE_SIGNING_SECRET:
+            timestamp = request.headers.get("X-Signature-Timestamp")
+            signature = request.headers.get("X-Signature")
+            try:
+                verify_hmac_signature(
+                    raw_body=raw_body,
+                    timestamp=timestamp,
+                    signature=signature,
+                    secret=settings.MAKE_SIGNING_SECRET,
+                    tolerance_seconds=settings.WEBHOOK_TIMESTAMP_TOLERANCE_SECONDS,
+                )
+            except SignatureMissingError:
+                return _auth_error("X-Signature", "missing_signature_headers")
+            except SignatureExpiredError:
+                return _auth_error("X-Signature", "timestamp_invalid_or_expired")
+            except SignatureInvalidError:
+                return _auth_error("X-Signature", "signature_mismatch")
+        else:
+            return _auth_error("X-Admin-Token", "missing_admin_token")
 
     if not settings.MAKE_WEBHOOK_URL:
         return _error_response(503, "make_webhook_url_missing")
 
     try:
-        payload = await request.json()
+        payload = json.loads(raw_body)
     except Exception:
         return _error_response(400, "invalid_envelope")
 

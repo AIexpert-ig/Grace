@@ -138,6 +138,7 @@ async def test_make_ingress_duplicate_idempotency(monkeypatch, test_client):
 async def test_make_trigger_requires_admin_token(monkeypatch, test_client):
     _set_setting(monkeypatch, "ENABLE_MAKE_WEBHOOKS", True)
     _set_setting(monkeypatch, "ADMIN_TOKEN", "admin-token")
+    _set_setting(monkeypatch, "MAKE_SIGNING_SECRET", None)
     _set_setting(monkeypatch, "MAKE_WEBHOOK_URL", "https://example.com/webhook")
 
     envelope = _make_envelope()
@@ -145,6 +146,7 @@ async def test_make_trigger_requires_admin_token(monkeypatch, test_client):
     res_missing = await test_client.post("/integrations/make/trigger", json=envelope)
     assert res_missing.status_code == 401
     assert res_missing.json()["error"] == "unauthorized"
+    assert res_missing.json()["required_header"] == "X-Admin-Token"
 
     res_invalid = await test_client.post(
         "/integrations/make/trigger",
@@ -152,6 +154,7 @@ async def test_make_trigger_requires_admin_token(monkeypatch, test_client):
         headers={"X-Admin-Token": "wrong"},
     )
     assert res_invalid.status_code == 401
+    assert res_invalid.json()["required_header"] == "X-Admin-Token"
 
 
 @pytest.mark.asyncio
@@ -160,14 +163,15 @@ async def test_make_trigger_admin_missing_token_config(monkeypatch, test_client)
     _set_setting(monkeypatch, "ADMIN_TOKEN", None)
 
     res = await test_client.post("/integrations/make/trigger", json=_make_envelope())
-    assert res.status_code == 503
-    assert res.json()["error"] == "admin_token_missing"
+    assert res.status_code == 401
+    assert res.json()["required_header"] == "X-Admin-Token"
 
 
 @pytest.mark.asyncio
 async def test_make_trigger_outbound_mocked(monkeypatch, test_client):
     _set_setting(monkeypatch, "ENABLE_MAKE_WEBHOOKS", True)
     _set_setting(monkeypatch, "ADMIN_TOKEN", "admin-token")
+    _set_setting(monkeypatch, "MAKE_SIGNING_SECRET", "secret")
     _set_setting(monkeypatch, "MAKE_WEBHOOK_URL", "https://example.com/webhook")
 
     calls = {}
@@ -207,3 +211,56 @@ async def test_make_trigger_outbound_mocked(monkeypatch, test_client):
     assert res.status_code == 200
     assert res.json()["status"] == "sent"
     assert calls["headers"]["X-Correlation-Id"] == "corr-send"
+
+
+@pytest.mark.asyncio
+async def test_make_trigger_hmac_auth_valid(monkeypatch, test_client):
+    _set_setting(monkeypatch, "ENABLE_MAKE_WEBHOOKS", True)
+    _set_setting(monkeypatch, "ADMIN_TOKEN", "admin-token")
+    _set_setting(monkeypatch, "MAKE_SIGNING_SECRET", "secret")
+    _set_setting(monkeypatch, "MAKE_WEBHOOK_URL", "https://example.com/webhook")
+
+    calls = {}
+
+    class FakeClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+        async def post(self, url, json=None, headers=None):
+            calls["url"] = url
+            calls["json"] = json
+            calls["headers"] = headers
+            class Dummy:
+                status_code = 200
+            return Dummy()
+
+    monkeypatch.setattr(
+        "app.services.make_integration.httpx.AsyncClient",
+        FakeClient,
+        raising=True,
+    )
+
+    envelope = _make_envelope(correlation_id="corr-hmac")
+    body = json.dumps(envelope, separators=(",", ":")).encode("utf-8")
+    timestamp = str(int(time.time()))
+    signature = _sign("secret", timestamp, body)
+
+    res = await test_client.post(
+        "/integrations/make/trigger",
+        content=body,
+        headers={
+            "Content-Type": "application/json",
+            "X-Signature-Timestamp": timestamp,
+            "X-Signature": signature,
+        },
+    )
+
+    assert res.status_code == 200
+    assert res.json()["status"] == "sent"
+    assert calls["headers"]["X-Correlation-Id"] == "corr-hmac"
