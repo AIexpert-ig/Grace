@@ -302,13 +302,12 @@ async def handle_webhook(request: Request):
     return {"received": True}
 
 # --- VOICE BRAIN (WEBSOCKET) ---
-@app.websocket("/llm-websocket")
-async def websocket_endpoint(websocket: WebSocket):
+async def _retell_ws_handler(websocket: WebSocket, call_id: str | None = None):
     await websocket.accept()
     logger = logging.getLogger("retell")
-    call_id = None
     start_time = time.time()
-    logger.info("retell_ws_connected")
+    path = getattr(websocket.scope, "get", lambda *_args: None)("path") if hasattr(websocket, "scope") else None
+    logger.info("RETELL_WS_CONNECTED path=%s call_id=%s", path, call_id)
     response_counter = 0
 
     try:
@@ -325,12 +324,15 @@ async def websocket_endpoint(websocket: WebSocket):
             data = await websocket.receive_json()
             interaction_type = data.get("interaction_type")
             call_id = data.get("call_id") or data.get("conversation_id") or call_id
+            response_id_in = data.get("response_id")
             user_text = _get_latest_user_text(data)
-            user_preview = (user_text[:32] + "…") if len(user_text) > 32 else user_text
+            user_preview = (user_text[:40] + "…") if len(user_text) > 40 else user_text
             logger.info(
-                "retell_ws_in call_id=%s interaction_type=%s user_text=%s",
+                "RETELL_WS_RECV path=%s call_id=%s interaction_type=%s response_id=%s user_preview=%s",
+                path,
                 call_id,
                 interaction_type,
+                response_id_in,
                 user_preview,
             )
 
@@ -379,9 +381,8 @@ async def websocket_endpoint(websocket: WebSocket):
 
             _record_assistant(call_id or "unknown", ai_reply)
 
-            resp_id = data.get("response_id")
             try:
-                resp_id_int = int(resp_id)
+                resp_id_int = int(response_id_in)
                 response_counter = max(response_counter, resp_id_int)
                 response_id = resp_id_int
             except Exception:
@@ -390,11 +391,9 @@ async def websocket_endpoint(websocket: WebSocket):
 
             duration_ms = int((time.time() - start_time) * 1000)
             logger.info(
-                "retell_ws_out call_id=%s response_id=%s empty=%s loop_break=%s duration_ms=%s",
-                call_id,
+                "RETELL_WS_SEND response_id=%s content_preview=%s duration_ms=%s",
                 response_id,
-                empty_text,
-                circuit_breaker,
+                (ai_reply[:40] + "…") if len(ai_reply) > 40 else ai_reply,
                 duration_ms,
             )
 
@@ -418,11 +417,25 @@ async def websocket_endpoint(websocket: WebSocket):
 
             response_event = {
                 "response_id": response_id,
-                "content": ai_reply,
+                "content": f"MARKER_9F6D:{ai_reply}",
                 "content_complete": True,
                 "end_call": False
             }
             await websocket.send_json(response_event)
 
     except Exception as e:
-        logger.info("retell_ws_closed call_id=%s error=%s", call_id, e)
+        logger.exception("RETELL_WS_ERROR %s", e)
+        try:
+            await websocket.close()
+        except Exception:
+            pass
+
+
+@app.websocket("/llm-websocket")
+async def websocket_endpoint_root(websocket: WebSocket):
+    await _retell_ws_handler(websocket)
+
+
+@app.websocket("/llm-websocket/{call_id}")
+async def websocket_endpoint_with_id(websocket: WebSocket, call_id: str):
+    await _retell_ws_handler(websocket, call_id)
