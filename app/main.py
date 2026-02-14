@@ -68,13 +68,11 @@ if GOOGLE_API_KEY:
 
 # --- RETELL CUSTOM LLM CONFIG ---
 SYSTEM_PROMPT = (
-    "You are Grace, the concierge for Courtyard by Marriott Al Barsha. "
+    "You are the AI concierge for Courtyard by Marriott Al Barsha in Dubai. "
     "Be concise, polite, and helpful. "
-    "If the user is greeting or unclear, ask a single clarifying question. "
-    "Never claim an action was done unless confirmed. "
-    "Collect room number if needed. Escalate if the request is critical or safety-related. "
-    "If prior assistant message equals the candidate response, do NOT repeat; ask for clarification. "
-    "No hallucinations."
+    "If the guest greeting is unclear, ask how you may assist. "
+    "Never acknowledge “a request” unless one exists. "
+    "Do not repeat yourself."
 )
 
 # Rolling state keyed by call_id for loop prevention
@@ -102,10 +100,10 @@ def _is_unclear_text(text: str) -> bool:
     return lowered in {"hello", "hello?", "hi", "hi?", "hey", "hey?"}
 
 def _clarify_response() -> str:
-    return "I can hear you. How can I help—booking, directions, or a request for your room?"
+    return "Good afternoon, how may I assist you today?"
 
 def _loop_break_response() -> str:
-    return "I may be missing your request. Tell me what you want to do (e.g., extend stay, late checkout, extra towels)."
+    return "Good afternoon, how may I assist you today?"
 
 def _retell_state_for(call_id: str) -> dict[str, Any]:
     state = _RETELL_STATE.get(call_id)
@@ -304,11 +302,13 @@ async def handle_webhook(request: Request):
     return {"received": True}
 
 # --- VOICE BRAIN (WEBSOCKET) ---
-@app.websocket("/llm-websocket/{call_id}")
-async def websocket_endpoint(websocket: WebSocket, call_id: str):
+@app.websocket("/llm-websocket")
+async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
     logger = logging.getLogger("retell")
-    logger.info("retell_ws_connected call_id=%s", call_id)
+    call_id = None
+    start_time = time.time()
+    logger.info("retell_ws_connected")
     response_counter = 0
 
     try:
@@ -324,6 +324,7 @@ async def websocket_endpoint(websocket: WebSocket, call_id: str):
         while True:
             data = await websocket.receive_json()
             interaction_type = data.get("interaction_type")
+            call_id = data.get("call_id") or data.get("conversation_id") or call_id
             user_text = _get_latest_user_text(data)
             user_preview = (user_text[:32] + "…") if len(user_text) > 32 else user_text
             logger.info(
@@ -339,12 +340,12 @@ async def websocket_endpoint(websocket: WebSocket, call_id: str):
             if interaction_type != "response_required":
                 continue
 
-            state = _retell_state_for(call_id)
+            state = _retell_state_for(call_id or "unknown")
             empty_text = _is_unclear_text(user_text)
             repeated_user = _user_repeated_recent(call_id, user_text)
 
             if empty_text or repeated_user:
-                ai_reply = "Hello! How can I help you today at Courtyard by Marriott Al Barsha?"
+                ai_reply = _clarify_response()
                 circuit_breaker = False
             else:
                 ai_reply = ""
@@ -369,14 +370,14 @@ async def websocket_endpoint(websocket: WebSocket, call_id: str):
                     ai_reply = ""
 
                 if not ai_reply:
-                    ai_reply = "I’m having a technical issue. How can I help you today?"
+                    ai_reply = "I’m experiencing a technical issue. How may I assist you today?"
 
                 last_assistant = state["last_assistant"]
                 circuit_breaker = any(ai_reply.strip() == prev for prev in last_assistant[-2:])
                 if circuit_breaker:
                     ai_reply = _loop_break_response()
 
-            _record_assistant(call_id, ai_reply)
+            _record_assistant(call_id or "unknown", ai_reply)
 
             resp_id = data.get("response_id")
             try:
@@ -387,12 +388,14 @@ async def websocket_endpoint(websocket: WebSocket, call_id: str):
                 response_counter += 1
                 response_id = response_counter
 
+            duration_ms = int((time.time() - start_time) * 1000)
             logger.info(
-                "retell_ws_out call_id=%s response_id=%s empty=%s loop_break=%s",
+                "retell_ws_out call_id=%s response_id=%s empty=%s loop_break=%s duration_ms=%s",
                 call_id,
                 response_id,
                 empty_text,
                 circuit_breaker,
+                duration_ms,
             )
 
             # SAVE TO DB LOGIC

@@ -5,7 +5,7 @@ from app.main import app
 
 def test_retell_update_only_no_response():
     client = TestClient(app)
-    with client.websocket_connect("/llm-websocket/test-call") as ws:
+    with client.websocket_connect("/llm-websocket") as ws:
         init_msg = ws.receive_json()
         assert init_msg["response_id"] == 0
         assert init_msg["content"] == ""
@@ -24,12 +24,12 @@ def test_retell_update_only_no_response():
 
         response = ws.receive_json()
         assert response["response_id"] == 5
-        assert "help" in response["content"].lower()
+        assert "assist" in response["content"].lower()
 
 
 def test_retell_response_required_empty_text():
     client = TestClient(app)
-    with client.websocket_connect("/llm-websocket/test-empty") as ws:
+    with client.websocket_connect("/llm-websocket") as ws:
         ws.receive_json()
         ws.send_json({
             "interaction_type": "response_required",
@@ -38,4 +38,4 @@ def test_retell_response_required_empty_text():
         })
         response = ws.receive_json()
         assert response["response_id"] == 2
-        assert "help" in response["content"].lower()
+        assert "assist" in response["content"].lower()
