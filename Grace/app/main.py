@@ -570,6 +570,8 @@ async def telegram_webhook(request: Request):
             reply_text = "Thanks for your message. I have received it and will get back to you shortly."
 
         token = (settings.TELEGRAM_BOT_TOKEN or "").strip()
+        if token.startswith("="):
+            token = token.lstrip("=")
         if not token:
             logger.error("telegram_webhook_failed: missing_bot_token")
             return {"ok": False}
