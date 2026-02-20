@@ -23,7 +23,7 @@ class OpenAIService:
 
         try:
             response = await self.client.chat.completions.create(
-                model="google/gemini-2.0-flash-lite-preview-02-05:free",
+                model="arcee-ai/trinity-large-preview:free",
                 messages=[
                     {
                         "role": "system", 
