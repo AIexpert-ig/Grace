@@ -569,7 +569,10 @@ async def telegram_webhook(request: Request):
         else:
             reply_text = "Thanks for your message. I have received it and will get back to you shortly."
 
-        token = settings.TELEGRAM_BOT_TOKEN
+        token = (settings.TELEGRAM_BOT_TOKEN or "").strip()
+        if not token:
+            logger.error("telegram_webhook_failed: missing_bot_token")
+            return {"ok": False}
         url = f"https://api.telegram.org/bot{token}/sendMessage"
 
         async with httpx.AsyncClient() as client:
