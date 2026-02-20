@@ -26,6 +26,7 @@ from app.core.security import (
     verify_hmac_signature,
 )
 from app.services import telegram_bot
+from app.services.openai_service import OpenAIService
 from app.services.make_integration import handle_make_trigger, send_make_webhook
 
 Base = declarative_base()
@@ -44,6 +45,7 @@ engine = create_engine(settings.DATABASE_URL_SYNC)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 app = FastAPI()
+openai_service = OpenAIService()
 
 BUILD_SHA = os.getenv("RAILWAY_GIT_COMMIT_SHA") or os.getenv("GITHUB_SHA") or "unknown"
 BUILD_MARK = "grace-build-2026-02-09"
@@ -579,7 +581,14 @@ async def telegram_webhook(request: Request):
         elif user_text.startswith("/frontdesk"):
             reply_text = "The front desk can be reached internally by dialing 0, or externally at +1-555-0199."
         else:
-            reply_text = f"AI PROCESSING: {user_text}"
+            try:
+                reply_text = await openai_service.get_concierge_response(user_text)
+            except Exception as exc:
+                logger.error("telegram_webhook_ai_failed: %s", exc)
+                reply_text = (
+                    "I'm sorry, my AI processing core is currently unavailable. "
+                    "Please try again or type /frontdesk for assistance."
+                )
 
         token = (settings.TELEGRAM_BOT_TOKEN or "").strip()
         if token.startswith("="):
