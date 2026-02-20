@@ -9,3 +9,5 @@ python-dotenv
 requests
 websockets
 pydantic-settings>=2.0,<3
+openai
+httpx
