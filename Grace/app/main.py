@@ -564,10 +564,22 @@ async def telegram_webhook(request: Request):
         chat_id = data["message"]["chat"]["id"]
         user_text = data["message"]["text"]
 
-        if user_text.strip().startswith("/start"):
-            reply_text = "Hello! I'm Grace, your hotel concierge. How can I help you today?"
+        if user_text.startswith("/start"):
+            reply_text = (
+                "Welcome to Grace, your hotel concierge!\n"
+                "Available commands:\n"
+                "/servicesrates - View services and room rates\n"
+                "/frontdesk - Front desk contact info"
+            )
+        elif user_text.startswith("/servicesrates"):
+            reply_text = (
+                "Services: Spa, Gym, Pool.\n"
+                "Standard rooms start at $250/night."
+            )
+        elif user_text.startswith("/frontdesk"):
+            reply_text = "The front desk can be reached internally by dialing 0, or externally at +1-555-0199."
         else:
-            reply_text = "Thanks for your message. I have received it and will get back to you shortly."
+            reply_text = f"AI PROCESSING: {user_text}"
 
         token = (settings.TELEGRAM_BOT_TOKEN or "").strip()
         if token.startswith("="):
