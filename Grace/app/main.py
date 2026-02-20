@@ -8,6 +8,7 @@ import hmac
 import time
 from datetime import datetime
 
+import httpx
 from fastapi import FastAPI, WebSocket, Request, HTTPException
 from starlette.websockets import WebSocketDisconnect
 from fastapi.responses import FileResponse, JSONResponse
@@ -548,31 +549,40 @@ async def retell_diagnose(request: Request):
 # Telegram Inbound Webhook
 @app.post("/telegram-webhook")
 async def telegram_webhook(request: Request):
-    if not settings.ENABLE_TELEGRAM:
-        raise HTTPException(status_code=404, detail="Not Found")
-
-    secret_header = request.headers.get("X-Telegram-Bot-Api-Secret-Token")
-    if settings.TELEGRAM_WEBHOOK_SECRET:
-        if not secret_header:
-            return _error_response(401, "telegram_secret_missing")
-        if secret_header != settings.TELEGRAM_WEBHOOK_SECRET:
-            return _error_response(401, "telegram_secret_invalid")
-    else:
-        try:
-            payload = await request.json()
-        except Exception:
-            return _error_response(400, "invalid_json")
-        if not _is_valid_telegram_update(payload):
-            return _error_response(400, "invalid_telegram_update")
-        return {"status": "ok"}
-
     try:
-        payload = await request.json()
-    except Exception:
-        return _error_response(400, "invalid_json")
-    if not _is_valid_telegram_update(payload):
-        return _error_response(400, "invalid_telegram_update")
-    return {"status": "ok"}
+        data = await request.json()
+        logger.info("telegram_webhook_received", extra={"payload": data})
+
+        message = data.get("message")
+        if not isinstance(message, dict):
+            return {"ok": True}
+
+        user_text = message.get("text")
+        if not isinstance(user_text, str):
+            return {"ok": True}
+
+        chat_id = data["message"]["chat"]["id"]
+        user_text = data["message"]["text"]
+
+        if user_text.strip().startswith("/start"):
+            reply_text = "Hello! I'm Grace, your hotel concierge. How can I help you today?"
+        else:
+            reply_text = "Thanks for your message. I have received it and will get back to you shortly."
+
+        token = settings.TELEGRAM_BOT_TOKEN
+        url = f"https://api.telegram.org/bot{token}/sendMessage"
+
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                url,
+                json={"chat_id": chat_id, "text": reply_text},
+            )
+            response.raise_for_status()
+
+        return {"ok": True}
+    except Exception as exc:
+        logger.error("telegram_webhook_failed: %s", exc)
+        return {"ok": False}
 
 SYSTEM_PROMPT = (
     "You are the AI concierge for Courtyard by Marriott Al Barsha in Dubai.\n"
