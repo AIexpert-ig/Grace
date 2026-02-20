@@ -23,18 +23,14 @@ class OpenAIService:
 
         try:
             response = await self.client.chat.completions.create(
-                model="google/gemini-2.0-pro-exp-02-05:free",
+                model="google/gemini-2.0-flash-lite-preview-02-05:free",
                 messages=[
                     {
                         "role": "system", 
                         "content": "You are Grace, a world-class AI concierge. Your tone is elegant, warm, and professional."
                     },
                     {"role": "user", "content": user_message}
-                ],
-                extra_headers={
-                    "HTTP-Referer": "https://railway.app", # Required by some OpenRouter models
-                    "X-Title": "Grace Luxury Concierge",
-                }
+                ]
             )
             return response.choices[0].message.content
         except Exception as e:
