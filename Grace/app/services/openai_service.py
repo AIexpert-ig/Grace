@@ -65,7 +65,7 @@ class OpenAIService:
 
         try:
             response = await self.client.chat.completions.create(
-                model="google/gemini-flash-1.5",
+                model="arcee-ai/trinity-large-preview:free",
                 messages=messages,
                 tools=tools,
                 tool_choice="auto"
@@ -80,4 +80,15 @@ class OpenAIService:
             return {"type": "text", "content": content}
         except Exception as e:
             logger.error(f"OpenRouter Connection Error: {str(e)}")
-            return {"type": "text", "content": "I apologize, I am currently attending to another guest. May I assist you with our /rates?"}
+            # If the model rejected the tools parameter, retry without it
+            if "tool" in str(e).lower() or "empty" in str(e).lower():
+                try:
+                    fallback = await self.client.chat.completions.create(
+                        model="arcee-ai/trinity-large-preview:free",
+                        messages=messages
+                    )
+                    content = fallback.choices[0].message.content or "I understand, how may I continue to assist you?"
+                    return {"type": "text", "content": content}
+                except Exception as e2:
+                    logger.error(f"OpenRouter Fallback Error: {str(e2)}")
+            return {"type": "text", "content": "I am experiencing a slight system delay on my end. Could you please repeat that?"}
