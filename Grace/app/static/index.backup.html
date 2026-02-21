@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Grace — Staff Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #0d0f14;
+      --surface:  #141720;
+      --card:     #1b1f2e;
+      --border:   #252a3a;
+      --accent:   #6c63ff;
+      --accent2:  #00d4aa;
+      --danger:   #ff4d6d;
+      --danger-h: #ff2250;
+      --text:     #e2e8f0;
+      --muted:    #8892a4;
+      --gold:     #f5c518;
+    }
+
+    body {
+      font-family: 'Outfit', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1.25rem 2rem;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: .75rem;
+    }
+    .logo-icon {
+      width: 38px; height: 38px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-radius: 10px;
+      display: grid; place-items: center;
+      font-size: 1.1rem;
+    }
+    .logo-text { font-size: 1.25rem; font-weight: 700; letter-spacing: .5px; }
+    .logo-sub  { font-size: .7rem;  color: var(--muted); text-transform: uppercase; letter-spacing: 1.5px; }
+    .header-right { display: flex; align-items: center; gap: 1rem; }
+    #refresh-btn {
+      background: var(--card);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: .45rem 1rem;
+      border-radius: 8px;
+      font-family: inherit;
+      font-size: .85rem;
+      cursor: pointer;
+      transition: border-color .2s, background .2s;
+    }
+    #refresh-btn:hover { border-color: var(--accent); background: #212640; }
+    .live-dot {
+      width: 8px; height: 8px;
+      background: var(--accent2);
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%,100% { opacity: 1; transform: scale(1); }
+      50%      { opacity: .5; transform: scale(1.4); }
+    }
+
+    /* ── Stats ── */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      padding: 1.75rem 2rem 1rem;
+    }
+    .stat-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 1.25rem 1.5rem;
+      position: relative;
+      overflow: hidden;
+      transition: transform .2s, border-color .2s;
+    }
+    .stat-card:hover { transform: translateY(-2px); border-color: var(--accent); }
+    .stat-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+    }
+    .stat-card.blue::before  { background: linear-gradient(90deg, var(--accent), #9c88ff); }
+    .stat-card.green::before { background: linear-gradient(90deg, var(--accent2), #00ffc8); }
+    .stat-card.gold::before  { background: linear-gradient(90deg, var(--gold), #ffa500); }
+    .stat-label { font-size: .75rem; text-transform: uppercase; letter-spacing: 1.2px; color: var(--muted); margin-bottom: .5rem; }
+    .stat-value { font-size: 2.2rem; font-weight: 700; line-height: 1; }
+    .stat-card.blue  .stat-value { color: var(--accent); }
+    .stat-card.green .stat-value { color: var(--accent2); }
+    .stat-card.gold  .stat-value { color: var(--gold); }
+
+    /* ── Table wrapper ── */
+    .table-section {
+      padding: 1rem 2rem 2rem;
+    }
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1rem;
+    }
+    .section-title { font-size: 1.05rem; font-weight: 600; }
+    .badge {
+      background: var(--accent);
+      color: #fff;
+      font-size: .7rem;
+      font-weight: 600;
+      padding: .2rem .6rem;
+      border-radius: 20px;
+    }
+    .table-wrap {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      overflow: hidden;
+    }
+    table { width: 100%; border-collapse: collapse; }
+    thead th {
+      padding: .85rem 1rem;
+      font-size: .72rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--muted);
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+    }
+    tbody tr {
+      border-bottom: 1px solid var(--border);
+      transition: background .15s;
+    }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: rgba(108,99,255,.06); }
+    td {
+      padding: .9rem 1rem;
+      font-size: .875rem;
+      vertical-align: middle;
+    }
+    .td-id    { color: var(--muted); font-size: .8rem; }
+    .td-issue { max-width: 280px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    /* status badges */
+    .status-badge {
+      display: inline-block;
+      padding: .2rem .65rem;
+      border-radius: 20px;
+      font-size: .72rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+    }
+    .status-OPEN     { background: rgba(255,77,109,.15); color: var(--danger); }
+    .status-RESOLVED { background: rgba(0,212,170,.12);  color: var(--accent2); }
+    .status-NEW      { background: rgba(108,99,255,.15); color: var(--accent); }
+
+    /* sentiment */
+    .sentiment { font-size: .8rem; color: var(--muted); }
+    .sentiment.Positive { color: var(--accent2); }
+    .sentiment.Negative { color: var(--danger); }
+
+    /* delete btn */
+    .btn-delete {
+      background: transparent;
+      border: 1px solid rgba(255,77,109,.4);
+      color: var(--danger);
+      padding: .3rem .75rem;
+      border-radius: 7px;
+      font-family: inherit;
+      font-size: .78rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background .2s, border-color .2s, transform .1s;
+    }
+    .btn-delete:hover {
+      background: rgba(255,77,109,.12);
+      border-color: var(--danger-h);
+    }
+    .btn-delete:active { transform: scale(.96); }
+
+    /* empty / loading */
+    .empty-row td {
+      text-align: center;
+      padding: 3rem;
+      color: var(--muted);
+      font-size: .9rem;
+    }
+    .spinner {
+      display: inline-block;
+      width: 18px; height: 18px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+      vertical-align: middle;
+      margin-right: .5rem;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* toast */
+    #toast {
+      position: fixed;
+      bottom: 1.5rem; right: 1.5rem;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--accent2);
+      color: var(--text);
+      padding: .75rem 1.25rem;
+      border-radius: 10px;
+      font-size: .85rem;
+      opacity: 0;
+      transform: translateY(10px);
+      transition: opacity .3s, transform .3s;
+      pointer-events: none;
+      z-index: 999;
+    }
+    #toast.show { opacity: 1; transform: translateY(0); }
+
+    @media (max-width: 768px) {
+      .stats-grid, .table-section { padding-left: 1rem; padding-right: 1rem; }
+      thead th:nth-child(3),
+      td:nth-child(3)  { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">✦</div>
+    <div>
+      <div class="logo-text">Grace</div>
+      <div class="logo-sub">Staff Dashboard</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="live-dot" title="Auto-refreshes every 30s"></div>
+    <button id="refresh-btn" onclick="loadAll()">↻ Refresh</button>
+  </div>
+</header>
+
+<!-- Stats -->
+<div class="stats-grid">
+  <div class="stat-card blue">
+    <div class="stat-label">Total Tickets</div>
+    <div class="stat-value" id="stat-total">—</div>
+  </div>
+  <div class="stat-card gold">
+    <div class="stat-label">Open Tickets</div>
+    <div class="stat-value" id="stat-open">—</div>
+  </div>
+  <div class="stat-card green">
+    <div class="stat-label">Sentiment Score</div>
+    <div class="stat-value" id="stat-sentiment">—</div>
+  </div>
+</div>
+
+<!-- Ticket Table -->
+<div class="table-section">
+  <div class="section-header">
+    <span class="section-title">Recent Tickets</span>
+    <span class="badge" id="ticket-count">…</span>
+  </div>
+  <div class="table-wrap">
+    <table id="tickets-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Guest</th>
+          <th>Room / Source</th>
+          <th>Issue</th>
+          <th>Status</th>
+          <th>Sentiment</th>
+          <th>Date</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody id="tickets-body">
+        <tr class="empty-row">
+          <td colspan="8"><span class="spinner"></span> Loading tickets…</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+  function showToast(msg, error = false) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.style.borderLeftColor = error ? 'var(--danger)' : 'var(--accent2)';
+    t.classList.add('show');
+    clearTimeout(t._timer);
+    t._timer = setTimeout(() => t.classList.remove('show'), 3000);
+  }
+
+  function formatDate(iso) {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    return d.toLocaleString('en-GB', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' });
+  }
+
+  function statusBadge(status) {
+    const s = (status || 'OPEN').toUpperCase();
+    const cls = ['OPEN','RESOLVED','NEW'].includes(s) ? `status-${s}` : 'status-OPEN';
+    return `<span class="status-badge ${cls}">${s}</span>`;
+  }
+
+  async function deleteTicket(id, rowEl) {
+    if (!confirm('Are you sure you want to delete ticket #' + id + '?')) return;
+    try {
+      const res = await fetch(`/staff/tickets/${id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Server error ' + res.status);
+      rowEl.style.transition = 'opacity .3s, transform .3s';
+      rowEl.style.opacity = '0';
+      rowEl.style.transform = 'translateX(16px)';
+      setTimeout(() => {
+        rowEl.remove();
+        const tbody = document.getElementById('tickets-body');
+        const remaining = tbody.querySelectorAll('tr:not(.empty-row)').length;
+        document.getElementById('ticket-count').textContent = remaining;
+        if (remaining === 0) {
+          tbody.innerHTML = '<tr class="empty-row"><td colspan="8">No tickets found.</td></tr>';
+        }
+      }, 320);
+      showToast('Ticket #' + id + ' deleted.');
+      // Refresh stats silently
+      loadStats();
+    } catch (e) {
+      showToast('Failed to delete: ' + e.message, true);
+    }
+  }
+
+  async function loadStats() {
+    try {
+      const res = await fetch('/staff/dashboard-stats');
+      const d = await res.json();
+      document.getElementById('stat-total').textContent     = d.total_tickets ?? '—';
+      document.getElementById('stat-open').textContent      = d.open_tickets  ?? '—';
+      document.getElementById('stat-sentiment').textContent = (d.sentiment_score != null ? d.sentiment_score + '%' : '—');
+    } catch (_) {}
+  }
+
+  async function loadTickets() {
+    const tbody = document.getElementById('tickets-body');
+    try {
+      const res = await fetch('/staff/recent-tickets');
+      const tickets = await res.json();
+      document.getElementById('ticket-count').textContent = tickets.length;
+      if (!tickets.length) {
+        tbody.innerHTML = '<tr class="empty-row"><td colspan="8">No tickets found.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = tickets.map(t => `
+        <tr id="row-${t.id}">
+          <td class="td-id">#${t.id}</td>
+          <td>${t.guest_name || '—'}</td>
+          <td>${t.room_number || '—'}</td>
+          <td class="td-issue" title="${(t.issue||'').replace(/"/g,'&quot;')}">${t.issue || '—'}</td>
+          <td>${statusBadge(t.status)}</td>
+          <td><span class="sentiment ${t.sentiment || ''}">${t.sentiment || '—'}</span></td>
+          <td>${formatDate(t.created_at)}</td>
+          <td>
+            <button class="btn-delete" onclick="deleteTicket(${t.id}, document.getElementById('row-${t.id}'))">
+              Delete
+            </button>
+          </td>
+        </tr>
+      `).join('');
+    } catch (e) {
+      tbody.innerHTML = `<tr class="empty-row"><td colspan="8">⚠ Failed to load tickets: ${e.message}</td></tr>`;
+    }
+  }
+
+  function loadAll() {
+    loadStats();
+    loadTickets();
+  }
+
+  // Initial load
+  loadAll();
+  // Auto-refresh every 30 seconds
+  setInterval(loadAll, 30000);
+</script>
+</body>
+</html>
