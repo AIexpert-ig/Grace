@@ -772,11 +772,6 @@ async def _retell_ws_handler(websocket: WebSocket, call_id: str | None = None) -
             pass
 
 
-@app.websocket("/llm-websocket")
-async def websocket_endpoint_root(websocket: WebSocket):
-    await _retell_ws_handler(websocket)
-
-
 @app.websocket("/llm-websocket/{call_id}")
 async def websocket_endpoint_with_id(websocket: WebSocket, call_id: str):
     await websocket.accept()
