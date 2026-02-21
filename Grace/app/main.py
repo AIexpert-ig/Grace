@@ -779,4 +779,32 @@ async def websocket_endpoint_root(websocket: WebSocket):
 
 @app.websocket("/llm-websocket/{call_id}")
 async def websocket_endpoint_with_id(websocket: WebSocket, call_id: str):
-    await _retell_ws_handler(websocket, call_id)
+    await websocket.accept()
+    try:
+        while True:
+            request_json = await websocket.receive_json()
+            interaction_type = request_json.get("interaction_type")
+            if interaction_type == "update_only":
+                continue
+            if interaction_type not in {"response_required", "reminder_required"}:
+                continue
+
+            transcript = request_json.get("transcript") or []
+            user_text = ""
+            if isinstance(transcript, list) and transcript:
+                last_item = transcript[-1]
+                if isinstance(last_item, dict):
+                    user_text = last_item.get("content", "") or ""
+
+            ai_response = await openai_service.get_concierge_response(user_text)
+
+            await websocket.send_json(
+                {
+                    "response_id": request_json.get("response_id"),
+                    "content": ai_response,
+                    "content_complete": True,
+                    "end_call": False,
+                }
+            )
+    except WebSocketDisconnect:
+        return
