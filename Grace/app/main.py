@@ -775,6 +775,12 @@ async def _retell_ws_handler(websocket: WebSocket, call_id: str | None = None) -
 @app.websocket("/llm-websocket/{call_id}")
 async def websocket_endpoint_with_id(websocket: WebSocket, call_id: str):
     await websocket.accept()
+    await websocket.send_json({
+        "response_id": 0,
+        "content": "Good afternoon, thank you for calling the Courtyard by Marriott in Dubai. I am Grace. How may I assist you today?",
+        "content_complete": True,
+        "end_call": False
+    })
     try:
         while True:
             request_json = await websocket.receive_json()
