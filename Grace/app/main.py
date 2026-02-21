@@ -794,18 +794,35 @@ async def websocket_endpoint_with_id(websocket: WebSocket, call_id: str):
 
             ai_response = await openai_service.get_concierge_response(transcript)
 
-            end_call_flag = False
-            if "[HANGUP]" in ai_response:
-                end_call_flag = True
-                ai_response = ai_response.replace("[HANGUP]", "").strip()
-
-            await websocket.send_json(
-                {
+            if ai_response.get("type") == "tool_call":
+                args = ai_response.get("args", {})
+                confirmation_msg = (
+                    f"Your {args.get('room_type')} room is confirmed for "
+                    f"{args.get('guest_name')} from {args.get('check_in')} to "
+                    f"{args.get('check_out')}. Your confirmation number is 8842."
+                )
+                await websocket.send_json({
                     "response_id": request_json.get("response_id"),
-                    "content": ai_response,
+                    "content": confirmation_msg,
                     "content_complete": True,
-                    "end_call": end_call_flag,
-                }
-            )
+                    "end_call": False
+                })
+                continue
+
+            elif ai_response.get("type") == "text":
+                content = ai_response.get("content", "")
+                end_call_flag = False
+                if "[HANGUP]" in content:
+                    end_call_flag = True
+                    content = content.replace("[HANGUP]", "").strip()
+
+                await websocket.send_json(
+                    {
+                        "response_id": request_json.get("response_id"),
+                        "content": content,
+                        "content_complete": True,
+                        "end_call": end_call_flag,
+                    }
+                )
     except WebSocketDisconnect:
         return

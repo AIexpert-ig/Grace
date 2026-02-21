@@ -1,4 +1,5 @@
 """OpenAI service for Grace's neural core using OpenRouter."""
+import json
 import logging
 from openai import AsyncOpenAI
 from app.core.config import settings
@@ -32,7 +33,8 @@ class OpenAIService:
                     "3. If a guest asks for a 'reservation', ALWAYS assume they mean a hotel room stay, not a restaurant, unless they specify otherwise.\n"
                     "4. You work AT this specific hotel right now. You are part of the front desk team.\n"
                     "5. If you need to gather details (dates, number of people), ask for them ONE at a time. Do not overwhelm the guest with multiple questions.\n"
-                    "6. If the user says goodbye or wants to end the call, say a polite sign-off and include the EXACT tag [HANGUP] at the very end of your response."
+                    "6. If the user says goodbye or wants to end the call, say a polite sign-off and include the EXACT tag [HANGUP] at the very end of your response.\n"
+                    "7. When you have collected the guest's Name, Check-In Date, Check-Out Date, and Room Type, you MUST use the book_room tool to finalize the reservation."
                 )
             }
         ]
@@ -68,17 +70,13 @@ class OpenAIService:
                 tools=tools,
                 tool_choice="auto"
             )
-            choice = response.choices[0]
-            # If the model decided to call a tool, surface it as a structured dict
-            if choice.finish_reason == "tool_calls" and choice.message.tool_calls:
-                tool_call = choice.message.tool_calls[0]
-                import json
-                return {
-                    "tool_call": True,
-                    "function": tool_call.function.name,
-                    "arguments": json.loads(tool_call.function.arguments)
-                }
-            return choice.message.content
+            message = response.choices[0].message
+            if message.tool_calls:
+                tool_call = message.tool_calls[0]
+                if tool_call.function.name == "book_room":
+                    args = json.loads(tool_call.function.arguments)
+                    return {"type": "tool_call", "name": "book_room", "args": args}
+            return {"type": "text", "content": message.content}
         except Exception as e:
             logger.error(f"OpenRouter Connection Error: {str(e)}")
-            return "I apologize, I am currently attending to another guest. May I assist you with our /rates?"
+            return {"type": "text", "content": "I apologize, I am currently attending to another guest. May I assist you with our /rates?"}
