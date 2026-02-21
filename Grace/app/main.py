@@ -582,13 +582,33 @@ async def telegram_webhook(request: Request):
             reply_text = "The front desk can be reached internally by dialing 0, or externally at +1-555-0199."
         else:
             try:
-                reply_text = await openai_service.get_concierge_response(user_text)
+                ai_result = await openai_service.get_concierge_response(
+                    [{"role": "user", "content": user_text}]
+                )
+                reply_text = ai_result.get("content", "How may I assist you?") if isinstance(ai_result, dict) else str(ai_result)
             except Exception as exc:
                 logger.error("telegram_webhook_ai_failed: %s", exc)
                 reply_text = (
                     "I'm sorry, my AI processing core is currently unavailable. "
                     "Please try again or type /frontdesk for assistance."
                 )
+
+            # Insert a dashboard ticket for every free-text Telegram message
+            db = SessionLocal()
+            try:
+                tg_ticket = Escalation(
+                    guest_name="Telegram Guest",
+                    room_number="Telegram",
+                    issue=user_text[:500],
+                    status="OPEN",
+                    sentiment="Neutral",
+                )
+                db.add(tg_ticket)
+                db.commit()
+            except Exception as db_exc:
+                logger.error("telegram_webhook_db_insert_failed: %s", db_exc)
+            finally:
+                db.close()
 
         token = (settings.TELEGRAM_BOT_TOKEN or "").strip()
         if token.startswith("="):
