@@ -65,7 +65,7 @@ class OpenAIService:
 
         try:
             response = await self.client.chat.completions.create(
-                model="arcee-ai/trinity-large-preview:free",
+                model="google/gemini-flash-1.5",
                 messages=messages,
                 tools=tools,
                 tool_choice="auto"
@@ -76,7 +76,8 @@ class OpenAIService:
                 if tool_call.function.name == "book_room":
                     args = json.loads(tool_call.function.arguments)
                     return {"type": "tool_call", "name": "book_room", "args": args}
-            return {"type": "text", "content": message.content}
+            content = message.content or "I understand, how may I continue to assist you?"
+            return {"type": "text", "content": content}
         except Exception as e:
             logger.error(f"OpenRouter Connection Error: {str(e)}")
             return {"type": "text", "content": "I apologize, I am currently attending to another guest. May I assist you with our /rates?"}
