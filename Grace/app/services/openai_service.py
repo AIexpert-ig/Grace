@@ -15,30 +15,36 @@ class OpenAIService:
             api_key=self.api_key,
         )
 
-    async def get_concierge_response(self, user_message: str) -> str:
+    async def get_concierge_response(self, transcript: list) -> str:
         # Emergency check: If the key is missing, log it specifically
         if not self.api_key or self.api_key == "":
             logger.error("SYSTEM CRITICAL: OPENAI_API_KEY is empty in settings!")
             return "I am currently polishing the silver. How else may I assist you?"
 
+        messages = [
+            {
+                "role": "system",
+                "content": (
+                    "You are Grace, the front desk AI concierge at the Courtyard by Marriott in Dubai.\n"
+                    "CORE RULES:\n"
+                    "1. You are talking on the phone. Keep responses conversational, warm, and very brief (1-2 sentences maximum).\n"
+                    "2. NEVER use bullet points, numbered lists, or special formatting. Speak naturally.\n"
+                    "3. If a guest asks for a 'reservation', ALWAYS assume they mean a hotel room stay, not a restaurant, unless they specify otherwise.\n"
+                    "4. You work AT this specific hotel right now. You are part of the front desk team.\n"
+                    "5. If you need to gather details (dates, number of people), ask for them ONE at a time. Do not overwhelm the guest with multiple questions.\n"
+                    "6. If the user says goodbye or wants to end the call, say a polite sign-off and include the EXACT tag [HANGUP] at the very end of your response."
+                )
+            }
+        ]
+
+        for turn in transcript:
+            role = "assistant" if turn.get("role") == "agent" else "user"
+            messages.append({"role": role, "content": turn.get("content", "")})
+
         try:
             response = await self.client.chat.completions.create(
                 model="arcee-ai/trinity-large-preview:free",
-                messages=[
-                    {
-                        "role": "system",
-                        "content": (
-                            "You are Grace, the front desk AI concierge at the Courtyard by Marriott in Dubai.\n"
-                            "CORE RULES:\n"
-                            "1. You are talking on the phone. Keep responses conversational, warm, and very brief (1-2 sentences maximum).\n"
-                            "2. NEVER use bullet points, numbered lists, or special formatting. Speak naturally.\n"
-                            "3. If a guest asks for a 'reservation', ALWAYS assume they mean a hotel room stay, not a restaurant, unless they specify otherwise.\n"
-                            "4. You work AT this specific hotel right now. You are part of the front desk team.\n"
-                            "5. If you need to gather details (dates, number of people), ask for them ONE at a time. Do not overwhelm the guest with multiple questions."
-                        )
-                    },
-                    {"role": "user", "content": user_message}
-                ]
+                messages=messages
             )
             return response.choices[0].message.content
         except Exception as e:

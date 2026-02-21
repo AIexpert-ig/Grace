@@ -791,20 +791,20 @@ async def websocket_endpoint_with_id(websocket: WebSocket, call_id: str):
                 continue
 
             transcript = request_json.get("transcript") or []
-            user_text = ""
-            if isinstance(transcript, list) and transcript:
-                last_item = transcript[-1]
-                if isinstance(last_item, dict):
-                    user_text = last_item.get("content", "") or ""
 
-            ai_response = await openai_service.get_concierge_response(user_text)
+            ai_response = await openai_service.get_concierge_response(transcript)
+
+            end_call_flag = False
+            if "[HANGUP]" in ai_response:
+                end_call_flag = True
+                ai_response = ai_response.replace("[HANGUP]", "").strip()
 
             await websocket.send_json(
                 {
                     "response_id": request_json.get("response_id"),
                     "content": ai_response,
                     "content_complete": True,
-                    "end_call": False,
+                    "end_call": end_call_flag,
                 }
             )
     except WebSocketDisconnect:
