@@ -41,12 +41,44 @@ class OpenAIService:
             role = "assistant" if turn.get("role") == "agent" else "user"
             messages.append({"role": role, "content": turn.get("content", "")})
 
+        tools = [
+            {
+                "type": "function",
+                "function": {
+                    "name": "book_room",
+                    "description": "Books a hotel room for a guest when all details are confirmed.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "guest_name": {"type": "string"},
+                            "check_in": {"type": "string", "description": "e.g., Feb 22"},
+                            "check_out": {"type": "string", "description": "e.g., Feb 27"},
+                            "room_type": {"type": "string", "description": "e.g., Smoking, Non-smoking, Suite"}
+                        },
+                        "required": ["guest_name", "check_in", "check_out", "room_type"]
+                    }
+                }
+            }
+        ]
+
         try:
             response = await self.client.chat.completions.create(
                 model="arcee-ai/trinity-large-preview:free",
-                messages=messages
+                messages=messages,
+                tools=tools,
+                tool_choice="auto"
             )
-            return response.choices[0].message.content
+            choice = response.choices[0]
+            # If the model decided to call a tool, surface it as a structured dict
+            if choice.finish_reason == "tool_calls" and choice.message.tool_calls:
+                tool_call = choice.message.tool_calls[0]
+                import json
+                return {
+                    "tool_call": True,
+                    "function": tool_call.function.name,
+                    "arguments": json.loads(tool_call.function.arguments)
+                }
+            return choice.message.content
         except Exception as e:
             logger.error(f"OpenRouter Connection Error: {str(e)}")
             return "I apologize, I am currently attending to another guest. May I assist you with our /rates?"
