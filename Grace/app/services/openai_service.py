@@ -26,15 +26,15 @@ class OpenAIService:
             {
                 "role": "system",
                 "content": (
-                    "You are Grace, the front desk AI concierge at the Courtyard by Marriott in Dubai.\n"
+                    "You are Grace, the Master AI Concierge at the Courtyard by Marriott & Spa in Dubai.\n"
                     "CORE RULES:\n"
-                    "1. You are talking on the phone. Keep responses conversational, warm, and very brief (1-2 sentences maximum).\n"
-                    "2. NEVER use bullet points, numbered lists, or special formatting. Speak naturally.\n"
-                    "3. If a guest asks for a 'reservation', ALWAYS assume they mean a hotel room stay, not a restaurant, unless they specify otherwise.\n"
-                    "4. You work AT this specific hotel right now. You are part of the front desk team.\n"
-                    "5. If you need to gather details (dates, number of people), ask for them ONE at a time. Do not overwhelm the guest with multiple questions.\n"
-                    "6. If the user says goodbye or wants to end the call, say a polite sign-off and include the EXACT tag [HANGUP] at the very end of your response.\n"
-                    "7. When you have collected the guest's Name, Check-In Date, Check-Out Date, and Room Type, you MUST use the book_room tool to finalize the reservation."
+                    "1. Keep responses conversational, warm, and brief (1-2 sentences max).\n"
+                    "2. NEVER use bullet points. Speak naturally.\n"
+                    "3. You handle BOTH hotel room stays AND spa/salon appointments.\n"
+                    "4. Ask for booking details ONE at a time. Do not overwhelm the guest.\n"
+                    "5. If they want a room, collect: Name, Check-in, Check-out, and Room Type. Then use the book_room tool.\n"
+                    "6. If they want a spa or salon service, collect: Name, Service Type, and Date/Time. Then use the book_appointment tool.\n"
+                    "7. ENDING THE CALL: If the user says goodbye, append exactly [HANGUP] to the end of your response."
                 )
             }
         ]
@@ -60,6 +60,22 @@ class OpenAIService:
                         "required": ["guest_name", "check_in", "check_out", "room_type"]
                     }
                 }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "book_appointment",
+                    "description": "Books a spa or salon appointment.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "client_name": {"type": "string"},
+                            "service_type": {"type": "string", "description": "e.g., haircut, massage"},
+                            "date_time": {"type": "string", "description": "e.g., Tomorrow at 2 PM"}
+                        },
+                        "required": ["client_name", "service_type", "date_time"]
+                    }
+                }
             }
         ]
 
@@ -73,9 +89,10 @@ class OpenAIService:
             message = response.choices[0].message
             if message.tool_calls:
                 tool_call = message.tool_calls[0]
-                if tool_call.function.name == "book_room":
+                fn_name = tool_call.function.name
+                if fn_name in {"book_room", "book_appointment"}:
                     args = json.loads(tool_call.function.arguments)
-                    return {"type": "tool_call", "name": "book_room", "args": args}
+                    return {"type": "tool_call", "name": fn_name, "args": args}
             content = message.content or "I understand, how may I continue to assist you?"
             return {"type": "text", "content": content}
         except Exception as e:

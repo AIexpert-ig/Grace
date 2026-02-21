@@ -797,7 +797,7 @@ async def websocket_endpoint_with_id(websocket: WebSocket, call_id: str):
     await websocket.accept()
     await websocket.send_json({
         "response_id": 0,
-        "content": "Good afternoon, thank you for calling the Courtyard by Marriott in Dubai. I am Grace. How may I assist you today?",
+        "content": "Good morning, thank you for calling the Courtyard by Marriott and Spa. I am Grace. How may I assist you today?",
         "content_complete": True,
         "end_call": False
     })
@@ -816,11 +816,23 @@ async def websocket_endpoint_with_id(websocket: WebSocket, call_id: str):
 
             if ai_response.get("type") == "tool_call":
                 args = ai_response.get("args", {})
-                confirmation_msg = (
-                    f"Your {args.get('room_type')} room is confirmed for "
-                    f"{args.get('guest_name')} from {args.get('check_in')} to "
-                    f"{args.get('check_out')}. Your confirmation number is 8842."
-                )
+                tool_name = ai_response.get("name")
+
+                if tool_name == "book_room":
+                    confirmation_msg = (
+                        f"Your {args.get('room_type')} room is confirmed for "
+                        f"{args.get('guest_name')} from {args.get('check_in')} to "
+                        f"{args.get('check_out')}. Your confirmation number is 8842."
+                    )
+                elif tool_name == "book_appointment":
+                    confirmation_msg = (
+                        f"Perfect! Your {args.get('service_type')} is booked for "
+                        f"{args.get('date_time')} under {args.get('client_name')}. "
+                        f"See you at the spa!"
+                    )
+                else:
+                    confirmation_msg = "Your booking has been confirmed. Is there anything else I can help you with?"
+
                 await websocket.send_json({
                     "response_id": request_json.get("response_id"),
                     "content": confirmation_msg,
