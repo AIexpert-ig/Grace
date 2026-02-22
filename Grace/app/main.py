@@ -7,11 +7,12 @@ import hashlib
 import hmac
 import time
 from datetime import datetime
+from pathlib import Path
 
 import httpx
 from fastapi import FastAPI, WebSocket, Request, HTTPException
 from starlette.websockets import WebSocketDisconnect
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime
@@ -50,6 +51,9 @@ openai_service = OpenAIService()
 BUILD_SHA = os.getenv("RAILWAY_GIT_COMMIT_SHA") or os.getenv("GITHUB_SHA") or "unknown"
 BUILD_MARK = "grace-build-2026-02-09"
 
+STATIC_DIR = Path(__file__).resolve().parent / "static"
+INDEX_PATH = STATIC_DIR / "index.html"
+
 @app.get("/__build")
 def __build():
     return {
@@ -72,7 +76,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.mount("/static", StaticFiles(directory="app/static"), name="static")
+app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 api_key = settings.google_api_key
 if api_key:
@@ -150,7 +154,18 @@ def _is_valid_telegram_update(payload: object) -> bool:
 
 @app.get("/")
 async def read_root():
-    return FileResponse("app/static/index.html")
+    content = INDEX_PATH.read_text(encoding="utf-8")
+    marker = f"DEPLOY_MARKER=2077_UI_V2_{BUILD_SHA[:7]}"
+    content = content.replace("__DEPLOY_MARKER__", marker)
+    return HTMLResponse(
+        content=content,
+        status_code=200,
+        headers={
+            "Cache-Control": "no-store, max-age=0, must-revalidate",
+            "Pragma": "no-cache",
+            "Expires": "0",
+        },
+    )
 
 @app.get("/health")
 def health_check():
