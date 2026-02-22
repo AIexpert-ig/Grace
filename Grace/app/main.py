@@ -6,6 +6,8 @@ import logging
 import hashlib
 import hmac
 import time
+import asyncio
+import re
 from datetime import datetime
 from pathlib import Path
 
@@ -653,12 +655,109 @@ SYSTEM_PROMPT = (
     "Do not repeat yourself."
 )
 
+# --- POLICY / TOOL STUBS ---
+BOOKING_CONFIRMATION_PATTERN = re.compile(r"\b(booked|confirmed|reserved|see you then)\b", re.IGNORECASE)
+PRICING_QUOTE_PATTERN = re.compile(
+    r"(\bAED\b|\bUSD\b|\bEUR\b|\bGBP\b|[$€£]|per night|nightly rate|rate is|price is)",
+    re.IGNORECASE,
+)
+PENDING_BOOKING_MESSAGE = "Thanks — I’m checking availability and will update you shortly with the booking details."
+PRICING_REQUEST_MESSAGE = "I can check room rates once I have your check-in date, check-out date, and number of guests."
+PRICING_UNAVAILABLE_MESSAGE = "I’m unable to retrieve live rates right now. Please share your dates and guest count, and I can follow up."
+STILL_CHECKING_MESSAGE = "I'm still checking that for you and will update you shortly."
+
+SPA_SERVICES = [
+    "Swedish massage",
+    "Deep tissue massage",
+    "Aromatherapy massage",
+    "Signature facial",
+]
+
+def _emit_event(event_type: str, payload: dict[str, Any] | None = None) -> None:
+    data = payload or {}
+    logging.getLogger("events").info("EVENT %s %s", event_type, json.dumps(data, ensure_ascii=False))
+
+def _open_staff_ticket(reason: str, user_text: str | None = None, call_id: str | None = None) -> None:
+    issue = reason
+    if user_text:
+        issue = f"{reason} | user_text={user_text}"
+    if call_id:
+        issue = f"{issue} | call_id={call_id}"
+    db = SessionLocal()
+    try:
+        t = Escalation(
+            guest_name="System",
+            room_number="N/A",
+            issue=issue,
+            status="OPEN",
+            sentiment="Neutral",
+        )
+        db.add(t)
+        db.commit()
+    except Exception as exc:
+        logging.getLogger("policy").warning("staff_ticket_failed: %s", exc)
+    finally:
+        db.close()
+
+def spa_list_services() -> dict[str, Any]:
+    return {"services": SPA_SERVICES}
+
+def spa_check_availability(service: str, date_time: str) -> dict[str, Any]:
+    enabled = os.getenv("SPA_TOOL_ENABLED") == "1"
+    return {"service": service, "datetime": date_time, "available": enabled}
+
+def spa_create_booking(name: str, service: str, date_time: str, notes: str | None = None) -> dict[str, Any]:
+    if os.getenv("SPA_TOOL_ENABLED") == "1":
+        booking_id = f"spa_{int(time.time())}"
+        return {"booking_id": booking_id}
+    return {"booking_id": None}
+
+def check_room_rates(dates: dict[str, str], guests: int) -> dict[str, Any]:
+    if os.getenv("PRICING_TOOL_ENABLED") == "1":
+        return {"rates": [{"dates": dates, "guests": guests, "currency": "AED", "amount": 420}]}
+    return {"rates": []}
+
+def _apply_response_guards(reply: str, context: dict[str, Any], user_text: str, call_id: str | None) -> str:
+    if BOOKING_CONFIRMATION_PATTERN.search(reply) and not context.get("booking_id"):
+        _emit_event("policy.violation", {"type": "booking_confirmation_without_id", "call_id": call_id})
+        _open_staff_ticket("policy.violation.booking_confirmation_without_id", user_text, call_id)
+        return PENDING_BOOKING_MESSAGE
+    if PRICING_QUOTE_PATTERN.search(reply) and not context.get("rates"):
+        _emit_event("policy.violation", {"type": "pricing_without_rates", "call_id": call_id})
+        _open_staff_ticket("policy.violation.pricing_without_rates", user_text, call_id)
+        return PRICING_REQUEST_MESSAGE
+    return reply
+
+def _handle_spa_booking(args: dict[str, Any], context: dict[str, Any], call_id: str | None) -> str:
+    _emit_event("booking.attempted", {"call_id": call_id, "channel": "spa"})
+    service = args.get("service_type") or args.get("service") or "spa service"
+    date_time = args.get("date_time") or args.get("datetime") or ""
+    client_name = args.get("client_name") or args.get("guest_name") or "Guest"
+    availability = spa_check_availability(service, date_time)
+    if not availability.get("available"):
+        _emit_event("booking.failed", {"call_id": call_id, "reason": "unavailable"})
+        return "I don’t have availability at that time. Would you like a different time?"
+    booking = spa_create_booking(client_name, service, date_time, notes=json.dumps(args))
+    booking_id = booking.get("booking_id")
+    if not booking_id:
+        _emit_event("booking.failed", {"call_id": call_id, "reason": "missing_booking_id"})
+        _open_staff_ticket("booking.failed.missing_booking_id", json.dumps(args), call_id)
+        return PENDING_BOOKING_MESSAGE
+    context["booking_id"] = booking_id
+    _emit_event("booking.confirmed", {"call_id": call_id, "booking_id": booking_id})
+    return f"Your spa appointment is confirmed. Your booking ID is {booking_id}."
+
+def _handle_room_booking(args: dict[str, Any], context: dict[str, Any], call_id: str | None) -> str:
+    _emit_event("booking.attempted", {"call_id": call_id, "channel": "room"})
+    _open_staff_ticket("booking.tool_unavailable.room", json.dumps(args), call_id)
+    return PENDING_BOOKING_MESSAGE
+
 _RETELL_STATE: dict[str, dict[str, Any]] = {}
 
 def _retell_state(call_id: str) -> dict[str, Any]:
     state = _RETELL_STATE.get(call_id)
     if not state:
-        state = {"last_assistant": []}
+        state = {"last_assistant": [], "context": {"booking_id": None, "rates": None}}
         _RETELL_STATE[call_id] = state
     return state
 
@@ -731,29 +830,38 @@ async def _retell_ws_handler(websocket: WebSocket, call_id: str | None = None) -
             if interaction_type != "response_required":
                 continue
 
+            state = _retell_state(call_id or "unknown")
+            context = state["context"]
+
             if _is_unclear(user_text):
                 ai_reply = _clarify()
             else:
                 ai_reply = ""
                 if settings.google_api_key:
                     try:
-                        import google.generativeai as genai
-                        model = genai.GenerativeModel("gemini-1.5-flash")
-                        response = model.generate_content(
-                            [
-                                {"role": "system", "content": SYSTEM_PROMPT},
-                                {"role": "user", "content": user_text},
-                            ]
-                        )
-                        ai_reply = (response.text or "").strip()
+                        def _call_model() -> str:
+                            import google.generativeai as genai
+                            model = genai.GenerativeModel("gemini-1.5-flash")
+                            response = model.generate_content(
+                                [
+                                    {"role": "system", "content": SYSTEM_PROMPT},
+                                    {"role": "user", "content": user_text},
+                                ]
+                            )
+                            return (response.text or "").strip()
+
+                        ai_reply = await asyncio.wait_for(asyncio.to_thread(_call_model), timeout=8.0)
+                    except asyncio.TimeoutError:
+                        _open_staff_ticket("latency.llm_timeout", user_text, call_id)
+                        ai_reply = STILL_CHECKING_MESSAGE
                     except Exception:
                         ai_reply = ""
 
                 if not ai_reply:
                     ai_reply = "I'm experiencing a technical issue. How may I assist you today?"
 
-                state = _retell_state(call_id or "unknown")
                 last_assistant = state["last_assistant"]
+                ai_reply = _apply_response_guards(ai_reply, context, user_text, call_id)
                 if any(ai_reply.strip() == prev for prev in last_assistant[-2:]):
                     ai_reply = _loop_break()
                 last_assistant.append(ai_reply.strip())
@@ -827,26 +935,43 @@ async def websocket_endpoint_with_id(websocket: WebSocket, call_id: str):
 
             transcript = request_json.get("transcript") or []
 
-            ai_response = await openai_service.get_concierge_response(transcript)
+            try:
+                ai_response = await asyncio.wait_for(
+                    openai_service.get_concierge_response(transcript),
+                    timeout=8.0,
+                )
+            except asyncio.TimeoutError:
+                _open_staff_ticket("latency.llm_timeout", json.dumps(transcript), None)
+                await websocket.send_json(
+                    {
+                        "response_id": request_json.get("response_id"),
+                        "content": STILL_CHECKING_MESSAGE,
+                        "content_complete": True,
+                        "end_call": False,
+                    }
+                )
+                continue
 
             if ai_response.get("type") == "tool_call":
                 args = ai_response.get("args", {})
                 tool_name = ai_response.get("name")
 
+                state = _retell_state(request_json.get("call_id") or "unknown")
+                context = state["context"]
+
                 if tool_name == "book_room":
-                    confirmation_msg = (
-                        f"Your {args.get('room_type')} room is confirmed for "
-                        f"{args.get('guest_name')} from {args.get('check_in')} to "
-                        f"{args.get('check_out')}. Your confirmation number is 8842."
-                    )
+                    confirmation_msg = _handle_room_booking(args, context, request_json.get("call_id"))
                 elif tool_name == "book_appointment":
-                    confirmation_msg = (
-                        f"Perfect! Your {args.get('service_type')} is booked for "
-                        f"{args.get('date_time')} under {args.get('client_name')}. "
-                        f"See you at the spa!"
-                    )
+                    confirmation_msg = _handle_spa_booking(args, context, request_json.get("call_id"))
                 else:
-                    confirmation_msg = "Your booking has been confirmed. Is there anything else I can help you with?"
+                    confirmation_msg = PENDING_BOOKING_MESSAGE
+
+                confirmation_msg = _apply_response_guards(
+                    confirmation_msg,
+                    context,
+                    json.dumps(args),
+                    request_json.get("call_id"),
+                )
 
                 await websocket.send_json({
                     "response_id": request_json.get("response_id"),
@@ -862,6 +987,10 @@ async def websocket_endpoint_with_id(websocket: WebSocket, call_id: str):
                 if "[HANGUP]" in content:
                     end_call_flag = True
                     content = content.replace("[HANGUP]", "").strip()
+
+                state = _retell_state(request_json.get("call_id") or "unknown")
+                context = state["context"]
+                content = _apply_response_guards(content, context, json.dumps(transcript), request_json.get("call_id"))
 
                 await websocket.send_json(
                     {

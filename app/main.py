@@ -4,6 +4,8 @@ import time
 import hmac
 import hashlib
 import logging
+import asyncio
+import re
 from pathlib import Path
 from typing import Any
 from fastapi import FastAPI, WebSocket, Request, HTTPException
@@ -31,6 +33,162 @@ def _get_make_signing_secret() -> str | None:
 
 def _get_webhook_tolerance() -> int:
     return int(os.getenv("WEBHOOK_TIMESTAMP_TOLERANCE_SECONDS", "300"))
+
+# --- POLICY / TOOL STUBS ---
+BOOKING_CONFIRMATION_PATTERN = re.compile(r"\b(booked|confirmed|reserved|see you then)\b", re.IGNORECASE)
+PRICING_QUOTE_PATTERN = re.compile(
+    r"(\bAED\b|\bUSD\b|\bEUR\b|\bGBP\b|[$€£]|per night|nightly rate|rate is|price is)",
+    re.IGNORECASE,
+)
+BOOKING_KEYWORDS = {"book", "booking", "reserve", "reservation", "appointment", "schedule"}
+SPA_KEYWORDS = {"spa", "massage", "facial", "treatment", "salon"}
+PRICING_KEYWORDS = {"rate", "rates", "price", "pricing", "cost", "room", "rooms"}
+
+PENDING_BOOKING_MESSAGE = "Thanks — I’m checking availability and will update you shortly with the booking details."
+PRICING_REQUEST_MESSAGE = "I can check room rates once I have your check-in date, check-out date, and number of guests."
+PRICING_UNAVAILABLE_MESSAGE = "I’m unable to retrieve live rates right now. Please share your dates and guest count, and I can follow up."
+STILL_CHECKING_MESSAGE = "I'm still checking that for you and will update you shortly."
+
+SPA_SERVICES = [
+    "Swedish massage",
+    "Deep tissue massage",
+    "Aromatherapy massage",
+    "Signature facial",
+]
+
+def _emit_event(event_type: str, payload: dict[str, Any] | None = None) -> None:
+    data = payload or {}
+    logging.getLogger("events").info("EVENT %s %s", event_type, json.dumps(data, ensure_ascii=False))
+
+def _open_staff_ticket(reason: str, user_text: str | None = None, call_id: str | None = None) -> None:
+    issue = reason
+    if user_text:
+        issue = f"{reason} | user_text={user_text}"
+    if call_id:
+        issue = f"{issue} | call_id={call_id}"
+    db = SessionLocal()
+    try:
+        new_ticket = Escalation(
+            guest_name="System",
+            room_number="N/A",
+            issue=issue,
+            status="OPEN",
+            sentiment="Neutral",
+        )
+        db.add(new_ticket)
+        db.commit()
+    except Exception as exc:
+        logging.getLogger("policy").warning("staff_ticket_failed: %s", exc)
+    finally:
+        db.close()
+
+def spa_list_services() -> dict[str, Any]:
+    return {"services": SPA_SERVICES}
+
+def spa_check_availability(service: str, date_time: str) -> dict[str, Any]:
+    enabled = os.getenv("SPA_TOOL_ENABLED") == "1"
+    return {"service": service, "datetime": date_time, "available": enabled}
+
+def spa_create_booking(name: str, service: str, date_time: str, notes: str | None = None) -> dict[str, Any]:
+    if os.getenv("SPA_TOOL_ENABLED") == "1":
+        booking_id = f"spa_{int(time.time())}"
+        return {"booking_id": booking_id}
+    return {"booking_id": None}
+
+def check_room_rates(dates: dict[str, str], guests: int) -> dict[str, Any]:
+    if os.getenv("PRICING_TOOL_ENABLED") == "1":
+        return {"rates": [{"dates": dates, "guests": guests, "currency": "AED", "amount": 420}]}  # stub
+    return {"rates": []}
+
+def _has_keyword(text: str, keywords: set[str]) -> bool:
+    lowered = text.lower()
+    return any(keyword in lowered for keyword in keywords)
+
+def _extract_dates(text: str) -> dict[str, str | None]:
+    dates = re.findall(r"\b\d{4}-\d{2}-\d{2}\b", text)
+    if len(dates) >= 2:
+        return {"check_in": dates[0], "check_out": dates[1]}
+    if len(dates) == 1:
+        return {"check_in": dates[0], "check_out": None}
+    return {"check_in": None, "check_out": None}
+
+def _extract_guests(text: str) -> int | None:
+    match = re.search(r"\b(\d+)\s*(guest|guests|people|adults)\b", text, re.IGNORECASE)
+    if match:
+        return int(match.group(1))
+    return None
+
+def _extract_spa_service(text: str) -> str | None:
+    lowered = text.lower()
+    for service in SPA_SERVICES:
+        if service.lower() in lowered:
+            return service
+    return None
+
+def _extract_date_time(text: str) -> str | None:
+    date_match = re.search(r"\b\d{4}-\d{2}-\d{2}\b", text)
+    time_match = re.search(r"\b\d{1,2}(:\d{2})?\s*(am|pm)\b", text, re.IGNORECASE)
+    if date_match and time_match:
+        return f"{date_match.group(0)} {time_match.group(0)}"
+    if date_match:
+        return date_match.group(0)
+    return None
+
+def _apply_response_guards(
+    reply: str,
+    context: dict[str, Any],
+    user_text: str,
+    call_id: str | None,
+) -> str:
+    if BOOKING_CONFIRMATION_PATTERN.search(reply) and not context.get("booking_id"):
+        _emit_event("policy.violation", {"type": "booking_confirmation_without_id", "call_id": call_id})
+        _open_staff_ticket("policy.violation.booking_confirmation_without_id", user_text, call_id)
+        return PENDING_BOOKING_MESSAGE
+    if PRICING_QUOTE_PATTERN.search(reply) and not context.get("rates"):
+        _emit_event("policy.violation", {"type": "pricing_without_rates", "call_id": call_id})
+        _open_staff_ticket("policy.violation.pricing_without_rates", user_text, call_id)
+        return PRICING_REQUEST_MESSAGE
+    return reply
+
+def _handle_spa_flow(user_text: str, context: dict[str, Any], call_id: str | None) -> str:
+    _emit_event("booking.attempted", {"call_id": call_id, "channel": "spa"})
+    service = _extract_spa_service(user_text)
+    date_time = _extract_date_time(user_text)
+    if not service:
+        services = ", ".join(SPA_SERVICES)
+        return f"We offer {services}. Which service would you like to book?"
+    if not date_time:
+        return "What date and time would you prefer for the spa appointment?"
+    availability = spa_check_availability(service, date_time)
+    if not availability.get("available"):
+        _emit_event("booking.failed", {"call_id": call_id, "reason": "unavailable"})
+        return "I don’t have availability at that time. Would you like a different time?"
+    booking = spa_create_booking("Guest", service, date_time, notes=user_text)
+    booking_id = booking.get("booking_id")
+    if not booking_id:
+        _emit_event("booking.failed", {"call_id": call_id, "reason": "missing_booking_id"})
+        _open_staff_ticket("booking.failed.missing_booking_id", user_text, call_id)
+        return PENDING_BOOKING_MESSAGE
+    context["booking_id"] = booking_id
+    _emit_event("booking.confirmed", {"call_id": call_id, "booking_id": booking_id})
+    return f"Your spa appointment is confirmed. Your booking ID is {booking_id}."
+
+def _handle_pricing_flow(user_text: str, context: dict[str, Any], call_id: str | None) -> str:
+    dates = _extract_dates(user_text)
+    guests = _extract_guests(user_text)
+    if not dates.get("check_in"):
+        return "What is your check-in date?"
+    if not dates.get("check_out"):
+        return "What is your check-out date?"
+    if not guests:
+        return "How many guests will be staying?"
+    rates = check_room_rates({"check_in": dates["check_in"], "check_out": dates["check_out"]}, guests)
+    if not rates.get("rates"):
+        _open_staff_ticket("pricing.unavailable", user_text, call_id)
+        return PRICING_UNAVAILABLE_MESSAGE
+    context["rates"] = rates
+    rate = rates["rates"][0]
+    return f"The rate is {rate['amount']} {rate['currency']} for those dates."
 
 # --- DATABASE SETUP ---
 Base = declarative_base()
@@ -118,7 +276,11 @@ def _retell_debug_marker_enabled() -> bool:
 def _retell_state_for(call_id: str) -> dict[str, Any]:
     state = _RETELL_STATE.get(call_id)
     if not state:
-        state = {"last_assistant": [], "last_user": {"text": "", "ts": 0.0}}
+        state = {
+            "last_assistant": [],
+            "last_user": {"text": "", "ts": 0.0},
+            "context": {"booking_id": None, "rates": None},
+        }
         _RETELL_STATE[call_id] = state
     return state
 
@@ -353,6 +515,7 @@ async def _retell_ws_handler(websocket: WebSocket, call_id: str | None = None):
                 continue
 
             state = _retell_state_for(call_id or "unknown")
+            context = state["context"]
             empty_text = _is_unclear_text(user_text)
             repeated_user = _user_repeated_recent(call_id, user_text)
 
@@ -361,30 +524,43 @@ async def _retell_ws_handler(websocket: WebSocket, call_id: str | None = None):
                 circuit_breaker = False
             else:
                 ai_reply = ""
-                try:
-                    model = genai.GenerativeModel("gemini-1.5-flash")
-                    transcript = data.get("transcript")
-                    history = []
-                    if isinstance(transcript, list):
-                        for item in transcript[-6:]:
-                            if not isinstance(item, dict):
-                                continue
-                            role = item.get("role")
-                            content = item.get("content")
-                            if role in {"user", "assistant"} and isinstance(content, str) and content.strip():
-                                history.append({"role": role, "content": content.strip()})
-                    messages = [{"role": "system", "content": SYSTEM_PROMPT}] + history
-                    if not messages or messages[-1].get("role") != "user":
-                        messages.append({"role": "user", "content": user_text})
-                    response = model.generate_content(messages)
-                    ai_reply = (response.text or "").strip()
-                except Exception:
-                    ai_reply = ""
+                if _has_keyword(user_text, SPA_KEYWORDS):
+                    ai_reply = _handle_spa_flow(user_text, context, call_id)
+                elif _has_keyword(user_text, PRICING_KEYWORDS):
+                    ai_reply = _handle_pricing_flow(user_text, context, call_id)
+                else:
+                    try:
+                        transcript = data.get("transcript")
+                        history = []
+                        if isinstance(transcript, list):
+                            for item in transcript[-6:]:
+                                if not isinstance(item, dict):
+                                    continue
+                                role = item.get("role")
+                                content = item.get("content")
+                                if role in {"user", "assistant"} and isinstance(content, str) and content.strip():
+                                    history.append({"role": role, "content": content.strip()})
+                        messages = [{"role": "system", "content": SYSTEM_PROMPT}] + history
+                        if not messages or messages[-1].get("role") != "user":
+                            messages.append({"role": "user", "content": user_text})
+
+                        def _call_model() -> str:
+                            model = genai.GenerativeModel("gemini-1.5-flash")
+                            response = model.generate_content(messages)
+                            return (response.text or "").strip()
+
+                        ai_reply = await asyncio.wait_for(asyncio.to_thread(_call_model), timeout=8.0)
+                    except asyncio.TimeoutError:
+                        _open_staff_ticket("latency.llm_timeout", user_text, call_id)
+                        ai_reply = STILL_CHECKING_MESSAGE
+                    except Exception:
+                        ai_reply = ""
 
                 if not ai_reply:
                     ai_reply = "I’m experiencing a technical issue. How may I assist you today?"
 
                 last_assistant = state["last_assistant"]
+                ai_reply = _apply_response_guards(ai_reply, context, user_text, call_id)
                 circuit_breaker = any(ai_reply.strip() == prev for prev in last_assistant[-2:])
                 if circuit_breaker:
                     ai_reply = _loop_break_response()
