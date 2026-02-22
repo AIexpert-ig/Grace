@@ -858,3 +858,8 @@ async def websocket_endpoint_with_id(websocket: WebSocket, call_id: str):
                 )
     except WebSocketDisconnect:
         return
+from fastapi.responses import FileResponse
+
+@app.get("/", include_in_schema=False)
+def root():
+    return FileResponse("app/static/index.html")
