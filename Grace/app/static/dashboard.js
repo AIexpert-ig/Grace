@@ -143,6 +143,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const streamContainer = document.getElementById('event-stream-container');
     const kpiOpen = document.getElementById('kpi-open-tickets');
     const kpiCritical = document.getElementById('kpi-critical');
+    const kpiActiveCallsQueue = document.getElementById('kpi-active-calls');
+    const navEscalationsBadge = document.getElementById('nav-escalations-badge');
 
     // Drawer (Incident Queue)
     const drawer = document.getElementById('ticket-drawer');
@@ -288,11 +290,25 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function updateTicketKPIs(tickets) {
-        if (!kpiOpen || !kpiCritical) return;
         const openTickets = tickets.filter(t => String(t.status || '').toLowerCase() !== 'resolved').length;
         const criticalTickets = tickets.filter(t => t.severity === 'critical' && String(t.status || '').toLowerCase() !== 'resolved').length;
-        kpiOpen.innerText = String(openTickets);
-        kpiCritical.innerText = String(criticalTickets);
+
+        if (kpiOpen) kpiOpen.innerText = String(openTickets);
+        if (kpiCritical) kpiCritical.innerText = String(criticalTickets);
+
+        if (navEscalationsBadge) {
+            if (cache.tickets.loading && !tickets.length) {
+                navEscalationsBadge.innerText = '--';
+                navEscalationsBadge.classList.remove('hidden');
+            } else {
+                const escalations = tickets.filter(t => {
+                    const unresolved = String(t.status || '').toLowerCase() !== 'resolved';
+                    return unresolved && (t.severity === 'critical' || t.severity === 'high');
+                }).length;
+                navEscalationsBadge.innerText = String(escalations);
+                navEscalationsBadge.classList.toggle('hidden', escalations === 0);
+            }
+        }
     }
 
     function renderTickets() {
@@ -484,6 +500,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const avgLatency = latencyValues.length ? Math.round(latencyValues.reduce((a, b) => a + b, 0) / latencyValues.length) : null;
 
         if (callsKpiActive) callsKpiActive.innerText = String(activeCalls.length);
+        if (kpiActiveCallsQueue) kpiActiveCallsQueue.innerText = String(activeCalls.length);
         if (callsKpiAvgLatency) callsKpiAvgLatency.innerText = avgLatency === null ? '--' : String(avgLatency);
         if (callsKpiHandoffs) callsKpiHandoffs.innerText = '--';
 
@@ -1070,4 +1087,3 @@ document.addEventListener('DOMContentLoaded', () => {
 
     bindTabs();
 });
-
