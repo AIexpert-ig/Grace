@@ -8,19 +8,31 @@ import asyncio
 import re
 from pathlib import Path
 from typing import Any
-from fastapi import FastAPI, WebSocket, Request, HTTPException
+from fastapi import FastAPI, WebSocket, Request, HTTPException, Query
 from starlette.websockets import WebSocketDisconnect
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime
+from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime, text
 from sqlalchemy.orm import sessionmaker, declarative_base
 from datetime import datetime
 import google.generativeai as genai
 import httpx
 
 # --- CONFIGURATION ---
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:password@localhost:5432/railway")
+def _normalize_sync_database_url(url: str) -> str:
+    if not url:
+        return url
+    value = url.strip()
+    if value.startswith("postgres://"):
+        value = "postgresql://" + value[len("postgres://"):]
+    if value.startswith("postgresql+asyncpg://"):
+        value = value.replace("postgresql+asyncpg://", "postgresql://", 1)
+    return value
+
+DATABASE_URL = _normalize_sync_database_url(
+    os.getenv("DATABASE_URL", "postgresql://postgres:password@localhost:5432/railway")
+)
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 def _get_admin_token() -> str | None:
     return os.getenv("ADMIN_TOKEN")
@@ -60,6 +72,18 @@ SPA_SERVICES = [
 def _emit_event(event_type: str, payload: dict[str, Any] | None = None) -> None:
     data = payload or {}
     logging.getLogger("events").info("EVENT %s %s", event_type, json.dumps(data, ensure_ascii=False))
+    try:
+        level = "info"
+        if event_type.startswith("policy.violation") or event_type.endswith(".failed"):
+            level = "warn"
+        if event_type.endswith(".confirmed") or event_type.endswith(".complete"):
+            level = "success"
+        payload_preview = json.dumps(data, ensure_ascii=False)
+        if len(payload_preview) > 600:
+            payload_preview = payload_preview[:600] + "…"
+        _record_dashboard_event(level, "system", f"{event_type} {payload_preview}".strip())
+    except Exception:
+        pass
 
 def _open_staff_ticket(reason: str, user_text: str | None = None, call_id: str | None = None) -> None:
     issue = reason
@@ -209,7 +233,37 @@ class Escalation(Base):
     sentiment = Column(String, default="Neutral")
     created_at = Column(DateTime, default=datetime.utcnow)
 
-engine = create_engine(DATABASE_URL)
+class DashboardEvent(Base):
+    __tablename__ = "dashboard_events"
+    id = Column(Integer, primary_key=True, index=True)
+    at = Column(DateTime, default=datetime.utcnow, index=True)
+    type = Column(String, default="info")
+    source = Column(String, default="system")
+    text = Column(Text)
+
+class CallSession(Base):
+    __tablename__ = "call_sessions"
+    id = Column(String, primary_key=True, index=True)
+    from_contact = Column(String, default="")
+    status = Column(String, default="Active")
+    intent = Column(String, default="")
+    latency_ms = Column(Integer, nullable=True)
+    started_at = Column(DateTime, default=datetime.utcnow, index=True)
+    transcript_snippet = Column(Text, default="")
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+class StaffMember(Base):
+    __tablename__ = "staff_members"
+    id = Column(String, primary_key=True, index=True)
+    name = Column(String, default="")
+    role = Column(String, default="")
+    shift = Column(String, default="")
+    phone = Column(String, default="")
+    status = Column(String, default="")
+    languages = Column(Text, default="")
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 # --- FASTAPI APP ---
@@ -333,6 +387,92 @@ def _verify_hmac(raw_body: bytes, timestamp: str | None, signature: str | None, 
     return True, "ok"
 # --- ROUTES ---
 
+def _normalize_event_level(value: str | None) -> str:
+    lowered = (value or "").strip().lower()
+    if lowered == "warning":
+        lowered = "warn"
+    if lowered in {"info", "warn", "alert", "success"}:
+        return lowered
+    return "info"
+
+def _record_dashboard_event(level: str, source: str, message: str) -> None:
+    db = SessionLocal()
+    try:
+        evt = DashboardEvent(
+            at=datetime.utcnow(),
+            type=_normalize_event_level(level),
+            source=(source or "system"),
+            text=(message or ""),
+        )
+        db.add(evt)
+        db.commit()
+    except Exception as exc:
+        logging.getLogger("events").warning("dashboard_event_write_failed: %s", exc)
+    finally:
+        db.close()
+
+def _upsert_call_session(
+    call_id: str,
+    *,
+    status: str | None = None,
+    transcript_snippet: str | None = None,
+) -> None:
+    if not call_id:
+        return
+    db = SessionLocal()
+    try:
+        session = db.query(CallSession).filter(CallSession.id == call_id).first()
+        if not session:
+            session = CallSession(
+                id=call_id,
+                status=status or "Active",
+                started_at=datetime.utcnow(),
+                transcript_snippet=(transcript_snippet or ""),
+            )
+            db.add(session)
+        else:
+            if status:
+                session.status = status
+            if transcript_snippet:
+                session.transcript_snippet = transcript_snippet
+        db.commit()
+    except Exception as exc:
+        logging.getLogger("calls").warning("call_session_upsert_failed: %s", exc)
+    finally:
+        db.close()
+
+def _derive_severity(text_value: str | None) -> str:
+    text_lower = (text_value or "").lower()
+    if any(k in text_lower for k in ("leak", "fire", "smoke", "flood", "bleed", "emergency", "rapidly")):
+        return "critical"
+    if any(k in text_lower for k in ("refund", "cancel", "failed", "error", "charge", "angry", "complain")):
+        return "high"
+    if text_lower.strip():
+        return "medium"
+    return "low"
+
+def _normalize_ticket_status(status_value: str | None) -> str:
+    status_upper = (status_value or "").strip().upper()
+    if status_upper in {"RESOLVED", "CLOSED", "DONE"}:
+        return "Resolved"
+    if status_upper in {"IN_PROGRESS", "IN PROGRESS"}:
+        return "In Progress"
+    return "Open"
+
+@app.on_event("startup")
+def _ensure_dashboard_tables() -> None:
+    try:
+        Base.metadata.create_all(
+            bind=engine,
+            tables=[
+                DashboardEvent.__table__,
+                CallSession.__table__,
+                StaffMember.__table__,
+            ],
+        )
+    except Exception as exc:
+        logging.getLogger("db").warning("dashboard_table_bootstrap_failed: %s", exc)
+
 @app.get("/")
 async def read_root():
     with INDEX_PATH.open("r", encoding="utf-8") as handle:
@@ -414,7 +554,136 @@ async def create_ticket(request: Request):
         )
         db.add(new_ticket)
         db.commit()
+        _record_dashboard_event("alert", "tickets", f"New ticket opened for room {new_ticket.room_number}: {new_ticket.issue}")
         return {"status": "Ticket Created"}
+    finally:
+        db.close()
+
+@app.get("/api/tickets")
+def api_tickets(limit: int = Query(50, ge=1, le=200)):
+    db = SessionLocal()
+    try:
+        query_with_claim = text(
+            """
+            SELECT id, guest_name, room_number, issue, status, created_at, claimed_at
+            FROM escalations
+            ORDER BY created_at DESC
+            LIMIT :limit
+            """
+        )
+        try:
+            rows = db.execute(query_with_claim, {"limit": limit}).mappings().all()
+        except Exception:
+            query_basic = text(
+                """
+                SELECT id, guest_name, room_number, issue, status, created_at
+                FROM escalations
+                ORDER BY created_at DESC
+                LIMIT :limit
+                """
+            )
+            rows = db.execute(query_basic, {"limit": limit}).mappings().all()
+
+        results: list[dict[str, Any]] = []
+        for row in rows:
+            created_at = row.get("created_at")
+            claimed_at = row.get("claimed_at")
+            updated_at = claimed_at or created_at
+
+            issue = row.get("issue") or ""
+            guest = row.get("guest_name") or "Unknown"
+            room = row.get("room_number") or ""
+            source = f"Room {room}" if str(room).strip() and str(room).strip().upper() not in {"N/A", "UNKNOWN"} else "System"
+
+            results.append(
+                {
+                    "id": f"TCK-{row.get('id')}",
+                    "customer": guest,
+                    "source": source,
+                    "subject": issue,
+                    "severity": _derive_severity(issue),
+                    "status": _normalize_ticket_status(row.get("status")),
+                    "notes": issue,
+                    "created_at": created_at.isoformat() if isinstance(created_at, datetime) else None,
+                    "updated_at": updated_at.isoformat() if isinstance(updated_at, datetime) else None,
+                }
+            )
+        return results
+    except Exception as exc:
+        logging.getLogger("api").warning("api_tickets_failed: %s", exc)
+        raise HTTPException(status_code=503, detail="Tickets unavailable")
+    finally:
+        db.close()
+
+@app.get("/api/events")
+def api_events(limit: int = Query(100, ge=1, le=500)):
+    db = SessionLocal()
+    try:
+        rows = db.query(DashboardEvent).order_by(DashboardEvent.at.desc()).limit(limit).all()
+        return [
+            {
+                "at": r.at.isoformat() if isinstance(r.at, datetime) else None,
+                "type": _normalize_event_level(r.type),
+                "source": r.source,
+                "text": r.text,
+            }
+            for r in rows
+        ]
+    except Exception as exc:
+        logging.getLogger("api").warning("api_events_failed: %s", exc)
+        raise HTTPException(status_code=503, detail="Events unavailable")
+    finally:
+        db.close()
+
+@app.get("/api/calls")
+def api_calls(limit: int = Query(50, ge=1, le=200)):
+    db = SessionLocal()
+    try:
+        rows = db.query(CallSession).order_by(CallSession.started_at.desc()).limit(limit).all()
+        return [
+            {
+                "id": r.id,
+                "from": r.from_contact,
+                "status": r.status,
+                "intent": r.intent,
+                "latency_ms": r.latency_ms,
+                "started_at": r.started_at.isoformat() if isinstance(r.started_at, datetime) else None,
+                "transcript_snippet": r.transcript_snippet,
+            }
+            for r in rows
+        ]
+    except Exception as exc:
+        logging.getLogger("api").warning("api_calls_failed: %s", exc)
+        raise HTTPException(status_code=503, detail="Calls unavailable")
+    finally:
+        db.close()
+
+@app.get("/api/staff")
+def api_staff(limit: int = Query(100, ge=1, le=500)):
+    db = SessionLocal()
+    try:
+        rows = db.query(StaffMember).order_by(StaffMember.name.asc()).limit(limit).all()
+        results: list[dict[str, Any]] = []
+        for r in rows:
+            languages = []
+            raw_languages = (r.languages or "").strip()
+            if raw_languages:
+                languages = [lang.strip() for lang in raw_languages.split(",") if lang.strip()]
+            results.append(
+                {
+                    "id": r.id,
+                    "name": r.name,
+                    "role": r.role,
+                    "shift": r.shift,
+                    "phone": r.phone,
+                    "status": r.status,
+                    "languages": languages,
+                }
+            )
+        return results
+    except Exception as exc:
+        logging.getLogger("api").warning("api_staff_failed: %s", exc)
+        raise HTTPException(status_code=503, detail="Staff unavailable")
     finally:
         db.close()
 
@@ -425,6 +694,7 @@ def delete_ticket(ticket_id: int):
         ticket = db.query(Escalation).filter(Escalation.id == ticket_id).first()
         if not ticket:
             raise HTTPException(status_code=404, detail="Ticket not found")
+        _record_dashboard_event("warn", "tickets", f"Ticket deleted: TCK-{ticket.id}")
         db.delete(ticket)
         db.commit()
         return {"status": "deleted", "id": ticket_id}
@@ -487,6 +757,9 @@ async def _retell_ws_handler(websocket: WebSocket, call_id: str | None = None):
     path = getattr(websocket.scope, "get", lambda *_args: None)("path") if hasattr(websocket, "scope") else None
     logger.info("RETELL_WS_ACCEPT call_id=%s path=%s", call_id, path)
     response_counter = 0
+    if call_id:
+        _upsert_call_session(call_id, status="Active")
+        _record_dashboard_event("info", "calls", f"Call connected: {call_id}")
 
     try:
         await websocket.send_json(
@@ -519,6 +792,12 @@ async def _retell_ws_handler(websocket: WebSocket, call_id: str | None = None):
 
             if interaction_type != "response_required":
                 continue
+
+            if call_id:
+                snippet = user_text.strip()
+                if len(snippet) > 280:
+                    snippet = snippet[:280] + "…"
+                _upsert_call_session(call_id, status="Active", transcript_snippet=snippet)
 
             state = _retell_state_for(call_id or "unknown")
             context = state["context"]
@@ -622,6 +901,9 @@ async def _retell_ws_handler(websocket: WebSocket, call_id: str | None = None):
             await websocket.send_json(response_event)
 
     except WebSocketDisconnect as e:
+        if call_id:
+            _upsert_call_session(call_id, status="Ended")
+            _record_dashboard_event("info", "calls", f"Call ended: {call_id}")
         if e.code == 1000:
             logger.info("RETELL_WS_DISCONNECT call_id=%s code=1000", call_id)
         else:
