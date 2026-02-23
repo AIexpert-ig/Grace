@@ -14,28 +14,16 @@ const mockTickets = [
 ];
 
 const mockEvents = [
-    { text: "AI handled incoming call from +971 50 *** 4567.", type: "info" },
-    { text: "Telegram webhook processed `/status` command.", type: "info" },
-    { text: "Grace autonomously booked Appointment #882.", type: "success" },
-    { text: "PMS Database synchronization complete.", type: "success" },
-    { text: "User dropped call during intent classification.", type: "warning" },
-    { text: "High latency detected on OpenRouter endpoint.", type: "warning" },
-    { text: "New critical ticket generated from Voice interface.", type: "alert" }
+    { text: 'AI handled incoming call from +971 50 *** 4567.', type: 'info' },
+    { text: 'Telegram webhook processed `/status` command.', type: 'info' },
+    { text: 'Grace autonomously booked Appointment #882.', type: 'success' },
+    { text: 'PMS Database synchronization complete.', type: 'success' },
+    { text: 'User dropped call during intent classification.', type: 'warning' },
+    { text: 'High latency detected on OpenRouter endpoint.', type: 'warning' },
+    { text: 'New critical ticket generated from Voice interface.', type: 'alert' }
 ];
 
-// 2. DOM Elements
-const tbody = document.getElementById('ticket-table-body');
-const drawer = document.getElementById('ticket-drawer');
-const overlay = document.getElementById('drawer-overlay');
-const filterGroup = document.getElementById('filter-group');
-const streamContainer = document.getElementById('event-stream-container');
-
-const btnCloseDrawer = document.getElementById('btn-close-drawer');
-const btnAssign = document.getElementById('btn-assign');
-const btnEscalate = document.getElementById('btn-escalate');
-const btnResolve = document.getElementById('btn-resolve');
-
-// 3. Helper Functions
+// 2. Helper Functions
 function getSeverityStyles(severity) {
     switch (severity) {
         case 'critical': return 'bg-rose-100 text-rose-700 border border-rose-200';
@@ -52,27 +40,60 @@ function getStatusStyles(status) {
     return 'text-slate-600 bg-slate-50 border border-slate-200'; // Open
 }
 
-function updateKPIs() {
-    const openTickets = mockTickets.filter(t => t.status !== 'Resolved').length;
-    const criticalTickets = mockTickets.filter(t => t.severity === 'critical' && t.status !== 'Resolved').length;
-    document.getElementById('kpi-open-tickets').innerText = openTickets;
-    document.getElementById('kpi-critical').innerText = criticalTickets;
-}
+document.addEventListener('DOMContentLoaded', () => {
+    console.log('[dashboard] boot ok', { hasTailwind: !!window.tailwind, ts: Date.now() });
 
-// 4. Render Table
-function renderTable(filter = 'all') {
-    tbody.innerHTML = '';
+    // 3. DOM Elements
+    const tbody = document.getElementById('ticket-table-body');
+    const drawer = document.getElementById('ticket-drawer');
+    const overlay = document.getElementById('drawer-overlay');
+    const filterGroup = document.getElementById('filter-group');
+    const streamContainer = document.getElementById('event-stream-container');
 
-    const filteredData = filter === 'all'
-        ? mockTickets
-        : mockTickets.filter(t => t.severity === filter);
+    const btnCloseDrawer = document.getElementById('btn-close-drawer');
+    const btnAssign = document.getElementById('btn-assign');
+    const btnEscalate = document.getElementById('btn-escalate');
+    const btnResolve = document.getElementById('btn-resolve');
 
-    filteredData.forEach(ticket => {
-        const tr = document.createElement('tr');
-        tr.className = 'hover:bg-slate-50 cursor-pointer transition-colors group';
-        tr.dataset.ticketId = ticket.id;
+    const kpiOpen = document.getElementById('kpi-open-tickets');
+    const kpiCritical = document.getElementById('kpi-critical');
 
-        tr.innerHTML = `
+    const navLinks = Array.from(document.querySelectorAll('[data-view]'));
+    const panels = Array.from(document.querySelectorAll('[data-panel]'));
+
+    const warn = (message, detail) => {
+        console.warn(`[dashboard] ${message}`, detail || '');
+    };
+
+    function updateKPIs() {
+        if (!kpiOpen || !kpiCritical) {
+            warn('missing KPI nodes');
+            return;
+        }
+        const openTickets = mockTickets.filter(t => t.status !== 'Resolved').length;
+        const criticalTickets = mockTickets.filter(t => t.severity === 'critical' && t.status !== 'Resolved').length;
+        kpiOpen.innerText = openTickets;
+        kpiCritical.innerText = criticalTickets;
+    }
+
+    // 4. Render Table
+    function renderTable(filter = 'all') {
+        if (!tbody) {
+            warn('missing ticket table body');
+            return;
+        }
+        tbody.innerHTML = '';
+
+        const filteredData = filter === 'all'
+            ? mockTickets
+            : mockTickets.filter(t => t.severity === filter);
+
+        filteredData.forEach(ticket => {
+            const tr = document.createElement('tr');
+            tr.className = 'hover:bg-slate-50 cursor-pointer transition-colors group';
+            tr.dataset.ticketId = ticket.id;
+
+            tr.innerHTML = `
             <td class="px-4 md:px-6 py-4 font-mono text-xs font-semibold text-slate-500 group-hover:text-accent transition-colors">${ticket.id}</td>
             <td class="px-4 md:px-6 py-4 font-medium text-graphite">${ticket.customer}</td>
             <td class="px-4 md:px-6 py-4 text-slate-600 truncate max-w-[150px] sm:max-w-xs md:max-w-sm lg:max-w-md" title="${ticket.subject}">${ticket.subject}</td>
@@ -83,82 +104,95 @@ function renderTable(filter = 'all') {
                 <span class="status-badge ${getStatusStyles(ticket.status)}">${ticket.status}</span>
             </td>
         `;
-        tbody.appendChild(tr);
-    });
+            tbody.appendChild(tr);
+        });
 
-    updateKPIs();
-}
+        updateKPIs();
+    }
 
-// 5. Drawer Controls
-function openDrawer(ticketId) {
-    const ticket = mockTickets.find(t => t.id === ticketId);
-    if (!ticket) return;
+    // 5. Drawer Controls
+    function openDrawer(ticketId) {
+        if (!drawer || !overlay) {
+            warn('missing drawer/overlay');
+            return;
+        }
+        const ticket = mockTickets.find(t => t.id === ticketId);
+        if (!ticket) return;
 
-    document.getElementById('drawer-ticket-id').innerText = ticket.id;
-    document.getElementById('drawer-ticket-subject').innerText = ticket.subject;
-    document.getElementById('drawer-customer-name').innerText = ticket.customer;
-    document.getElementById('drawer-customer-meta').innerText = `Source: ${ticket.source}`;
-    document.getElementById('drawer-customer-avatar').innerText = ticket.customer.charAt(0).toUpperCase();
-    document.getElementById('drawer-ticket-notes').innerText = ticket.notes;
+        const drawerTicketId = document.getElementById('drawer-ticket-id');
+        const drawerTicketSubject = document.getElementById('drawer-ticket-subject');
+        const drawerCustomerName = document.getElementById('drawer-customer-name');
+        const drawerCustomerMeta = document.getElementById('drawer-customer-meta');
+        const drawerCustomerAvatar = document.getElementById('drawer-customer-avatar');
+        const drawerTicketNotes = document.getElementById('drawer-ticket-notes');
+        const drawerTags = document.getElementById('drawer-tags');
 
-    document.getElementById('drawer-tags').innerHTML = `
+        if (!drawerTicketId || !drawerTicketSubject || !drawerCustomerName || !drawerCustomerMeta || !drawerCustomerAvatar || !drawerTicketNotes || !drawerTags) {
+            warn('missing drawer detail nodes');
+            return;
+        }
+
+        drawerTicketId.innerText = ticket.id;
+        drawerTicketSubject.innerText = ticket.subject;
+        drawerCustomerName.innerText = ticket.customer;
+        drawerCustomerMeta.innerText = `Source: ${ticket.source}`;
+        drawerCustomerAvatar.innerText = ticket.customer.charAt(0).toUpperCase();
+        drawerTicketNotes.innerText = ticket.notes;
+
+        drawerTags.innerHTML = `
         <span class="status-badge ${getSeverityStyles(ticket.severity)}">${ticket.severity}</span>
         <span class="status-badge ${getStatusStyles(ticket.status)}">${ticket.status}</span>
     `;
 
-    drawer.classList.remove('drawer-exit');
-    drawer.classList.add('drawer-enter');
-    overlay.classList.remove('hidden');
-    setTimeout(() => {
-        overlay.classList.remove('overlay-fade-out');
-        overlay.classList.add('overlay-fade-in');
-    }, 10);
-}
+        drawer.classList.remove('drawer-exit');
+        drawer.classList.add('drawer-enter');
+        overlay.classList.remove('hidden');
+        setTimeout(() => {
+            overlay.classList.remove('overlay-fade-out');
+            overlay.classList.add('overlay-fade-in');
+        }, 10);
+    }
 
-function closeDrawer() {
-    drawer.classList.remove('drawer-enter');
-    drawer.classList.add('drawer-exit');
-    overlay.classList.remove('overlay-fade-in');
-    overlay.classList.add('overlay-fade-out');
-    setTimeout(() => overlay.classList.add('hidden'), 300);
-}
+    function closeDrawer() {
+        if (!drawer || !overlay) return;
+        drawer.classList.remove('drawer-enter');
+        drawer.classList.add('drawer-exit');
+        overlay.classList.remove('overlay-fade-in');
+        overlay.classList.add('overlay-fade-out');
+        setTimeout(() => overlay.classList.add('hidden'), 300);
+    }
 
-// Bind Event Listeners
-overlay.addEventListener('click', closeDrawer);
-btnCloseDrawer.addEventListener('click', closeDrawer);
-btnResolve.addEventListener('click', closeDrawer);
-btnAssign.addEventListener('click', () => alert('Ticket assigned to your queue.'));
-btnEscalate.addEventListener('click', () => alert('Ticket escalated to Level 2 Support.'));
+    // 6. Filtering Logic
+    function bindFilters() {
+        if (!filterGroup) {
+            warn('missing filter group');
+            return;
+        }
+        filterGroup.addEventListener('click', (e) => {
+            if (e.target.tagName !== 'BUTTON') return;
 
-// Delegate row clicks to tbody (avoids manual rebinding on re-render)
-tbody.addEventListener('click', (e) => {
-    const row = e.target.closest('tr[data-ticket-id]');
-    if (row) openDrawer(row.dataset.ticketId);
-});
+            const buttons = Array.from(filterGroup.querySelectorAll('button'));
+            buttons.forEach(btn => {
+                btn.className = 'px-3 py-1 text-xs font-semibold rounded bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 transition';
+            });
+            e.target.className = 'px-3 py-1 text-xs font-semibold rounded bg-graphite text-white transition';
+            renderTable(e.target.dataset.filter);
+        });
+    }
 
-// 6. Filtering Logic
-filterGroup.addEventListener('click', (e) => {
-    if (e.target.tagName !== 'BUTTON') return;
+    // 7. Event Stream Simulation
+    function appendStreamEvent(eventObj) {
+        if (!streamContainer) return;
+        const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
-    Array.from(filterGroup.children).forEach(btn => {
-        btn.className = 'px-3 py-1 text-xs font-semibold rounded bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 transition';
-    });
-    e.target.className = 'px-3 py-1 text-xs font-semibold rounded bg-graphite text-white transition';
-    renderTable(e.target.dataset.filter);
-});
+        let borderClass = 'border-slate-200', iconColor = 'text-slate-400';
+        if (eventObj.type === 'alert') { borderClass = 'border-rose-200'; iconColor = 'text-rose-500'; }
+        if (eventObj.type === 'success') { borderClass = 'border-emerald-200'; iconColor = 'text-emerald-500'; }
+        if (eventObj.type === 'warning') { borderClass = 'border-amber-200'; iconColor = 'text-amber-500'; }
 
-// 7. Event Stream Simulation
-function appendStreamEvent(eventObj) {
-    const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-
-    let borderClass = 'border-slate-200', iconColor = 'text-slate-400';
-    if (eventObj.type === 'alert') { borderClass = 'border-rose-200'; iconColor = 'text-rose-500'; }
-    if (eventObj.type === 'success') { borderClass = 'border-emerald-200'; iconColor = 'text-emerald-500'; }
-    if (eventObj.type === 'warning') { borderClass = 'border-amber-200'; iconColor = 'text-amber-500'; }
-
-    const div = document.createElement('div');
-    div.className = `event-card-new p-3 bg-white border ${borderClass} rounded-md shadow-sm`;
-    div.innerHTML = `
+        const div = document.createElement('div');
+        div.className = `event-card-new p-3 bg-white border ${borderClass} rounded-md shadow-sm`;
+        div.innerHTML = `
         <div class="flex items-center gap-2 mb-1">
             <svg class="w-3 h-3 ${iconColor}" fill="currentColor" viewBox="0 0 20 20"><circle cx="10" cy="10" r="5"></circle></svg>
             <span class="text-[10px] text-slate-400 font-mono tracking-wider uppercase">${time}</span>
@@ -166,28 +200,106 @@ function appendStreamEvent(eventObj) {
         <p class="text-xs text-slate-700 leading-relaxed">${eventObj.text}</p>
     `;
 
-    streamContainer.insertBefore(div, streamContainer.firstChild);
-    if (streamContainer.children.length > 12) {
-        streamContainer.removeChild(streamContainer.lastChild);
+        streamContainer.insertBefore(div, streamContainer.firstChild);
+        if (streamContainer.children.length > 12) {
+            streamContainer.removeChild(streamContainer.lastChild);
+        }
     }
-}
 
-function startStreamSimulation() {
-    appendStreamEvent({ text: "GRACE Command Center initialized.", type: "info" });
+    function startStreamSimulation() {
+        if (!streamContainer) {
+            warn('missing event stream container');
+            return;
+        }
+        appendStreamEvent({ text: 'GRACE Command Center initialized.', type: 'info' });
 
-    function triggerRandom() {
-        const randomEvent = mockEvents[Math.floor(Math.random() * mockEvents.length)];
-        appendStreamEvent(randomEvent);
-        const nextTick = Math.floor(Math.random() * (15000 - 8000 + 1) + 8000);
-        setTimeout(triggerRandom, nextTick);
+        function triggerRandom() {
+            const randomEvent = mockEvents[Math.floor(Math.random() * mockEvents.length)];
+            appendStreamEvent(randomEvent);
+            const nextTick = Math.floor(Math.random() * (15000 - 8000 + 1) + 8000);
+            setTimeout(triggerRandom, nextTick);
+        }
+        setTimeout(triggerRandom, 2000);
     }
-    setTimeout(triggerRandom, 2000);
-}
 
-// 8. Init
-document.addEventListener('DOMContentLoaded', () => {
-    renderTable();
+    // 8. Tabs / Views
+    function setActiveView(view, options = {}) {
+        const updateHash = options.updateHash !== false;
+        if (!panels.length || !navLinks.length) {
+            warn('missing tab panels or nav links');
+            return;
+        }
+        panels.forEach(panel => {
+            const isActive = panel.dataset.panel === view;
+            panel.classList.toggle('hidden', !isActive);
+        });
+        navLinks.forEach(link => {
+            const isActive = link.dataset.view === view;
+            link.classList.toggle('bg-slate-800', isActive);
+            link.classList.toggle('text-white', isActive);
+            link.classList.toggle('border-accent', isActive);
+            link.classList.toggle('text-slate-400', !isActive);
+            if (isActive) {
+                link.setAttribute('aria-current', 'page');
+            } else {
+                link.removeAttribute('aria-current');
+            }
+        });
+        if (updateHash && view) {
+            window.location.hash = view;
+        }
+    }
+
+    function bindTabs() {
+        if (!navLinks.length || !panels.length) {
+            warn('missing tab panels or nav links');
+            return;
+        }
+        navLinks.forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                setActiveView(link.dataset.view, { updateHash: true });
+            });
+            link.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    setActiveView(link.dataset.view, { updateHash: true });
+                }
+            });
+        });
+        const hashView = window.location.hash.replace('#', '');
+        const hasHashView = navLinks.some(link => link.dataset.view === hashView);
+        const defaultView = hasHashView
+            ? hashView
+            : (navLinks.find(link => link.dataset.view === 'queue')?.dataset.view || navLinks[0]?.dataset.view);
+        if (defaultView) {
+            setActiveView(defaultView, { updateHash: hasHashView });
+        }
+    }
+
+    // 9. Init
+    if (tbody) {
+        renderTable();
+    } else {
+        warn('ticket table body missing; skipping render');
+    }
+
+    bindFilters();
     startStreamSimulation();
+    bindTabs();
+
+    // Bind Event Listeners
+    overlay?.addEventListener('click', closeDrawer);
+    btnCloseDrawer?.addEventListener('click', closeDrawer);
+    btnResolve?.addEventListener('click', closeDrawer);
+    btnAssign?.addEventListener('click', () => alert('Ticket assigned to your queue.'));
+    btnEscalate?.addEventListener('click', () => alert('Ticket escalated to Level 2 Support.'));
+
+    // Delegate row clicks to tbody (avoids manual rebinding on re-render)
+    tbody?.addEventListener('click', (e) => {
+        const row = e.target.closest('tr[data-ticket-id]');
+        if (row) openDrawer(row.dataset.ticketId);
+    });
 
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') closeDrawer();
