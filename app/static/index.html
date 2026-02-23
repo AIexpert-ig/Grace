@@ -273,30 +273,261 @@
       </section>
 
       <section data-panel="calls" class="hidden flex-1 overflow-y-auto p-4 md:p-8">
-        <div class="bg-white border border-slate-200 rounded-lg shadow-sm p-6">
-          <h2 class="text-lg font-bold text-graphite mb-2">Live Calls</h2>
-          <p class="text-sm text-slate-500">Coming soon. Real-time call telemetry and agent handoff controls will appear here.</p>
+        <div class="flex flex-col gap-6 md:gap-8">
+          <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+            <div>
+              <h2 class="text-lg font-bold text-graphite">Live Calls</h2>
+              <p class="text-sm text-slate-500">Real-time call telemetry and agent handoff controls (mock).</p>
+            </div>
+            <div class="flex flex-wrap gap-2">
+              <button id="calls-btn-simulate"
+                class="px-3 py-2 text-xs font-semibold rounded bg-graphite text-white hover:bg-slate-800 transition">
+                Simulate call
+              </button>
+              <button id="calls-btn-clear-ended"
+                class="px-3 py-2 text-xs font-semibold rounded bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition">
+                Clear ended
+              </button>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 shrink-0">
+            <div class="bg-white p-4 md:p-5 rounded-lg border border-slate-200 shadow-sm flex flex-col justify-between">
+              <p class="text-[10px] md:text-xs text-slate-500 font-bold uppercase tracking-wide">Active Calls</p>
+              <div class="mt-2 flex items-baseline gap-2 flex-wrap">
+                <span class="text-2xl md:text-3xl font-black text-graphite" id="calls-kpi-active">--</span>
+                <span class="text-xs md:text-sm font-medium text-slate-400">now</span>
+              </div>
+            </div>
+            <div class="bg-white p-4 md:p-5 rounded-lg border border-slate-200 shadow-sm flex flex-col justify-between">
+              <p class="text-[10px] md:text-xs text-slate-500 font-bold uppercase tracking-wide">Avg Latency</p>
+              <div class="mt-2 flex items-baseline gap-2 flex-wrap">
+                <span class="text-2xl md:text-3xl font-black text-graphite" id="calls-kpi-avg-latency">--</span>
+                <span class="text-xs md:text-sm font-medium text-slate-400">ms</span>
+              </div>
+            </div>
+            <div class="bg-white p-4 md:p-5 rounded-lg border border-slate-200 shadow-sm flex flex-col justify-between">
+              <p class="text-[10px] md:text-xs text-slate-500 font-bold uppercase tracking-wide">Handoffs</p>
+              <div class="mt-2 flex items-baseline gap-2 flex-wrap">
+                <span class="text-2xl md:text-3xl font-black text-graphite" id="calls-kpi-handoffs">--</span>
+                <span class="text-xs md:text-sm font-medium text-slate-400">today</span>
+              </div>
+            </div>
+            <div class="bg-white p-4 md:p-5 rounded-lg border border-slate-200 shadow-sm flex flex-col justify-between">
+              <p class="text-[10px] md:text-xs text-slate-500 font-bold uppercase tracking-wide">Top Intent</p>
+              <div class="mt-2 flex items-baseline gap-2 flex-wrap">
+                <span class="text-xl md:text-2xl font-black text-graphite truncate" id="calls-kpi-intent">--</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="flex-1 flex flex-col bg-white border border-slate-200 rounded-lg shadow-sm min-h-[420px] overflow-hidden">
+            <div
+              class="px-4 md:px-6 py-4 border-b border-slate-200 flex flex-col sm:flex-row justify-between sm:items-center gap-4 bg-slate-50/50 shrink-0">
+              <div class="flex items-center gap-2">
+                <h3 class="text-sm font-bold text-graphite">Call List</h3>
+                <span id="calls-count-badge"
+                  class="text-[10px] px-2 py-0.5 rounded-full font-bold bg-slate-200 text-slate-700 shrink-0">--</span>
+              </div>
+              <div class="relative w-full sm:w-72">
+                <svg class="w-4 h-4 absolute left-3 top-2.5 text-slate-400" fill="none" stroke="currentColor"
+                  viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                </svg>
+                <input id="calls-search" type="text" placeholder="Search calls..."
+                  class="w-full pl-10 pr-3 py-2 bg-white border border-slate-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition-all">
+              </div>
+            </div>
+
+            <div class="overflow-x-auto flex-1">
+              <table class="w-full text-left text-sm whitespace-nowrap">
+                <thead class="bg-slate-50 border-b border-slate-200 text-slate-500 sticky top-0 z-10">
+                  <tr>
+                    <th class="px-4 md:px-6 py-3 font-semibold text-xs uppercase tracking-wider">From</th>
+                    <th class="px-4 md:px-6 py-3 font-semibold text-xs uppercase tracking-wider">Channel</th>
+                    <th class="px-4 md:px-6 py-3 font-semibold text-xs uppercase tracking-wider">Status</th>
+                    <th class="px-4 md:px-6 py-3 font-semibold text-xs uppercase tracking-wider">Intent</th>
+                    <th class="px-4 md:px-6 py-3 font-semibold text-xs uppercase tracking-wider">Latency</th>
+                    <th class="px-4 md:px-6 py-3 font-semibold text-xs uppercase tracking-wider">Started</th>
+                    <th class="px-4 md:px-6 py-3 font-semibold text-xs uppercase tracking-wider text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="calls-table-body" class="divide-y divide-slate-100"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Call transcript modal -->
+        <div id="call-transcript-overlay"
+          class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[60] transition-opacity duration-200"></div>
+        <div id="call-transcript-modal" class="hidden fixed inset-0 z-[70] flex items-center justify-center p-4">
+          <div class="w-full max-w-2xl bg-white rounded-lg shadow-xl border border-slate-200 overflow-hidden">
+            <div class="px-5 py-4 border-b border-slate-200 flex justify-between items-start gap-4 bg-slate-50">
+              <div class="min-w-0">
+                <p class="text-xs font-bold text-slate-500 tracking-wider mb-1" id="call-transcript-meta">CALL-0000</p>
+                <h3 class="text-base font-bold text-graphite truncate" id="call-transcript-title">Transcript</h3>
+              </div>
+              <button id="call-transcript-close"
+                class="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-200 rounded transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12">
+                  </path>
+                </svg>
+              </button>
+            </div>
+            <div class="p-5 space-y-3">
+              <div class="flex flex-wrap gap-2 text-xs" id="call-transcript-tags"></div>
+              <div class="bg-slate-800 text-slate-200 p-4 rounded-md text-sm font-mono leading-relaxed whitespace-pre-wrap"
+                id="call-transcript-body">Loading transcript...</div>
+            </div>
+          </div>
         </div>
       </section>
 
       <section data-panel="escalations" class="hidden flex-1 overflow-y-auto p-4 md:p-8">
-        <div class="bg-white border border-slate-200 rounded-lg shadow-sm p-6">
-          <h2 class="text-lg font-bold text-graphite mb-2">Escalations</h2>
-          <p class="text-sm text-slate-500">Coming soon. Escalation timelines and status updates will appear here.</p>
+        <div class="flex flex-col gap-6 md:gap-8">
+          <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+            <div>
+              <h2 class="text-lg font-bold text-graphite">Escalations</h2>
+              <p class="text-sm text-slate-500">Escalation timelines and status updates (mock).</p>
+            </div>
+            <div id="escalations-filter-group" class="flex flex-wrap gap-2">
+              <button data-filter="all"
+                class="px-3 py-1.5 text-xs font-semibold rounded bg-graphite text-white transition">All</button>
+              <button data-filter="Open"
+                class="px-3 py-1.5 text-xs font-semibold rounded bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition">Open</button>
+              <button data-filter="In Progress"
+                class="px-3 py-1.5 text-xs font-semibold rounded bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition">In Progress</button>
+              <button data-filter="Resolved"
+                class="px-3 py-1.5 text-xs font-semibold rounded bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition">Resolved</button>
+            </div>
+          </div>
+
+          <div class="flex-1 flex flex-col bg-white border border-slate-200 rounded-lg shadow-sm min-h-[420px] overflow-hidden">
+            <div
+              class="px-4 md:px-6 py-4 border-b border-slate-200 flex flex-col sm:flex-row justify-between sm:items-center gap-4 bg-slate-50/50 shrink-0">
+              <div class="relative w-full sm:w-80">
+                <svg class="w-4 h-4 absolute left-3 top-2.5 text-slate-400" fill="none" stroke="currentColor"
+                  viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                </svg>
+                <input id="escalations-search" type="text" placeholder="Search ticket or owner..."
+                  class="w-full pl-10 pr-3 py-2 bg-white border border-slate-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition-all">
+              </div>
+              <div class="text-xs text-slate-500">
+                <span class="font-semibold text-slate-700" id="escalations-count">--</span> escalations
+              </div>
+            </div>
+            <div id="escalations-list" class="divide-y divide-slate-100"></div>
+          </div>
         </div>
       </section>
 
       <section data-panel="eventlog" class="hidden flex-1 overflow-y-auto p-4 md:p-8">
-        <div class="bg-white border border-slate-200 rounded-lg shadow-sm p-6">
-          <h2 class="text-lg font-bold text-graphite mb-2">Event Log</h2>
-          <p class="text-sm text-slate-500">Coming soon. System-wide events and audit trails will appear here.</p>
+        <div class="flex flex-col gap-6 md:gap-8">
+          <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+            <div>
+              <h2 class="text-lg font-bold text-graphite">Event Log</h2>
+              <p class="text-sm text-slate-500">System-wide events and audit trails (mock).</p>
+            </div>
+            <div class="flex flex-wrap gap-2">
+              <button id="eventlog-btn-export"
+                class="px-3 py-2 text-xs font-semibold rounded bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition">
+                Export JSON
+              </button>
+              <button id="eventlog-btn-clear"
+                class="px-3 py-2 text-xs font-semibold rounded bg-graphite text-white hover:bg-slate-800 transition">
+                Clear
+              </button>
+            </div>
+          </div>
+
+          <div class="flex-1 flex flex-col bg-white border border-slate-200 rounded-lg shadow-sm min-h-[420px] overflow-hidden">
+            <div class="px-4 md:px-6 py-4 border-b border-slate-200 flex flex-col lg:flex-row gap-4 bg-slate-50/50">
+              <div class="relative flex-1 max-w-xl">
+                <svg class="w-4 h-4 absolute left-3 top-2.5 text-slate-400" fill="none" stroke="currentColor"
+                  viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                </svg>
+                <input id="eventlog-search" type="text" placeholder="Search events..."
+                  class="w-full pl-10 pr-3 py-2 bg-white border border-slate-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition-all">
+              </div>
+              <div id="eventlog-filter-group" class="flex flex-wrap gap-2">
+                <button data-type="all"
+                  class="px-3 py-1.5 text-xs font-semibold rounded bg-graphite text-white transition">All</button>
+                <button data-type="info"
+                  class="px-3 py-1.5 text-xs font-semibold rounded bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition">Info</button>
+                <button data-type="warn"
+                  class="px-3 py-1.5 text-xs font-semibold rounded bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition">Warn</button>
+                <button data-type="success"
+                  class="px-3 py-1.5 text-xs font-semibold rounded bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition">Success</button>
+                <button data-type="alert"
+                  class="px-3 py-1.5 text-xs font-semibold rounded bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition">Alert</button>
+              </div>
+            </div>
+            <div class="flex-1 overflow-y-auto p-4 md:p-6 space-y-3 bg-slate-50" id="eventlog-list"></div>
+          </div>
         </div>
       </section>
 
       <section data-panel="staff" class="hidden flex-1 overflow-y-auto p-4 md:p-8">
-        <div class="bg-white border border-slate-200 rounded-lg shadow-sm p-6">
-          <h2 class="text-lg font-bold text-graphite mb-2">Staff Directory</h2>
-          <p class="text-sm text-slate-500">Coming soon. Staff contacts, roles, and schedules will appear here.</p>
+        <div class="flex flex-col gap-6 md:gap-8">
+          <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+            <div>
+              <h2 class="text-lg font-bold text-graphite">Staff Directory</h2>
+              <p class="text-sm text-slate-500">Staff contacts, roles, and schedules (mock).</p>
+            </div>
+            <div class="relative w-full sm:w-80">
+              <svg class="w-4 h-4 absolute left-3 top-2.5 text-slate-400" fill="none" stroke="currentColor"
+                viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+              </svg>
+              <input id="staff-search" type="text" placeholder="Search staff..."
+                class="w-full pl-10 pr-3 py-2 bg-white border border-slate-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition-all">
+            </div>
+          </div>
+
+          <div class="flex-1 flex flex-col bg-white border border-slate-200 rounded-lg shadow-sm min-h-[420px] overflow-hidden">
+            <div
+              class="px-4 md:px-6 py-4 border-b border-slate-200 flex flex-col sm:flex-row justify-between sm:items-center gap-4 bg-slate-50/50 shrink-0">
+              <div class="flex items-center gap-2">
+                <h3 class="text-sm font-bold text-graphite">Directory</h3>
+                <span id="staff-count-badge"
+                  class="text-[10px] px-2 py-0.5 rounded-full font-bold bg-slate-200 text-slate-700 shrink-0">--</span>
+              </div>
+              <div id="staff-filter-group" class="flex flex-wrap gap-2">
+                <button data-filter="all"
+                  class="px-3 py-1.5 text-xs font-semibold rounded bg-graphite text-white transition">All</button>
+                <button data-filter="On duty"
+                  class="px-3 py-1.5 text-xs font-semibold rounded bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition">On duty</button>
+                <button data-filter="Busy"
+                  class="px-3 py-1.5 text-xs font-semibold rounded bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition">Busy</button>
+                <button data-filter="Off duty"
+                  class="px-3 py-1.5 text-xs font-semibold rounded bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition">Off duty</button>
+              </div>
+            </div>
+
+            <div class="overflow-x-auto flex-1">
+              <table class="w-full text-left text-sm whitespace-nowrap">
+                <thead class="bg-slate-50 border-b border-slate-200 text-slate-500 sticky top-0 z-10">
+                  <tr>
+                    <th class="px-4 md:px-6 py-3 font-semibold text-xs uppercase tracking-wider">Name</th>
+                    <th class="px-4 md:px-6 py-3 font-semibold text-xs uppercase tracking-wider">Role</th>
+                    <th class="px-4 md:px-6 py-3 font-semibold text-xs uppercase tracking-wider">Shift</th>
+                    <th class="px-4 md:px-6 py-3 font-semibold text-xs uppercase tracking-wider">Phone</th>
+                    <th class="px-4 md:px-6 py-3 font-semibold text-xs uppercase tracking-wider">Languages</th>
+                    <th class="px-4 md:px-6 py-3 font-semibold text-xs uppercase tracking-wider">Status</th>
+                  </tr>
+                </thead>
+                <tbody id="staff-table-body" class="divide-y divide-slate-100"></tbody>
+              </table>
+            </div>
+          </div>
         </div>
       </section>
 
