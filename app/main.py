@@ -43,6 +43,7 @@ PRICING_QUOTE_PATTERN = re.compile(
 BOOKING_KEYWORDS = {"book", "booking", "reserve", "reservation", "appointment", "schedule"}
 SPA_KEYWORDS = {"spa", "massage", "facial", "treatment", "salon"}
 PRICING_KEYWORDS = {"rate", "rates", "price", "pricing", "cost", "room", "rooms"}
+PRICING_PATTERN = re.compile(r"\b(?:rate|rates|price|pricing|cost|room|rooms)\b", re.IGNORECASE)
 
 PENDING_BOOKING_MESSAGE = "Thanks — I’m checking availability and will update you shortly with the booking details."
 PRICING_REQUEST_MESSAGE = "I can check room rates once I have your check-in date, check-out date, and number of guests."
@@ -103,6 +104,11 @@ def check_room_rates(dates: dict[str, str], guests: int) -> dict[str, Any]:
 def _has_keyword(text: str, keywords: set[str]) -> bool:
     lowered = text.lower()
     return any(keyword in lowered for keyword in keywords)
+
+def _has_pricing_keyword(text: str) -> bool:
+    if not text:
+        return False
+    return PRICING_PATTERN.search(text) is not None
 
 def _extract_dates(text: str) -> dict[str, str | None]:
     dates = re.findall(r"\b\d{4}-\d{2}-\d{2}\b", text)
@@ -526,7 +532,7 @@ async def _retell_ws_handler(websocket: WebSocket, call_id: str | None = None):
                 ai_reply = ""
                 if _has_keyword(user_text, SPA_KEYWORDS):
                     ai_reply = _handle_spa_flow(user_text, context, call_id)
-                elif _has_keyword(user_text, PRICING_KEYWORDS):
+                elif _has_pricing_keyword(user_text):
                     ai_reply = _handle_pricing_flow(user_text, context, call_id)
                 else:
                     try:
