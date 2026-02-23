@@ -229,24 +229,38 @@ document.addEventListener('DOMContentLoaded', () => {
             warn('missing tab panels or nav links');
             return;
         }
+        const knownViews = navLinks.map(link => link.dataset.view).filter(Boolean);
+        if (!knownViews.includes(view)) {
+            warn('unknown view requested', view);
+            return;
+        }
+
         panels.forEach(panel => {
             const isActive = panel.dataset.panel === view;
             panel.classList.toggle('hidden', !isActive);
         });
+
         navLinks.forEach(link => {
             const isActive = link.dataset.view === view;
             link.classList.toggle('bg-slate-800', isActive);
             link.classList.toggle('text-white', isActive);
             link.classList.toggle('border-accent', isActive);
+
             link.classList.toggle('text-slate-400', !isActive);
+            link.classList.toggle('border-transparent', !isActive);
+            link.classList.toggle('hover:text-white', !isActive);
+            link.classList.toggle('hover:bg-slate-800/50', !isActive);
+
             if (isActive) {
+                link.classList.remove('border-transparent', 'hover:text-white', 'hover:bg-slate-800/50');
                 link.setAttribute('aria-current', 'page');
             } else {
                 link.removeAttribute('aria-current');
             }
         });
-        if (updateHash && view) {
-            window.location.hash = view;
+
+        if (updateHash && window.location.hash !== `#${view}`) {
+            history.replaceState(null, '', `#${view}`);
         }
     }
 
@@ -255,26 +269,39 @@ document.addEventListener('DOMContentLoaded', () => {
             warn('missing tab panels or nav links');
             return;
         }
+
         navLinks.forEach(link => {
             link.addEventListener('click', (e) => {
                 e.preventDefault();
-                setActiveView(link.dataset.view, { updateHash: true });
+                const view = link.dataset.view;
+                if (view) setActiveView(view);
             });
+
             link.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault();
-                    setActiveView(link.dataset.view, { updateHash: true });
+                    const view = link.dataset.view;
+                    if (view) setActiveView(view);
                 }
             });
         });
+
+        const knownViews = navLinks.map(link => link.dataset.view).filter(Boolean);
         const hashView = window.location.hash.replace('#', '');
-        const hasHashView = navLinks.some(link => link.dataset.view === hashView);
-        const defaultView = hasHashView
+        const defaultView = knownViews.includes(hashView)
             ? hashView
-            : (navLinks.find(link => link.dataset.view === 'queue')?.dataset.view || navLinks[0]?.dataset.view);
+            : (knownViews.includes('queue') ? 'queue' : knownViews[0]);
+
         if (defaultView) {
-            setActiveView(defaultView, { updateHash: hasHashView });
+            setActiveView(defaultView);
         }
+
+        window.addEventListener('hashchange', () => {
+            const nextView = window.location.hash.replace('#', '');
+            if (knownViews.includes(nextView)) {
+                setActiveView(nextView, { updateHash: false });
+            }
+        });
     }
 
     // 9. Init
