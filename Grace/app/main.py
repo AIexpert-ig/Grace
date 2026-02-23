@@ -31,6 +31,7 @@ from app.core.security import (
 from app.services import telegram_bot
 from app.services.openai_service import OpenAIService
 from app.services.make_integration import handle_make_trigger, send_make_webhook
+from .api.routes import router as dashboard_api_router
 
 Base = declarative_base()
 
@@ -48,6 +49,7 @@ engine = create_engine(settings.DATABASE_URL_SYNC)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 app = FastAPI()
+app.include_router(dashboard_api_router, prefix="/api")
 openai_service = OpenAIService()
 
 BUILD_SHA = os.getenv("RAILWAY_GIT_COMMIT_SHA") or os.getenv("GITHUB_SHA") or "unknown"
