@@ -143,7 +143,7 @@ def ingest_retell_webhook(
             normalized_type or event_type,
             correlation_id,
         )
-        return {"ok": False, "reason": "missing_call_id"}
+        return {"ok": True, "skipped": True, "reason": "missing_call_id"}
 
     if not isinstance(payload, dict):
         payload = {"call_id": call_id}

@@ -30,7 +30,7 @@ from app.services import telegram_bot
 from app.services.openai_service import OpenAIService
 from app.services.make_integration import handle_make_trigger, send_make_webhook
 from .api.routes import router as dashboard_api_router
-from .db import Escalation, SessionLocal, bootstrap_tables
+from .db import Escalation, Event, SessionLocal, bootstrap_tables
 from .retell_ingest import ingest_retell_webhook
 
 app = FastAPI()
@@ -576,84 +576,26 @@ async def retell_diagnose(request: Request):
 # Telegram Inbound Webhook
 @app.post("/telegram-webhook")
 async def telegram_webhook(request: Request):
+    if not settings.ENABLE_TELEGRAM:
+        raise HTTPException(status_code=404, detail="Not Found")
+
+    secret = (settings.TELEGRAM_WEBHOOK_SECRET or "").strip()
+    if not secret:
+        return _error_response(503, "telegram_webhook_secret_missing")
+
+    provided = request.headers.get("X-Telegram-Bot-Api-Secret-Token")
+    if not provided:
+        return JSONResponse(status_code=401, content={"error": "telegram_secret_missing"})
+    if not hmac.compare_digest(provided, secret):
+        return JSONResponse(status_code=401, content={"error": "telegram_secret_invalid"})
+
     try:
         data = await request.json()
-        logger.info("telegram_webhook_received", extra={"payload": data})
+    except Exception:
+        return _error_response(400, "invalid_json")
 
-        message = data.get("message")
-        if not isinstance(message, dict):
-            return {"ok": True}
-
-        user_text = message.get("text")
-        if not isinstance(user_text, str):
-            return {"ok": True}
-
-        chat_id = data["message"]["chat"]["id"]
-        user_text = data["message"]["text"]
-
-        if user_text.startswith("/start"):
-            reply_text = (
-                "Welcome to Grace, your hotel concierge!\n"
-                "Available commands:\n"
-                "/servicesrates - View services and room rates\n"
-                "/frontdesk - Front desk contact info"
-            )
-        elif user_text.startswith("/servicesrates"):
-            reply_text = (
-                "Services: Spa, Gym, Pool.\n"
-                "Standard rooms start at $250/night."
-            )
-        elif user_text.startswith("/frontdesk"):
-            reply_text = "The front desk can be reached internally by dialing 0, or externally at +1-555-0199."
-        else:
-            try:
-                ai_result = await openai_service.get_concierge_response(
-                    [{"role": "user", "content": user_text}]
-                )
-                reply_text = ai_result.get("content", "How may I assist you?") if isinstance(ai_result, dict) else str(ai_result)
-            except Exception as exc:
-                logger.error("telegram_webhook_ai_failed: %s", exc)
-                reply_text = (
-                    "I'm sorry, my AI processing core is currently unavailable. "
-                    "Please try again or type /frontdesk for assistance."
-                )
-
-            # Insert a dashboard ticket for every free-text Telegram message
-            db = SessionLocal()
-            try:
-                tg_ticket = Escalation(
-                    guest_name="Telegram Guest",
-                    room_number="Telegram",
-                    issue=user_text[:500],
-                    status="OPEN",
-                    sentiment="Neutral",
-                )
-                db.add(tg_ticket)
-                db.commit()
-            except Exception as db_exc:
-                logger.error("telegram_webhook_db_insert_failed: %s", db_exc)
-            finally:
-                db.close()
-
-        token = (settings.TELEGRAM_BOT_TOKEN or "").strip()
-        if token.startswith("="):
-            token = token.lstrip("=")
-        if not token:
-            logger.error("telegram_webhook_failed: missing_bot_token")
-            return {"ok": False}
-        url = f"https://api.telegram.org/bot{token}/sendMessage"
-
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                url,
-                json={"chat_id": chat_id, "text": reply_text},
-            )
-            response.raise_for_status()
-
-        return {"ok": True}
-    except Exception as exc:
-        logger.error("telegram_webhook_failed: %s", exc)
-        return {"ok": False}
+    logger.info("telegram_webhook_received", extra={"payload": data})
+    return JSONResponse(status_code=200, content={"status": "ok"})
 
 SYSTEM_PROMPT = (
     "You are the AI concierge for Courtyard by Marriott Al Barsha in Dubai.\n"
@@ -684,6 +626,42 @@ SPA_SERVICES = [
 def _emit_event(event_type: str, payload: dict[str, Any] | None = None) -> None:
     data = payload or {}
     logging.getLogger("events").info("EVENT %s %s", event_type, json.dumps(data, ensure_ascii=False))
+    try:
+        severity = data.get("severity") if isinstance(data, dict) else None
+        if not isinstance(severity, str) or not severity.strip():
+            severity = "low"
+        source = data.get("source") if isinstance(data, dict) else None
+        if not isinstance(source, str) or not source.strip():
+            source = "system"
+
+        text_value = data.get("text") if isinstance(data, dict) else None
+        if isinstance(text_value, str) and text_value.strip():
+            text = text_value.strip()
+        else:
+            try:
+                preview = json.dumps(data, ensure_ascii=False)
+            except Exception:
+                preview = ""
+            if len(preview) > 800:
+                preview = preview[:800] + "…"
+            text = f"{event_type} {preview}".strip() if preview else event_type
+
+        db = SessionLocal()
+        try:
+            db.add(
+                Event(
+                    source=source,
+                    type=event_type,
+                    severity=severity,
+                    text=text,
+                    payload=data if isinstance(data, dict) else None,
+                )
+            )
+            db.commit()
+        finally:
+            db.close()
+    except Exception as exc:
+        logging.getLogger("events").warning("event_db_insert_failed: %s", exc)
 
 def _open_staff_ticket(reason: str, user_text: str | None = None, call_id: str | None = None) -> None:
     issue = reason
@@ -923,90 +901,11 @@ async def _retell_ws_handler(websocket: WebSocket, call_id: str | None = None) -
             pass
 
 
+@app.websocket("/llm-websocket")
+async def websocket_endpoint_root(websocket: WebSocket):
+    await _retell_ws_handler(websocket, call_id=None)
+
+
 @app.websocket("/llm-websocket/{call_id}")
 async def websocket_endpoint_with_id(websocket: WebSocket, call_id: str):
-    await websocket.accept()
-    await websocket.send_json({
-        "response_id": 0,
-        "content": "Good morning, thank you for calling the Courtyard by Marriott and Spa. I am Grace. How may I assist you today?",
-        "content_complete": True,
-        "end_call": False
-    })
-    try:
-        while True:
-            request_json = await websocket.receive_json()
-            interaction_type = request_json.get("interaction_type")
-            if interaction_type == "update_only":
-                continue
-            if interaction_type not in {"response_required", "reminder_required"}:
-                continue
-
-            transcript = request_json.get("transcript") or []
-
-            try:
-                ai_response = await asyncio.wait_for(
-                    openai_service.get_concierge_response(transcript),
-                    timeout=8.0,
-                )
-            except asyncio.TimeoutError:
-                _open_staff_ticket("latency.llm_timeout", json.dumps(transcript), None)
-                await websocket.send_json(
-                    {
-                        "response_id": request_json.get("response_id"),
-                        "content": STILL_CHECKING_MESSAGE,
-                        "content_complete": True,
-                        "end_call": False,
-                    }
-                )
-                continue
-
-            if ai_response.get("type") == "tool_call":
-                args = ai_response.get("args", {})
-                tool_name = ai_response.get("name")
-
-                state = _retell_state(request_json.get("call_id") or "unknown")
-                context = state["context"]
-
-                if tool_name == "book_room":
-                    confirmation_msg = _handle_room_booking(args, context, request_json.get("call_id"))
-                elif tool_name == "book_appointment":
-                    confirmation_msg = _handle_spa_booking(args, context, request_json.get("call_id"))
-                else:
-                    confirmation_msg = PENDING_BOOKING_MESSAGE
-
-                confirmation_msg = _apply_response_guards(
-                    confirmation_msg,
-                    context,
-                    json.dumps(args),
-                    request_json.get("call_id"),
-                )
-
-                await websocket.send_json({
-                    "response_id": request_json.get("response_id"),
-                    "content": confirmation_msg,
-                    "content_complete": True,
-                    "end_call": False
-                })
-                continue
-
-            elif ai_response.get("type") == "text":
-                content = ai_response.get("content", "")
-                end_call_flag = False
-                if "[HANGUP]" in content:
-                    end_call_flag = True
-                    content = content.replace("[HANGUP]", "").strip()
-
-                state = _retell_state(request_json.get("call_id") or "unknown")
-                context = state["context"]
-                content = _apply_response_guards(content, context, json.dumps(transcript), request_json.get("call_id"))
-
-                await websocket.send_json(
-                    {
-                        "response_id": request_json.get("response_id"),
-                        "content": content,
-                        "content_complete": True,
-                        "end_call": end_call_flag,
-                    }
-                )
-    except WebSocketDisconnect:
-        return
+    await _retell_ws_handler(websocket, call_id=call_id)

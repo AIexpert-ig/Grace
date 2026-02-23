@@ -2,6 +2,7 @@
 import asyncio
 import os
 from logging.config import fileConfig
+from pathlib import Path
 
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
@@ -22,18 +23,52 @@ if config.config_file_name is not None:
 
 target_metadata = Base.metadata
 
+
+def _load_dotenv_if_present() -> None:
+    """Load .env into os.environ for local `alembic` runs.
+
+    Alembic does not automatically read `.env`, but the app uses pydantic-settings
+    with `env_file=".env"`. Keeping Alembic aligned avoids confusing 404/empty-data
+    failures during local dev.
+    """
+    if os.getenv("DATABASE_URL"):
+        return
+    env_path = Path(__file__).resolve().parents[1] / ".env"
+    if not env_path.exists():
+        return
+    try:
+        for raw in env_path.read_text(encoding="utf-8").splitlines():
+            line = raw.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            key = key.strip()
+            value = value.strip().strip('"').strip("'")
+            if key and key not in os.environ:
+                os.environ[key] = value
+    except Exception:
+        return
+
+
+def _normalize_asyncpg_url(url: str) -> str:
+    if url.startswith("postgres://"):
+        return url.replace("postgres://", "postgresql+asyncpg://", 1)
+    if url.startswith("postgresql://"):
+        return url.replace("postgresql://", "postgresql+asyncpg://", 1)
+    return url
+
+
+_load_dotenv_if_present()
+
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode."""
     url = os.getenv("DATABASE_URL")
     if url:
-        # Ensure we use the async driver even in offline mode
-        if url.startswith("postgres://"):
-            url = url.replace("postgres://", "postgresql+asyncpg://", 1)
-        elif url.startswith("postgresql://"):
-            url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+        url = _normalize_asyncpg_url(url)
+        config.set_main_option("sqlalchemy.url", url)
             
     context.configure(
-        url=url,
+        url=config.get_main_option("sqlalchemy.url"),
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
@@ -50,21 +85,12 @@ def do_run_migrations(connection: Connection) -> None:
 
 async def run_migrations_online() -> None:
     """Run migrations in 'online' mode."""
-    # 1. Get the URL from the environment
     url = os.getenv("DATABASE_URL")
-    
-    # 2. Safety Check: Force the +asyncpg driver for Railway URLs
     if url:
-        if url.startswith("postgres://"):
-            url = url.replace("postgres://", "postgresql+asyncpg://", 1)
-        elif url.startswith("postgresql://"):
-            url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+        url = _normalize_asyncpg_url(url)
+        config.set_main_option("sqlalchemy.url", url)
 
-    # 3. Update the config section with the real URL
     config_section = config.get_section(config.config_ini_section, {})
-    if url:
-        config_section["sqlalchemy.url"] = url
-
     connectable = async_engine_from_config(
         config_section,
         prefix="sqlalchemy.",

@@ -14,9 +14,10 @@ from datetime import datetime
 from functools import lru_cache
 from typing import Any
 
-from sqlalchemy import Column, DateTime, Integer, String, Text, create_engine
+from sqlalchemy import Column, DateTime, Integer, String, Text, JSON, create_engine, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import declarative_base, sessionmaker
+from sqlalchemy.sql import func
 
 from .core.config import settings
 
@@ -64,6 +65,18 @@ class CallAnalysis(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
+class Event(Base):
+    __tablename__ = "events"
+
+    id = Column(Integer, primary_key=True, index=True)
+    source = Column(String, nullable=False, index=True)
+    type = Column(String, nullable=False, index=True)
+    severity = Column(String, nullable=False, default="low", server_default=text("'low'"))
+    text = Column(Text, nullable=True)
+    payload = Column(JSON, nullable=True)
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), index=True)
+
+
 def _sync_database_url() -> str:
     return settings.DATABASE_URL_SYNC
 
@@ -91,6 +104,7 @@ def bootstrap_tables(*, engine: Engine | None = None) -> None:
                 Escalation.__table__,
                 CallSession.__table__,
                 CallAnalysis.__table__,
+                Event.__table__,
             ],
         )
     except Exception as exc:  # pragma: no cover - defensive
@@ -102,4 +116,3 @@ def safe_close(session: Any) -> None:
         session.close()
     except Exception:
         pass
-

@@ -7,7 +7,7 @@ from typing import Any
 
 from fastapi import APIRouter, Query
 
-from ..db import CallSession, Escalation, SessionLocal, safe_close
+from ..db import CallSession, Escalation, Event, SessionLocal, safe_close
 
 router = APIRouter()
 
@@ -80,8 +80,29 @@ def get_tickets(limit: int = Query(50)) -> list[dict[str, Any]]:
 def get_events(limit: int = Query(100)) -> list[dict[str, Any]]:
     """Return recent events."""
     try:
-        _clamp_limit(limit, default=100, maximum=500)
-        return []
+        safe_limit = _clamp_limit(limit, default=100, maximum=500)
+        db = SessionLocal()
+        try:
+            rows = db.query(Event).order_by(Event.created_at.desc()).limit(safe_limit).all()
+            results: list[dict[str, Any]] = []
+            for row in rows:
+                created_at = row.created_at.isoformat() if isinstance(row.created_at, datetime) else None
+                results.append(
+                    {
+                        "id": row.id,
+                        "source": row.source,
+                        "type": row.type,
+                        "severity": row.severity,
+                        "text": row.text,
+                        "payload": row.payload,
+                        "created_at": created_at,
+                        # Dashboard compatibility
+                        "at": created_at,
+                    }
+                )
+            return results
+        finally:
+            safe_close(db)
     except Exception:
         return []
 
