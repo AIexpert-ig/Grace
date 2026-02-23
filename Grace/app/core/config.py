@@ -55,6 +55,8 @@ class Settings(BaseSettings):  # pylint: disable=too-few-public-methods
     @property
     def DATABASE_URL_SYNC(self) -> str:
         url = cast(str, self.database_url_raw)
+        if "+aiosqlite" in url:
+            return url.replace("+aiosqlite", "", 1)
         if "+asyncpg" in url:
             return url.replace("+asyncpg", "+psycopg2", 1)
         if url.startswith("postgres://"):

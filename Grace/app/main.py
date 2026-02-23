@@ -17,8 +17,6 @@ from starlette.websockets import WebSocketDisconnect
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime
-from sqlalchemy.orm import sessionmaker, declarative_base
 
 from app.core.config import settings
 from app.core.events import EventEnvelope, bus, logger
@@ -32,21 +30,8 @@ from app.services import telegram_bot
 from app.services.openai_service import OpenAIService
 from app.services.make_integration import handle_make_trigger, send_make_webhook
 from .api.routes import router as dashboard_api_router
-
-Base = declarative_base()
-
-class Escalation(Base):
-    __tablename__ = "escalations"
-    id = Column(Integer, primary_key=True, index=True)
-    guest_name = Column(String, default="Unknown Guest")
-    room_number = Column(String, default="Unknown")
-    issue = Column(Text)
-    status = Column(String, default="OPEN")
-    sentiment = Column(String, default="Neutral")
-    created_at = Column(DateTime, default=datetime.utcnow)
-
-engine = create_engine(settings.DATABASE_URL_SYNC)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+from .db import Escalation, SessionLocal, bootstrap_tables
+from .retell_ingest import ingest_retell_webhook
 
 app = FastAPI()
 app.include_router(dashboard_api_router, prefix="/api")
@@ -92,6 +77,7 @@ if api_key:
 
 @app.on_event("startup")
 async def startup():
+    bootstrap_tables()
     if settings.ENABLE_TELEGRAM:
         bus.subscribe("ticket.created", telegram_bot.handle_ticket_created)
     if settings.ENABLE_MAKE_WEBHOOKS:
@@ -472,15 +458,31 @@ async def handle_webhook(request: Request):
     except Exception:
         return _error_response(400, "invalid_json")
 
+    event_type = _derive_retell_type(payload)
+    call_id = payload.get("call_id") if isinstance(payload, dict) else None
+    logging.getLogger("retell.webhook").info(
+        "RETELL_WEBHOOK_RECEIVED event_type=%s call_id=%s",
+        event_type,
+        call_id or "unknown",
+    )
+
     envelope = EventEnvelope(
         version="v1",
         source="retell",
-        type=_derive_retell_type(payload),
+        type=event_type,
         idempotency_key=hashlib.sha256(raw_body).hexdigest(),
         timestamp=int(time.time()),
         correlation_id=str(uuid.uuid4()),
         payload=payload,
     )
+
+    ingest_result = ingest_retell_webhook(
+        payload,
+        event_type=event_type,
+        correlation_id=envelope.correlation_id,
+    )
+    if not ingest_result.get("ok"):
+        return _error_response(503, "retell_ingest_failed", correlation_id=envelope.correlation_id)
 
     result = await bus.publish(envelope)
     if result.status == "duplicate":
@@ -495,7 +497,11 @@ async def handle_webhook(request: Request):
 
     logger.info(
         "Webhook received",
-        extra={"correlation_id": envelope.correlation_id},
+        extra={
+            "correlation_id": envelope.correlation_id,
+            "event_type": event_type,
+            "call_id": call_id,
+        },
     )
     return JSONResponse(
         status_code=200,
