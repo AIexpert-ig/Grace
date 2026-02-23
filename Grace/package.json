@@ -2,6 +2,36 @@
   "devDependencies": {
     "autoprefixer": "^10.4.24",
     "postcss": "^8.5.6",
-    "tailwindcss": "^4.2.0"
-  }
+    "tailwindcss": "^4.2.1"
+  },
+  "name": "grace",
+  "version": "1.0.0",
+  "description": "```mermaid %%{init: {   'theme': 'base',   'flowchart': { 'curve': 'basis', 'padding': 20, 'nodeSpacing': 50, 'rankSpacing': 80, 'useMaxWidth': false },   'themeVariables': {     'fontFamily': 'Inter, system-ui, sans-serif',     'fontSize': '18px',     'lineColor': '#334155',     'textColor': '#1e293b',     'primaryColor': '#f8fafc',     'primaryTextColor': '#0f172a',     'primaryBorderColor': '#94a3b8'   } }}%%",
+  "main": "index.js",
+  "directories": {
+    "test": "tests"
+  },
+  "dependencies": {
+    "baseline-browser-mapping": "^2.10.0",
+    "browserslist": "^4.28.1",
+    "caniuse-lite": "^1.0.30001772",
+    "electron-to-chromium": "^1.5.302",
+    "escalade": "^3.2.0",
+    "fraction.js": "^5.3.4",
+    "nanoid": "^3.3.11",
+    "node-releases": "^2.0.27",
+    "picocolors": "^1.1.1",
+    "postcss-value-parser": "^4.2.0",
+    "source-map-js": "^1.2.1",
+    "update-browserslist-db": "^1.2.3"
+  },
+  "scripts": {
+    "build:css": "tailwindcss -i ./app/static/input.css -o ./app/static/output.css --minify",
+    "watch:css": "tailwindcss -i ./app/static/input.css -o ./app/static/output.css --watch",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs"
 }
