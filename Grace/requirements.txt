@@ -3,7 +3,6 @@ uvicorn
 sqlalchemy[asyncio]
 asyncpg
 aiosqlite
-alembic
 python-telegram-bot
 pydantic
 pydantic-settings
@@ -12,9 +11,7 @@ tenacity
 pytz
 openai
 asyncpg# Dubai Force Rebuild v14
-```pip
 google-generativeai
-alembic>=1.13
+alembic==1.13.3
 SQLAlchemy>=2.0
 asyncpg>=0.29
-```
