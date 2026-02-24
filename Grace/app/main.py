@@ -335,13 +335,27 @@ async def test_telegram(request: Request):
     admin_error = _require_admin_token(request)
     if admin_error:
         return admin_error
-    cid = str(uuid.uuid4())
-    await bus.publish("ticket.created", {
-        "guest_name": "Test Bot",
-        "room_number": "000",
-        "issue": "Connectivity Test"
-    }, cid)
-    return {"status": "triggered", "correlation_id": cid}
+        
+    chat_id = settings.TELEGRAM_CHAT_ID
+    if not chat_id:
+        return _error_response(400, "missing_telegram_chat_id", correlation_id=str(uuid.uuid4()))
+    
+    token = (settings.TELEGRAM_BOT_TOKEN or "").strip()
+    if not token:
+        raise RuntimeError("TELEGRAM_BOT_TOKEN is missing")
+        
+    url = f"https://api.telegram.org/bot{token}/sendMessage"
+    payload = {"chat_id": chat_id, "text": "Test message from Grace Debug Endpoint."}
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            response = await client.post(url, json=payload)
+            try:
+                resp_data = response.json()
+            except Exception:
+                resp_data = {"text": response.text}
+            return JSONResponse(status_code=response.status_code, content=resp_data)
+    except Exception as exc:
+        raise RuntimeError(f"telegram_test_failed: {str(exc)}")
 
 @app.get("/integrations/test/make")
 @app.post("/integrations/test/make")
@@ -578,18 +592,14 @@ async def retell_diagnose(request: Request):
     )
 
 # Telegram Inbound Webhook
-async def _telegram_send(chat_id: int | str, text: str) -> None:
-    """Fire-and-forget sendMessage to Telegram."""
+async def _telegram_send(chat_id: int | str, text: str) -> httpx.Response:
+    """Send sendMessage to Telegram."""
     token = (settings.TELEGRAM_BOT_TOKEN or "").strip()
     if not token:
-        logger.warning("telegram_send_skipped: missing bot token")
-        return
+        raise RuntimeError("TELEGRAM_BOT_TOKEN is missing")
     url = f"https://api.telegram.org/bot{token}/sendMessage"
-    try:
-        async with httpx.AsyncClient(timeout=10) as client:
-            await client.post(url, json={"chat_id": chat_id, "text": text, "parse_mode": "Markdown"})
-    except Exception as exc:
-        logger.error("telegram_send_failed: %s", exc)
+    async with httpx.AsyncClient(timeout=10) as client:
+        return await client.post(url, json={"chat_id": chat_id, "text": text, "parse_mode": "Markdown"})
 
 
 async def _telegram_ai_reply(user_text: str) -> str:
@@ -636,6 +646,8 @@ async def telegram_webhook(request: Request):
     chat_id = (message.get("chat") or {}).get("id")
     user_id = int((message.get("from") or {}).get("id", 0))
 
+    logger.info("telegram_extracted_chat_id", extra={"chat_id": chat_id})
+
     if chat_id and user_text:
         if user_text.startswith("/"):
             result = await telegram_bot.handle_command(user_text, user_id, bus)
@@ -649,7 +661,19 @@ async def telegram_webhook(request: Request):
         else:
             reply = await _telegram_ai_reply(user_text)
 
-        await _telegram_send(chat_id, reply)
+        try:
+            tg_response = await _telegram_send(chat_id, reply)
+            logger.info(
+                "telegram_outbound_response", 
+                extra={"status_code": tg_response.status_code, "body": tg_response.text}
+            )
+            if tg_response.status_code != 200:
+                return _error_response(500, f"telegram_api_error: {tg_response.status_code}")
+        except RuntimeError as exc:
+            raise exc
+        except Exception as exc:
+            logger.error("telegram_send_exception: %s", exc)
+            return _error_response(500, "telegram_send_exception")
 
     return JSONResponse(status_code=200, content={"status": "ok"})
 
