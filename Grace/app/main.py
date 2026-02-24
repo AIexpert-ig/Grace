@@ -7,6 +7,7 @@ import hashlib
 import hmac
 import time
 import asyncio
+from contextlib import asynccontextmanager
 import re
 from datetime import datetime
 from pathlib import Path
@@ -33,7 +34,17 @@ from .api.routes import router as dashboard_api_router
 from .db import Escalation, Event, SessionLocal, bootstrap_tables
 from .retell_ingest import ingest_retell_webhook
 
-app = FastAPI()
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    bootstrap_tables()
+    if settings.ENABLE_TELEGRAM:
+        bus.subscribe("ticket.created", telegram_bot.handle_ticket_created)
+    if settings.ENABLE_MAKE_WEBHOOKS:
+        bus.subscribe("ticket.created", handle_make_trigger)
+    logger.info("Grace AI Event Bus Online")
+    yield
+
+app = FastAPI(lifespan=lifespan)
 app.include_router(dashboard_api_router, prefix="/api")
 openai_service = OpenAIService()
 
@@ -75,14 +86,7 @@ if api_key:
     except Exception as exc:
         logger.debug("Google GenerativeAI import/config failed: %s", exc)
 
-@app.on_event("startup")
-async def startup():
-    bootstrap_tables()
-    if settings.ENABLE_TELEGRAM:
-        bus.subscribe("ticket.created", telegram_bot.handle_ticket_created)
-    if settings.ENABLE_MAKE_WEBHOOKS:
-        bus.subscribe("ticket.created", handle_make_trigger)
-    logger.info("Grace AI Event Bus Online")
+
 
 
 def _error_response(status_code: int, error: str, correlation_id: str | None = None) -> JSONResponse:
@@ -574,6 +578,38 @@ async def retell_diagnose(request: Request):
     )
 
 # Telegram Inbound Webhook
+async def _telegram_send(chat_id: int | str, text: str) -> None:
+    """Fire-and-forget sendMessage to Telegram."""
+    token = (settings.TELEGRAM_BOT_TOKEN or "").strip()
+    if not token:
+        logger.warning("telegram_send_skipped: missing bot token")
+        return
+    url = f"https://api.telegram.org/bot{token}/sendMessage"
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            await client.post(url, json={"chat_id": chat_id, "text": text, "parse_mode": "Markdown"})
+    except Exception as exc:
+        logger.error("telegram_send_failed: %s", exc)
+
+
+async def _telegram_ai_reply(user_text: str) -> str:
+    """Generate a concierge reply for a free-text Telegram message."""
+    if settings.google_api_key:
+        try:
+            def _call() -> str:
+                import google.generativeai as genai
+                model = genai.GenerativeModel("gemini-1.5-flash")
+                response = model.generate_content(
+                    [{"role": "system", "content": SYSTEM_PROMPT},
+                     {"role": "user", "content": user_text}]
+                )
+                return (response.text or "").strip()
+            return await asyncio.wait_for(asyncio.to_thread(_call), timeout=8.0)
+        except Exception:
+            pass
+    return "I'm here to help! For immediate assistance please contact the front desk by dialing 0."
+
+
 @app.post("/telegram-webhook")
 async def telegram_webhook(request: Request):
     if not settings.ENABLE_TELEGRAM:
@@ -595,7 +631,30 @@ async def telegram_webhook(request: Request):
         return _error_response(400, "invalid_json")
 
     logger.info("telegram_webhook_received", extra={"payload": data})
+
+    # Route the update
+    message = data.get("message") or {}
+    user_text = (message.get("text") or "").strip()
+    chat_id = (message.get("chat") or {}).get("id")
+    user_id = int((message.get("from") or {}).get("id", 0))
+
+    if chat_id and user_text:
+        if user_text.startswith("/"):
+            result = await telegram_bot.handle_command(user_text, user_id, bus)
+            # Format command result as a readable string
+            if result.get("error"):
+                reply = f"⚠️ {result['error']}"
+            elif result.get("message"):
+                reply = result["message"]
+            else:
+                reply = json.dumps(result, indent=2, ensure_ascii=False)
+        else:
+            reply = await _telegram_ai_reply(user_text)
+
+        await _telegram_send(chat_id, reply)
+
     return JSONResponse(status_code=200, content={"status": "ok"})
+
 
 SYSTEM_PROMPT = (
     "You are the AI concierge for Courtyard by Marriott Al Barsha in Dubai.\n"

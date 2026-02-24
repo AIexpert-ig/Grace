@@ -40,6 +40,23 @@ def get_last_events(limit: int = 10) -> list[dict]:
     return [asdict(evt) for evt in list(_event_log)[-limit:]]
 
 
+async def send_message(chat_id: int | str, text: str) -> bool:
+    """Send a message to a Telegram chat. Returns True on success."""
+    token = (settings.TELEGRAM_BOT_TOKEN or "").strip()
+    if not token or not chat_id:
+        return False
+    url = f"https://api.telegram.org/bot{token}/sendMessage"
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            r = await client.post(
+                url,
+                json={"chat_id": chat_id, "text": text, "parse_mode": "Markdown"},
+            )
+            return r.status_code == 200
+    except Exception:
+        return False
+
+
 async def handle_command(text: str, user_id: int, bus) -> dict:
     command = text.strip()
     if command.startswith("/status"):
