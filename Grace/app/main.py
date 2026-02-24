@@ -13,6 +13,7 @@ from datetime import datetime
 from pathlib import Path
 
 import httpx
+from sqlalchemy import text
 from fastapi import FastAPI, WebSocket, Request, HTTPException
 from starlette.websockets import WebSocketDisconnect
 from fastapi.responses import HTMLResponse, JSONResponse
@@ -37,6 +38,16 @@ from .retell_ingest import ingest_retell_webhook
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     bootstrap_tables()
+    
+    # DB Health Check
+    try:
+        db = SessionLocal()
+        db.execute(text("SELECT 1"))
+        logger.info("✅ Database connectivity check passed.")
+        db.close()
+    except Exception as e:
+        logger.warning(f"⚠️ Database connectivity check failed: {e}")
+
     if settings.ENABLE_TELEGRAM:
         bus.subscribe("ticket.created", telegram_bot.handle_ticket_created)
     if settings.ENABLE_MAKE_WEBHOOKS:

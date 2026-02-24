@@ -31,9 +31,11 @@ class Escalation(Base):
     guest_name = Column(String, default="Unknown Guest")
     room_number = Column(String, default="Unknown")
     issue = Column(Text)
-    status = Column(String, default="OPEN")
+    status = Column(String, default="PENDING")
     sentiment = Column(String, default="Neutral")
     created_at = Column(DateTime, default=datetime.utcnow)
+    claimed_at = Column(DateTime(timezone=True), nullable=True)
+    claimed_by = Column(String, nullable=True)
 
 
 class CallSession(Base):
@@ -97,6 +99,7 @@ SessionLocal = get_sessionmaker()
 
 def bootstrap_tables(*, engine: Engine | None = None) -> None:
     bind = engine or get_engine()
+    from app.db_models import Rate
     try:
         Base.metadata.create_all(
             bind=bind,
@@ -105,6 +108,7 @@ def bootstrap_tables(*, engine: Engine | None = None) -> None:
                 CallSession.__table__,
                 CallAnalysis.__table__,
                 Event.__table__,
+                Rate.__table__,
             ],
         )
     except Exception as exc:  # pragma: no cover - defensive

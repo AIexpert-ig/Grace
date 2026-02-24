@@ -11,8 +11,8 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 from alembic import context
 
 # Import your models' Base and target metadata
-from app.core.database import Base
-from app.db_models import Rate, Escalation  # noqa: F401
+from app.db import Base, Escalation
+from app.db_models import Rate
 
 # This is the Alembic Config object
 config = context.config
