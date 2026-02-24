@@ -593,21 +593,19 @@ async def _telegram_send(chat_id: int | str, text: str) -> None:
 
 
 async def _telegram_ai_reply(user_text: str) -> str:
-    """Generate a concierge reply for a free-text Telegram message."""
-    if settings.google_api_key:
-        try:
-            def _call() -> str:
-                import google.generativeai as genai
-                model = genai.GenerativeModel("gemini-1.5-flash")
-                response = model.generate_content(
-                    [{"role": "system", "content": SYSTEM_PROMPT},
-                     {"role": "user", "content": user_text}]
-                )
-                return (response.text or "").strip()
-            return await asyncio.wait_for(asyncio.to_thread(_call), timeout=8.0)
-        except Exception:
-            pass
-    return "I'm here to help! For immediate assistance please contact the front desk by dialing 0."
+    """Generate a concierge reply for a free-text Telegram message via OpenRouter."""
+    try:
+        result = await asyncio.wait_for(
+            openai_service.get_concierge_response(
+                [{"role": "user", "content": user_text}]
+            ),
+            timeout=10.0,
+        )
+        if isinstance(result, dict):
+            return result.get("content") or result.get("message") or STILL_CHECKING_MESSAGE
+        return str(result)
+    except Exception:
+        return "I'm here to help! For immediate assistance please contact the front desk by dialing 0."
 
 
 @app.post("/telegram-webhook")
