@@ -50,7 +50,7 @@ async def send_message(chat_id: int | str, text: str) -> bool:
         async with httpx.AsyncClient(timeout=10) as client:
             r = await client.post(
                 url,
-                json={"chat_id": chat_id, "text": text, "parse_mode": "Markdown"},
+                json={"chat_id": chat_id, "text": text},
             )
             return r.status_code == 200
     except Exception:
@@ -109,24 +109,25 @@ async def handle_ticket_created(payload: dict, correlation_id: str) -> None:
         return
 
     message = (
-        "🚨 **ESCALATION ALERT**\n"
+        "🚨 ESCALATION ALERT\n"
         f"Guest: {payload.get('guest_name', 'Unknown')}\n"
         f"Room: {payload.get('room_number', 'N/A')}\n"
         f"Issue: {payload.get('issue', 'No details')}\n"
-        f"ID: `{correlation_id}`"
+        f"ID: {correlation_id}"
     )
 
     url = f"https://api.telegram.org/bot{settings.TELEGRAM_BOT_TOKEN}/sendMessage"
     try:
         async with httpx.AsyncClient(timeout=10) as client:
-            await client.post(
+            r = await client.post(
                 url,
                 json={
                     "chat_id": settings.TELEGRAM_CHAT_ID,
                     "text": message,
-                    "parse_mode": "Markdown",
                 },
             )
+            if r.status_code != 200:
+                logger.error("telegram_escalation_failed", extra={"status": r.status_code, "body": r.text})
         logger.info("Telegram notification sent", extra={"correlation_id": correlation_id})
     except Exception as exc:  # pragma: no cover - network dependent
         logger.error(

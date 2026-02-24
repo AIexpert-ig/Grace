@@ -598,8 +598,9 @@ async def _telegram_send(chat_id: int | str, text: str) -> httpx.Response:
     if not token:
         raise RuntimeError("TELEGRAM_BOT_TOKEN is missing")
     url = f"https://api.telegram.org/bot{token}/sendMessage"
+    # Avoid parse_mode="Markdown" for arbitrary AI text to prevent 400 Bad Request
     async with httpx.AsyncClient(timeout=10) as client:
-        return await client.post(url, json={"chat_id": chat_id, "text": text, "parse_mode": "Markdown"})
+        return await client.post(url, json={"chat_id": chat_id, "text": text})
 
 
 async def _telegram_ai_reply(user_text: str) -> str:
@@ -667,11 +668,21 @@ async def telegram_webhook(request: Request):
                 "telegram_outbound_response", 
                 extra={"status_code": tg_response.status_code, "body": tg_response.text}
             )
+            # Loudly print to standard error for Railway
+            import sys
+            print(f"[TELEGRAM RESPONSE] Status: {tg_response.status_code} Body: {tg_response.text}", file=sys.stderr)
+            print(f"[TELEGRAM REQUEST PAYLOAD] chat_id={chat_id} text={repr(reply)}", file=sys.stderr)
+            
             if tg_response.status_code != 200:
+                print(f"[TELEGRAM ERROR] Rejecting webhook with 500 because Telegram rejected our message!", file=sys.stderr)
                 return _error_response(500, f"telegram_api_error: {tg_response.status_code}")
         except RuntimeError as exc:
+            import sys
+            print(f"[TELEGRAM FATAL] Token missing or RuntimeError: {exc}", file=sys.stderr)
             raise exc
         except Exception as exc:
+            import sys
+            print(f"[TELEGRAM EXCEPTION] Failed to send: {exc}", file=sys.stderr)
             logger.error("telegram_send_exception: %s", exc)
             return _error_response(500, "telegram_send_exception")
 
