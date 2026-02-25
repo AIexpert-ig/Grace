@@ -1,6 +1,9 @@
 #!/usr/bin/env sh
 set -e
 
+echo "Requirements file content:"
+cat requirements.txt
+
 cd /opt/render/project/src
 
 echo "Python executable:"
