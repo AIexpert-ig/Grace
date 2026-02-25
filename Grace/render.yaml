@@ -19,7 +19,5 @@ projects:
                 sync: false
             region: oregon
             buildCommand: pip install -r requirements.txt
-            startCommand:
-              echo "START.SH CONTENTS:" && sed -n '1,200p' start.sh && sleep
-              10 && ./start.sh
+            startCommand: ./start.sh
             autoDeployTrigger: commit
