@@ -1,17 +1,17 @@
 {
-    "python.testing.pytestArgs": [
-        "__pycache__"
-    ],
-    "python.testing.unittestEnabled": false,
-    "python.testing.pytestEnabled": true,
-    "css.lint.unknownAtRules": "ignore",
-    "terminal.integrated.defaultProfile.osx": "zsh",
-    "terminal.integrated.profiles.osx": {
-        "zsh": {
-            "path": "/bin/zsh",
-            "args": [
-                "-l"
-            ]
-        }
+  "python.testing.pytestArgs": [
+    "__pycache__"
+  ],
+  "python.testing.unittestEnabled": false,
+  "python.testing.pytestEnabled": true,
+  "css.lint.unknownAtRules": "ignore",
+  "terminal.integrated.defaultProfile.osx": "zsh",
+  "terminal.integrated.profiles.osx": {
+    "zsh": {
+      "path": "/bin/zsh",
+      "args": [
+        "-l"
+      ]
     }
+  }
 }
