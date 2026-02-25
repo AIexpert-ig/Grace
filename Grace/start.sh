@@ -3,7 +3,6 @@ set -e
 
 echo "Requirements file content:"
 cat requirements.txt
-alembic upgrade head
 cd /opt/render/project/src
 
 echo "Python executable:"
