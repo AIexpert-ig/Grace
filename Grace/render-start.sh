@@ -6,7 +6,8 @@ echo "Ensuring alembic is installed..."
 python -m pip install alembic
 
 echo "Running migrations..."
-python -m alembic upgrade head
+# Alembic doesn't support 'python -m alembic', so we run its main function directly:
+python -c "import sys; from alembic.config import main; sys.argv[0] = 'alembic'; sys.exit(main())" upgrade head
 
 echo "Starting Uvicorn server..."
 # Use exec so uvicorn takes over the process and handles shutdowns properly
