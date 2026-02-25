@@ -1,25 +1,17 @@
-#!/usr/bin/env bash
-# Exit on error
+#!/usr/bin/env sh
 set -e
 
-echo "=== Environment Diagnostics ==="
-echo "Python path:"
-which python
-echo "Alembic in pip freeze:"
-python -m pip freeze | grep alembic
-echo "Alembic path:"
-which alembic || echo "alembic not found on PATH"
-echo "==============================="
+cd /opt/render/project/src
+
+echo "Python executable:"
+python -c "import sys; print(sys.executable)"
+
+echo "Alembic installed?"
+python -m pip show alembic || true
 
 echo "Running migrations..."
-if command -v alembic &> /dev/null; then
-    echo "Running alembic from PATH..."
-    alembic upgrade head
-else
-    echo "Alembic not in PATH, falling back to absolute venv path..."
-    /opt/render/project/src/.venv/bin/alembic upgrade head
-fi
+python -m pip install alembic
+python -m alembic upgrade head
 
-echo "Starting Uvicorn server..."
-# Use exec so uvicorn takes over the process and handles shutdowns properly
-exec python -m uvicorn app.main:app --host 0.0.0.0 --port $PORT
+echo "Starting server..."
+exec python -m uvicorn app.main:app --host 0.0.0.0 --port "${PORT:-10000}"
