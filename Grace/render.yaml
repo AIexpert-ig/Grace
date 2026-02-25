@@ -1,0 +1,25 @@
+# Exported from Render on 2026-02-25T16:45:14Z
+version: "1"
+projects:
+  - name: My project
+    environments:
+      - name: Production
+        services:
+          - type: web
+            name: Grace
+            runtime: python
+            repo: https://github.com/AIexpert-ig/Grace
+            plan: free
+            envVars:
+              - key: DATABASE_URL
+                sync: false
+              - key: TELEGRAM_BOT_TOKEN
+                sync: false
+              - key: RETELL_SIGNING_SECRET
+                sync: false
+            region: oregon
+            buildCommand: pip install -r requirements.txt
+            startCommand:
+              echo "START.SH CONTENTS:" && sed -n '1,200p' start.sh && sleep
+              10 && ./start.sh
+            autoDeployTrigger: commit
