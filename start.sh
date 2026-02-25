@@ -1,10 +1,8 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -e
 
-# Run database migrations
 echo "Running database migrations..."
-alembic upgrade head
+python -m alembic upgrade head
 
-# Start the application
 echo "Starting uvicorn server..."
-exec uvicorn app.main:app --host 0.0.0.0 --port 8080
+exec python -m uvicorn app.main:app --host 0.0.0.0 --port "${PORT}"
