@@ -325,8 +325,11 @@ def _loop_break_response() -> str:
     return "Good afternoon, how may I assist you today?"
 
 RETELL_CONNECT_GREETING = (
-    "Hello, thank you for calling Courtyard By Marriott, Al Barsha. "
-    "I am Grace, how may I assist you?"
+    "Good morning, thank you for calling Courtyard Al Barsha. "
+    "Please note this call may be recorded for quality. "
+    "I am Grace, your digital concierge. "
+    "I can help with room requests, local recommendations, or connect you to our team. "
+    "How may I assist you?"
 )
 
 def _retell_debug_marker_enabled() -> bool:
