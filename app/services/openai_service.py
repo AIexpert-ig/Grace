@@ -37,24 +37,6 @@ TOOLS: list[dict[str, Any]] = [
     {
         "type": "function",
         "function": {
-            "name": "transfer_call",
-            "description": "Transfers the guest to a human team/department for assistance.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "department": {
-                        "type": "string",
-                        "description": 'Target department, e.g. "Front Desk".',
-                    },
-                    "message": {"type": "string", "description": "What Grace should say before transfer."},
-                },
-                "required": ["department", "message"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
             "name": "check_room_rates",
             "description": "Checks room rates for the given dates and guest count.",
             "parameters": {
@@ -65,20 +47,6 @@ TOOLS: list[dict[str, Any]] = [
                     "guests": {"type": "integer", "minimum": 1, "description": "Number of guests."},
                 },
                 "required": ["check_in", "check_out", "guests"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "end_call",
-            "description": "Ends the interaction when the guest is fully satisfied.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "message": {"type": "string", "description": "Optional closing line to the guest."},
-                },
-                "required": [],
             },
         },
     },
@@ -100,6 +68,34 @@ class OpenAIService:
             logger.error("SYSTEM CRITICAL: OPENAI_API_KEY is empty in settings!")
             return "I am currently polishing the silver. How else may I assist you?"
 
+        tools = list(TOOLS)
+        tools.extend(
+            [
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "transfer_call",
+                        "description": "Transfers the call to a human agent.",
+                        "parameters": {
+                            "type": "object",
+                            "properties": {
+                                "department": {"type": "string", "description": "e.g., Front Desk"}
+                            },
+                            "required": ["department"],
+                        },
+                    },
+                },
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "end_call",
+                        "description": "Ends the phone call when the conversation is finished.",
+                        "parameters": {"type": "object", "properties": {}, "required": []},
+                    },
+                },
+            ]
+        )
+
         try:
             response = await self.client.chat.completions.create(
                 model="google/gemini-2.0-flash-exp:free",
@@ -110,7 +106,7 @@ class OpenAIService:
                     },
                     {"role": "user", "content": user_message}
                 ],
-                tools=TOOLS,
+                tools=tools,
                 tool_choice="auto",
                 extra_headers={
                     "HTTP-Referer": "https://railway.app", # Required by some OpenRouter models
