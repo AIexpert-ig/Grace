@@ -1,28 +1,36 @@
-"""Database models + session for the Railway (Grace/) FastAPI app.
+"""Database models + async session for the Grace FastAPI app.
 
-This module is intentionally small and sync-SQLAlchemy-only so it can be reused by:
-- the dashboard API router (/api/*)
-- Retell webhook ingestion (persist calls + create tickets)
-
-Phase 1 uses table bootstrapping via `create_all` (no migrations).
+This module provides:
+- SQLAlchemy ORM models (Escalation, CallSession, CallAnalysis, Event)
+- An async engine backed by asyncpg
+- An async session factory (AsyncSessionLocal)
+- A FastAPI dependency (get_db) that yields an AsyncSession
+- bootstrap_tables() to create tables on startup
 """
 
 from __future__ import annotations
 
 import logging
-from datetime import datetime
-from functools import lru_cache
-from typing import Any
+from datetime import datetime, timezone
+from typing import Any, AsyncGenerator
 
-from sqlalchemy import Column, DateTime, Integer, String, Text, JSON, create_engine, text
-from sqlalchemy.engine import Engine
-from sqlalchemy.orm import declarative_base, sessionmaker
+from sqlalchemy import Column, DateTime, Integer, String, Text, JSON, text
+from sqlalchemy.ext.asyncio import (
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
+from sqlalchemy.orm import declarative_base
 from sqlalchemy.sql import func
 
 from .core.config import settings
 
 Base = declarative_base()
 
+
+# ---------------------------------------------------------------------------
+# ORM Models
+# ---------------------------------------------------------------------------
 
 class Escalation(Base):
     __tablename__ = "escalations"
@@ -33,7 +41,7 @@ class Escalation(Base):
     issue = Column(Text)
     status = Column(String, default="PENDING")
     sentiment = Column(String, default="Neutral")
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     claimed_at = Column(DateTime(timezone=True), nullable=True)
     claimed_by = Column(String, nullable=True)
 
@@ -46,9 +54,13 @@ class CallSession(Base):
     status = Column(String, default="Active")
     intent = Column(String, default="")
     latency_ms = Column(Integer, nullable=True)
-    started_at = Column(DateTime, default=datetime.utcnow, index=True)
+    started_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)
     transcript_snippet = Column(Text, default="")
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
 
 
 class CallAnalysis(Base):
@@ -63,8 +75,12 @@ class CallAnalysis(Base):
     summary = Column(Text, default="")
     transcript = Column(Text, default="")
     ticket_id = Column(Integer, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
 
 
 class Event(Base):
@@ -76,47 +92,84 @@ class Event(Base):
     severity = Column(String, nullable=False, default="low", server_default=text("'low'"))
     text = Column(Text, nullable=True)
     payload = Column(JSON, nullable=True)
-    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), index=True)
+    created_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        index=True,
+    )
 
 
-def _sync_database_url() -> str:
-    return settings.DATABASE_URL_SYNC
+# ---------------------------------------------------------------------------
+# Async engine & session factory
+# ---------------------------------------------------------------------------
 
-
-@lru_cache(maxsize=8)
-def get_engine(database_url: str | None = None) -> Engine:
-    url = (database_url or _sync_database_url()).strip()
-    return create_engine(url, pool_pre_ping=True)
-
-
-def get_sessionmaker(*, engine: Engine | None = None) -> sessionmaker:
-    bind = engine or get_engine()
-    return sessionmaker(autocommit=False, autoflush=False, bind=bind)
-
-
-SessionLocal = get_sessionmaker()
-
-
-def bootstrap_tables(*, engine: Engine | None = None) -> None:
-    bind = engine or get_engine()
-    from app.db_models import Rate
-    try:
-        Base.metadata.create_all(
-            bind=bind,
-            tables=[
-                Escalation.__table__,
-                CallSession.__table__,
-                CallAnalysis.__table__,
-                Event.__table__,
-                Rate.__table__,
-            ],
+def _build_engine_kwargs() -> dict:
+    """Pool kwargs; pool_size/overflow are skipped for SQLite (test env)."""
+    kwargs: dict = {"pool_pre_ping": settings.DB_POOL_PRE_PING}
+    if not settings.DATABASE_URL.startswith("sqlite"):
+        kwargs.update(
+            {
+                "pool_size": settings.DB_POOL_SIZE,
+                "max_overflow": settings.DB_MAX_OVERFLOW,
+                "pool_timeout": settings.DB_POOL_TIMEOUT,
+                "pool_recycle": settings.DB_POOL_RECYCLE,
+            }
         )
-    except Exception as exc:  # pragma: no cover - defensive
+    return kwargs
+
+
+async_engine = create_async_engine(settings.DATABASE_URL, **_build_engine_kwargs())
+
+AsyncSessionLocal = async_sessionmaker(
+    async_engine,
+    class_=AsyncSession,
+    expire_on_commit=False,
+    autocommit=False,
+    autoflush=False,
+)
+
+# Backward-compat alias
+SessionLocal = AsyncSessionLocal
+
+
+# ---------------------------------------------------------------------------
+# FastAPI dependency
+# ---------------------------------------------------------------------------
+
+async def get_db() -> AsyncGenerator[AsyncSession, None]:
+    """Yield an AsyncSession; auto-closed on exit."""
+    async with AsyncSessionLocal() as session:
+        yield session
+
+
+# ---------------------------------------------------------------------------
+# Table bootstrap (called from lifespan)
+# ---------------------------------------------------------------------------
+
+async def bootstrap_tables() -> None:
+    """Create all managed tables if they don't already exist."""
+    from app.db_models import Rate  # local import avoids circular deps
+
+    try:
+        async with async_engine.begin() as conn:
+            await conn.run_sync(
+                Base.metadata.create_all,
+                tables=[
+                    Escalation.__table__,
+                    CallSession.__table__,
+                    CallAnalysis.__table__,
+                    Event.__table__,
+                    Rate.__table__,
+                ],
+            )
+    except Exception as exc:
         logging.getLogger("db").warning("grace_table_bootstrap_failed: %s", exc)
 
 
+# ---------------------------------------------------------------------------
+# Compatibility shim
+# ---------------------------------------------------------------------------
+
 def safe_close(session: Any) -> None:
-    try:
-        session.close()
-    except Exception:
-        pass
+    """No-op: async sessions are closed by their context manager."""
