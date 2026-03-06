@@ -38,9 +38,14 @@ class Settings(BaseSettings):  # pylint: disable=too-few-public-methods
     HMAC_SECRET: str = "dubai_handshake_2026"  # Updated default to match our protocol
     
     # DATABASE
+    # On Render/Railway the platform injects DATABASE_URL automatically.
+    # Locally, set DATABASE_URL in your .env file.  The default below only
+    # works if a local PostgreSQL instance has a "postgres" superuser (the
+    # standard install default). If you see "role X does not exist", your
+    # DATABASE_URL env var contains a different username — check your .env.
     database_url_raw: str = Field(
         default="postgresql+asyncpg://postgres:postgres@localhost:5432/grace",
-        validation_alias="DATABASE_URL"
+        validation_alias="DATABASE_URL",
     )
     
     @property
