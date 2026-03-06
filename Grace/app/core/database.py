@@ -1,29 +1,24 @@
 # app/core/database.py
-import os
+"""Re-exports for backward compatibility.
+
+The sync engine was removed. All DB access now goes through the async engine
+and AsyncSessionLocal defined in app.db.
+"""
 import logging
 
-from app.db import SessionLocal, get_engine, Base
+from app.db import (  # noqa: F401 – re-exported for external consumers
+    AsyncSessionLocal,
+    Base,
+    SessionLocal,
+    async_engine as engine,
+    get_db,
+)
 
 logger = logging.getLogger(__name__)
 
-# Fallback for local development or testing
-DATABASE_URL = os.getenv("DATABASE_URL")
-if not DATABASE_URL:
-    DATABASE_URL = "postgresql://postgres:postgres@localhost:5432/grace"
 
-# We use the sync engine from app.db
-engine = get_engine(DATABASE_URL)
-
-def get_db():
-    """Synchronous database session generator."""
-    session = SessionLocal()
-    try:
-        yield session
-    finally:
-        session.close()
-
-def get_pool_status():
-    """Utility for system startup health checks."""
+def get_pool_status() -> str:
+    """Return a human-readable pool status string."""
     try:
         return engine.pool.status()
     except Exception:

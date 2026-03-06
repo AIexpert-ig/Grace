@@ -6,10 +6,12 @@ from datetime import datetime
 from typing import Any
 
 from fastapi import APIRouter, Query
+from sqlalchemy import select
 
-from ..db import CallSession, Escalation, Event, SessionLocal, safe_close
+from ..db import AsyncSessionLocal, CallSession, Escalation, Event
 
 router = APIRouter()
+
 
 def _clamp_limit(value: int, *, default: int, maximum: int) -> int:
     try:
@@ -42,13 +44,15 @@ def _normalize_ticket_status(status_value: str | None) -> str:
 
 
 @router.get("/tickets")
-def get_tickets(limit: int = Query(50)) -> list[dict[str, Any]]:
+async def get_tickets(limit: int = Query(50)) -> list[dict[str, Any]]:
     """Return recent tickets."""
     try:
         safe_limit = _clamp_limit(limit, default=50, maximum=200)
-        db = SessionLocal()
-        try:
-            rows = db.query(Escalation).order_by(Escalation.created_at.desc()).limit(safe_limit).all()
+        async with AsyncSessionLocal() as db:
+            result = await db.execute(
+                select(Escalation).order_by(Escalation.created_at.desc()).limit(safe_limit)
+            )
+            rows = result.scalars().all()
             results: list[dict[str, Any]] = []
             for row in rows:
                 created_at = row.created_at.isoformat() if isinstance(row.created_at, datetime) else None
@@ -70,20 +74,20 @@ def get_tickets(limit: int = Query(50)) -> list[dict[str, Any]]:
                     }
                 )
             return results
-        finally:
-            safe_close(db)
     except Exception:
         return []
 
 
 @router.get("/events")
-def get_events(limit: int = Query(100)) -> list[dict[str, Any]]:
+async def get_events(limit: int = Query(100)) -> list[dict[str, Any]]:
     """Return recent events."""
     try:
         safe_limit = _clamp_limit(limit, default=100, maximum=500)
-        db = SessionLocal()
-        try:
-            rows = db.query(Event).order_by(Event.created_at.desc()).limit(safe_limit).all()
+        async with AsyncSessionLocal() as db:
+            result = await db.execute(
+                select(Event).order_by(Event.created_at.desc()).limit(safe_limit)
+            )
+            rows = result.scalars().all()
             results: list[dict[str, Any]] = []
             for row in rows:
                 created_at = row.created_at.isoformat() if isinstance(row.created_at, datetime) else None
@@ -96,25 +100,24 @@ def get_events(limit: int = Query(100)) -> list[dict[str, Any]]:
                         "text": row.text,
                         "payload": row.payload,
                         "created_at": created_at,
-                        # Dashboard compatibility
                         "at": created_at,
                     }
                 )
             return results
-        finally:
-            safe_close(db)
     except Exception:
         return []
 
 
 @router.get("/calls")
-def get_calls(limit: int = Query(50)) -> list[dict[str, Any]]:
+async def get_calls(limit: int = Query(50)) -> list[dict[str, Any]]:
     """Return recent calls."""
     try:
         safe_limit = _clamp_limit(limit, default=50, maximum=200)
-        db = SessionLocal()
-        try:
-            rows = db.query(CallSession).order_by(CallSession.started_at.desc()).limit(safe_limit).all()
+        async with AsyncSessionLocal() as db:
+            result = await db.execute(
+                select(CallSession).order_by(CallSession.started_at.desc()).limit(safe_limit)
+            )
+            rows = result.scalars().all()
             results: list[dict[str, Any]] = []
             for row in rows:
                 started_at = row.started_at.isoformat() if isinstance(row.started_at, datetime) else None
@@ -130,14 +133,12 @@ def get_calls(limit: int = Query(50)) -> list[dict[str, Any]]:
                     }
                 )
             return results
-        finally:
-            safe_close(db)
     except Exception:
         return []
 
 
 @router.get("/staff")
-def get_staff(limit: int = Query(100)) -> list[dict[str, Any]]:
+async def get_staff(limit: int = Query(100)) -> list[dict[str, Any]]:
     """Return staff directory entries."""
     try:
         _clamp_limit(limit, default=100, maximum=500)

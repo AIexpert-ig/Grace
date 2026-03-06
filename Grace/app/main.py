@@ -32,21 +32,20 @@ from app.services import telegram_bot
 from app.services.openai_service import OpenAIService
 from app.services.make_integration import handle_make_trigger, send_make_webhook
 from .api.routes import router as dashboard_api_router
-from .db import Escalation, Event, SessionLocal, bootstrap_tables
+from .db import AsyncSessionLocal, Escalation, Event, SessionLocal, bootstrap_tables
 from .retell_ingest import ingest_retell_webhook
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    bootstrap_tables()
-    
+    await bootstrap_tables()
+
     # DB Health Check
     try:
-        db = SessionLocal()
-        db.execute(text("SELECT 1"))
+        async with AsyncSessionLocal() as _db:
+            await _db.execute(text("SELECT 1"))
         logger.info("✅ Database connectivity check passed.")
-        db.close()
     except Exception as e:
-        logger.warning(f"⚠️ Database connectivity check failed: {e}")
+        logger.warning("⚠️ Database connectivity check failed: %s", e)
 
     if settings.ENABLE_TELEGRAM:
         bus.subscribe("ticket.created", telegram_bot.handle_ticket_created)
@@ -381,10 +380,13 @@ async def test_make(request: Request):
 # --- DASHBOARD API ---
 
 @app.get("/staff/recent-tickets")
-def get_recent_tickets():
-    db = SessionLocal()
-    try:
-        tickets = db.query(Escalation).order_by(Escalation.created_at.desc()).limit(20).all()
+async def get_recent_tickets():
+    from sqlalchemy import select as sa_select
+    async with AsyncSessionLocal() as db:
+        result = await db.execute(
+            sa_select(Escalation).order_by(Escalation.created_at.desc()).limit(20)
+        )
+        tickets = result.scalars().all()
         return [
             {
                 "id": t.id,
@@ -393,67 +395,66 @@ def get_recent_tickets():
                 "issue": t.issue,
                 "status": t.status,
                 "sentiment": t.sentiment,
-                "created_at": t.created_at.isoformat()
+                "created_at": t.created_at.isoformat(),
             }
             for t in tickets
         ]
-    finally:
-        db.close()
+
 
 @app.get("/staff/dashboard-stats")
-def get_stats():
-    db = SessionLocal()
-    try:
-        total = db.query(Escalation).count()
-        open_tickets = db.query(Escalation).filter(Escalation.status == "OPEN").count()
+async def get_stats():
+    from sqlalchemy import select as sa_select, func as sa_func
+    async with AsyncSessionLocal() as db:
+        total_result = await db.execute(sa_select(sa_func.count()).select_from(Escalation))
+        total = total_result.scalar()
+        open_result = await db.execute(
+            sa_select(sa_func.count()).select_from(Escalation).where(Escalation.status == "OPEN")
+        )
+        open_tickets = open_result.scalar()
         return {
             "total_tickets": total,
             "open_tickets": open_tickets,
-            "sentiment_score": 98
+            "sentiment_score": 98,
         }
-    finally:
-        db.close()
+
 
 @app.post("/staff/escalate")
 async def create_ticket(request: Request):
     data = await request.json()
     correlation_id = str(uuid.uuid4())
-    db = SessionLocal()
-    try:
+    async with AsyncSessionLocal() as db:
         new_ticket = Escalation(
             guest_name=data.get("guest_name", "Test Guest"),
             room_number=data.get("room_number", "101"),
             issue=data.get("issue", "Test Issue"),
             status="OPEN",
-            sentiment=data.get("sentiment", "Neutral")
+            sentiment=data.get("sentiment", "Neutral"),
         )
         db.add(new_ticket)
-        db.commit()
-        await bus.publish(
-            "ticket.created",
-            {
-                "guest_name": new_ticket.guest_name,
-                "room_number": new_ticket.room_number,
-                "issue": new_ticket.issue,
-            },
-            correlation_id,
-        )
-        return {"status": "Ticket Created", "correlation_id": correlation_id}
-    finally:
-        db.close()
+        await db.commit()
+    await bus.publish(
+        "ticket.created",
+        {
+            "guest_name": new_ticket.guest_name,
+            "room_number": new_ticket.room_number,
+            "issue": new_ticket.issue,
+        },
+        correlation_id,
+    )
+    return {"status": "Ticket Created", "correlation_id": correlation_id}
+
 
 @app.delete("/staff/tickets/{ticket_id}")
-def delete_ticket(ticket_id: int):
-    db = SessionLocal()
-    try:
-        ticket = db.query(Escalation).filter(Escalation.id == ticket_id).first()
+async def delete_ticket(ticket_id: int):
+    from sqlalchemy import select as sa_select
+    async with AsyncSessionLocal() as db:
+        result = await db.execute(sa_select(Escalation).where(Escalation.id == ticket_id))
+        ticket = result.scalars().first()
         if not ticket:
             raise HTTPException(status_code=404, detail="Ticket not found")
-        db.delete(ticket)
-        db.commit()
-        return {"status": "deleted", "id": ticket_id}
-    finally:
-        db.close()
+        await db.delete(ticket)
+        await db.commit()
+    return {"status": "deleted", "id": ticket_id}
 
 # Voice Hook
 @app.post("/webhook")
@@ -505,7 +506,7 @@ async def handle_webhook(request: Request):
         payload=payload,
     )
 
-    ingest_result = ingest_retell_webhook(
+    ingest_result = await ingest_retell_webhook(
         payload,
         event_type=event_type,
         correlation_id=envelope.correlation_id,
@@ -749,8 +750,18 @@ def _emit_event(event_type: str, payload: dict[str, Any] | None = None) -> None:
                 preview = preview[:800] + "…"
             text = f"{event_type} {preview}".strip() if preview else event_type
 
-        db = SessionLocal()
-        try:
+        asyncio.ensure_future(
+            _write_event_to_db(source, event_type, severity, text, data)
+        )
+    except Exception as exc:
+        logging.getLogger("events").warning("event_db_insert_failed: %s", exc)
+
+
+async def _write_event_to_db(
+    source: str, event_type: str, severity: str, text: str, data: Any
+) -> None:
+    try:
+        async with AsyncSessionLocal() as db:
             db.add(
                 Event(
                     source=source,
@@ -760,11 +771,9 @@ def _emit_event(event_type: str, payload: dict[str, Any] | None = None) -> None:
                     payload=data if isinstance(data, dict) else None,
                 )
             )
-            db.commit()
-        finally:
-            db.close()
+            await db.commit()
     except Exception as exc:
-        logging.getLogger("events").warning("event_db_insert_failed: %s", exc)
+        logging.getLogger("events").warning("event_db_insert_async_failed: %s", exc)
 
 def _open_staff_ticket(reason: str, user_text: str | None = None, call_id: str | None = None) -> None:
     issue = reason
@@ -772,21 +781,23 @@ def _open_staff_ticket(reason: str, user_text: str | None = None, call_id: str |
         issue = f"{reason} | user_text={user_text}"
     if call_id:
         issue = f"{issue} | call_id={call_id}"
-    db = SessionLocal()
+    asyncio.ensure_future(_write_staff_ticket(issue))
+
+
+async def _write_staff_ticket(issue: str) -> None:
     try:
-        t = Escalation(
-            guest_name="System",
-            room_number="N/A",
-            issue=issue,
-            status="OPEN",
-            sentiment="Neutral",
-        )
-        db.add(t)
-        db.commit()
+        async with AsyncSessionLocal() as db:
+            t = Escalation(
+                guest_name="System",
+                room_number="N/A",
+                issue=issue,
+                status="OPEN",
+                sentiment="Neutral",
+            )
+            db.add(t)
+            await db.commit()
     except Exception as exc:
         logging.getLogger("policy").warning("staff_ticket_failed: %s", exc)
-    finally:
-        db.close()
 
 def spa_list_services() -> dict[str, Any]:
     return {"services": SPA_SERVICES}
@@ -971,22 +982,6 @@ async def _retell_ws_handler(websocket: WebSocket, call_id: str | None = None) -
                 response_id,
                 (ai_reply[:40] + "…") if len(ai_reply) > 40 else ai_reply,
             )
-
-            if len(user_text) > 5:
-                db = SessionLocal()
-                try:
-                    t = Escalation(
-                        guest_name="Voice Guest",
-                        room_number="Unknown",
-                        issue=user_text,
-                        status="OPEN",
-                        sentiment="Neutral",
-                    )
-                    db.add(t)
-                    db.commit()
-                    await bus.publish("ticket.created", {"guest_name": "Voice Guest", "issue": user_text}, call_id)
-                finally:
-                    db.close()
 
             await websocket.send_json(
                 {
