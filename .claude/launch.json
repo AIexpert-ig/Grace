@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "Grace API (FastAPI + Uvicorn)",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"],
+      "port": 8000
+    },
+    {
+      "name": "Tailwind CSS Watcher",
+      "runtimeExecutable": "/Users/ahmedbacker/Grace/Grace/tailwindcss",
+      "runtimeArgs": ["-i", "/Users/ahmedbacker/Grace/Grace/app/static/input.css", "-o", "/Users/ahmedbacker/Grace/Grace/app/static/output.css", "--watch"],
+      "port": 3000
+    }
+  ]
+}
