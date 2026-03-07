@@ -18,6 +18,7 @@ from sqlalchemy.orm import sessionmaker, declarative_base
 from datetime import datetime
 import google.generativeai as genai
 import httpx
+from app.db import engine, AsyncSessionLocal, get_db  # adjust imports as needed
 
 # --- CONFIGURATION ---
 def _normalize_sync_database_url(url: str) -> str:
