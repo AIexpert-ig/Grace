@@ -7,21 +7,26 @@ import logging
 import asyncio
 import re
 from pathlib import Path
-from typing import Any
-from fastapi import FastAPI, WebSocket, Request, HTTPException, Query
+from typing import Any, Optional
+from datetime import datetime
+
+from fastapi import FastAPI, WebSocket, Request, HTTPException, Query, Depends
 from starlette.websockets import WebSocketDisconnect
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime, text
-from sqlalchemy.orm import sessionmaker, declarative_base
-from datetime import datetime
+from sqlalchemy import Column, Integer, String, Text, DateTime, text, select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import declarative_base
 import google.generativeai as genai
 import httpx
-from app.db import engine, AsyncSessionLocal, get_db  # adjust imports as needed
+
+# --- Import async engine and session from app.db ---
+from app.db import engine, AsyncSessionLocal, get_db, Base as DbBase
 
 # --- CONFIGURATION ---
 def _normalize_sync_database_url(url: str) -> str:
+    """Legacy function – kept for compatibility, but not used for async."""
     if not url:
         return url
     value = url.strip()
@@ -31,9 +36,10 @@ def _normalize_sync_database_url(url: str) -> str:
         value = value.replace("postgresql+asyncpg://", "postgresql://", 1)
     return value
 
-DATABASE_URL = _normalize_sync_database_url(
-    os.getenv("DATABASE_URL", "postgresql://postgres:password@localhost:5432/railway")
-)
+DATABASE_URL = os.getenv("DATABASE_URL")
+if not DATABASE_URL:
+    raise ValueError("DATABASE_URL environment variable is not set")
+
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 def _get_admin_token() -> str | None:
     return os.getenv("ADMIN_TOKEN")
@@ -47,7 +53,7 @@ def _get_make_signing_secret() -> str | None:
 def _get_webhook_tolerance() -> int:
     return int(os.getenv("WEBHOOK_TIMESTAMP_TOLERANCE_SECONDS", "300"))
 
-# --- POLICY / TOOL STUBS ---
+# --- POLICY / TOOL STUBS (unchanged) ---
 BOOKING_CONFIRMATION_PATTERN = re.compile(r"\b(booked|confirmed|reserved|see you then)\b", re.IGNORECASE)
 PRICING_QUOTE_PATTERN = re.compile(
     r"(\bAED\b|\bUSD\b|\bEUR\b|\bGBP\b|[$€£]|per night|nightly rate|rate is|price is)",
@@ -70,7 +76,8 @@ SPA_SERVICES = [
     "Signature facial",
 ]
 
-def _emit_event(event_type: str, payload: dict[str, Any] | None = None) -> None:
+# --- Async event logging ---
+async def _emit_event(event_type: str, payload: dict[str, Any] | None = None) -> None:
     data = payload or {}
     logging.getLogger("events").info("EVENT %s %s", event_type, json.dumps(data, ensure_ascii=False))
     try:
@@ -82,31 +89,30 @@ def _emit_event(event_type: str, payload: dict[str, Any] | None = None) -> None:
         payload_preview = json.dumps(data, ensure_ascii=False)
         if len(payload_preview) > 600:
             payload_preview = payload_preview[:600] + "…"
-        _record_dashboard_event(level, "system", f"{event_type} {payload_preview}".strip())
+        await _record_dashboard_event(level, "system", f"{event_type} {payload_preview}".strip())
     except Exception:
         pass
 
-def _open_staff_ticket(reason: str, user_text: str | None = None, call_id: str | None = None) -> None:
+async def _open_staff_ticket(reason: str, user_text: str | None = None, call_id: str | None = None) -> None:
     issue = reason
     if user_text:
         issue = f"{reason} | user_text={user_text}"
     if call_id:
         issue = f"{issue} | call_id={call_id}"
-    db = SessionLocal()
-    try:
-        new_ticket = Escalation(
-            guest_name="System",
-            room_number="N/A",
-            issue=issue,
-            status="OPEN",
-            sentiment="Neutral",
-        )
-        db.add(new_ticket)
-        db.commit()
-    except Exception as exc:
-        logging.getLogger("policy").warning("staff_ticket_failed: %s", exc)
-    finally:
-        db.close()
+    async with AsyncSessionLocal() as db:
+        try:
+            from app.models import Escalation  # ensure model is imported
+            new_ticket = Escalation(
+                guest_name="System",
+                room_number="N/A",
+                issue=issue,
+                status="OPEN",
+                sentiment="Neutral",
+            )
+            db.add(new_ticket)
+            await db.commit()
+        except Exception as exc:
+            logging.getLogger("policy").warning("staff_ticket_failed: %s", exc)
 
 def spa_list_services() -> dict[str, Any]:
     return {"services": SPA_SERVICES}
@@ -172,17 +178,17 @@ def _apply_response_guards(
     call_id: str | None,
 ) -> str:
     if BOOKING_CONFIRMATION_PATTERN.search(reply) and not context.get("booking_id"):
-        _emit_event("policy.violation", {"type": "booking_confirmation_without_id", "call_id": call_id})
-        _open_staff_ticket("policy.violation.booking_confirmation_without_id", user_text, call_id)
+        asyncio.create_task(_emit_event("policy.violation", {"type": "booking_confirmation_without_id", "call_id": call_id}))
+        asyncio.create_task(_open_staff_ticket("policy.violation.booking_confirmation_without_id", user_text, call_id))
         return PENDING_BOOKING_MESSAGE
     if PRICING_QUOTE_PATTERN.search(reply) and not context.get("rates"):
-        _emit_event("policy.violation", {"type": "pricing_without_rates", "call_id": call_id})
-        _open_staff_ticket("policy.violation.pricing_without_rates", user_text, call_id)
+        asyncio.create_task(_emit_event("policy.violation", {"type": "pricing_without_rates", "call_id": call_id}))
+        asyncio.create_task(_open_staff_ticket("policy.violation.pricing_without_rates", user_text, call_id))
         return PRICING_REQUEST_MESSAGE
     return reply
 
 def _handle_spa_flow(user_text: str, context: dict[str, Any], call_id: str | None) -> str:
-    _emit_event("booking.attempted", {"call_id": call_id, "channel": "spa"})
+    asyncio.create_task(_emit_event("booking.attempted", {"call_id": call_id, "channel": "spa"}))
     service = _extract_spa_service(user_text)
     date_time = _extract_date_time(user_text)
     if not service:
@@ -192,16 +198,16 @@ def _handle_spa_flow(user_text: str, context: dict[str, Any], call_id: str | Non
         return "What date and time would you prefer for the spa appointment?"
     availability = spa_check_availability(service, date_time)
     if not availability.get("available"):
-        _emit_event("booking.failed", {"call_id": call_id, "reason": "unavailable"})
+        asyncio.create_task(_emit_event("booking.failed", {"call_id": call_id, "reason": "unavailable"}))
         return "I don’t have availability at that time. Would you like a different time?"
     booking = spa_create_booking("Guest", service, date_time, notes=user_text)
     booking_id = booking.get("booking_id")
     if not booking_id:
-        _emit_event("booking.failed", {"call_id": call_id, "reason": "missing_booking_id"})
-        _open_staff_ticket("booking.failed.missing_booking_id", user_text, call_id)
+        asyncio.create_task(_emit_event("booking.failed", {"call_id": call_id, "reason": "missing_booking_id"}))
+        asyncio.create_task(_open_staff_ticket("booking.failed.missing_booking_id", user_text, call_id))
         return PENDING_BOOKING_MESSAGE
     context["booking_id"] = booking_id
-    _emit_event("booking.confirmed", {"call_id": call_id, "booking_id": booking_id})
+    asyncio.create_task(_emit_event("booking.confirmed", {"call_id": call_id, "booking_id": booking_id}))
     return f"Your spa appointment is confirmed. Your booking ID is {booking_id}."
 
 def _handle_pricing_flow(user_text: str, context: dict[str, Any], call_id: str | None) -> str:
@@ -215,16 +221,14 @@ def _handle_pricing_flow(user_text: str, context: dict[str, Any], call_id: str |
         return "How many guests will be staying?"
     rates = check_room_rates({"check_in": dates["check_in"], "check_out": dates["check_out"]}, guests)
     if not rates.get("rates"):
-        _open_staff_ticket("pricing.unavailable", user_text, call_id)
+        asyncio.create_task(_open_staff_ticket("pricing.unavailable", user_text, call_id))
         return PRICING_UNAVAILABLE_MESSAGE
     context["rates"] = rates
     rate = rates["rates"][0]
     return f"The rate is {rate['amount']} {rate['currency']} for those dates."
 
-# --- DATABASE SETUP ---
-Base = declarative_base()
-
-class Escalation(Base):
+# --- DATABASE MODELS (unchanged, but now inherit from DbBase) ---
+class Escalation(DbBase):
     __tablename__ = "escalations"
     id = Column(Integer, primary_key=True, index=True)
     guest_name = Column(String, default="Unknown Guest")
@@ -234,7 +238,7 @@ class Escalation(Base):
     sentiment = Column(String, default="Neutral")
     created_at = Column(DateTime, default=datetime.utcnow)
 
-class DashboardEvent(Base):
+class DashboardEvent(DbBase):
     __tablename__ = "dashboard_events"
     id = Column(Integer, primary_key=True, index=True)
     at = Column(DateTime, default=datetime.utcnow, index=True)
@@ -242,7 +246,7 @@ class DashboardEvent(Base):
     source = Column(String, default="system")
     text = Column(Text)
 
-class CallSession(Base):
+class CallSession(DbBase):
     __tablename__ = "call_sessions"
     id = Column(String, primary_key=True, index=True)
     from_contact = Column(String, default="")
@@ -253,7 +257,7 @@ class CallSession(Base):
     transcript_snippet = Column(Text, default="")
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-class StaffMember(Base):
+class StaffMember(DbBase):
     __tablename__ = "staff_members"
     id = Column(String, primary_key=True, index=True)
     name = Column(String, default="")
@@ -263,9 +267,6 @@ class StaffMember(Base):
     status = Column(String, default="")
     languages = Column(Text, default="")
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-from app.db import engine, AsyncSessionLocal, get_db  # adjust imports as needed
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 # --- FASTAPI APP ---
 app = FastAPI()
@@ -389,6 +390,7 @@ def _verify_hmac(raw_body: bytes, timestamp: str | None, signature: str | None, 
     if not hmac.compare_digest(expected, signature):
         return False, "signature_mismatch"
     return True, "ok"
+
 # --- ROUTES ---
 
 def _normalize_event_level(value: str | None) -> str:
@@ -399,23 +401,21 @@ def _normalize_event_level(value: str | None) -> str:
         return lowered
     return "info"
 
-def _record_dashboard_event(level: str, source: str, message: str) -> None:
-    db = SessionLocal()
-    try:
-        evt = DashboardEvent(
-            at=datetime.utcnow(),
-            type=_normalize_event_level(level),
-            source=(source or "system"),
-            text=(message or ""),
-        )
-        db.add(evt)
-        db.commit()
-    except Exception as exc:
-        logging.getLogger("events").warning("dashboard_event_write_failed: %s", exc)
-    finally:
-        db.close()
+async def _record_dashboard_event(level: str, source: str, message: str) -> None:
+    async with AsyncSessionLocal() as db:
+        try:
+            evt = DashboardEvent(
+                at=datetime.utcnow(),
+                type=_normalize_event_level(level),
+                source=(source or "system"),
+                text=(message or ""),
+            )
+            db.add(evt)
+            await db.commit()
+        except Exception as exc:
+            logging.getLogger("events").warning("dashboard_event_write_failed: %s", exc)
 
-def _upsert_call_session(
+async def _upsert_call_session(
     call_id: str,
     *,
     status: str | None = None,
@@ -423,27 +423,27 @@ def _upsert_call_session(
 ) -> None:
     if not call_id:
         return
-    db = SessionLocal()
-    try:
-        session = db.query(CallSession).filter(CallSession.id == call_id).first()
-        if not session:
-            session = CallSession(
-                id=call_id,
-                status=status or "Active",
-                started_at=datetime.utcnow(),
-                transcript_snippet=(transcript_snippet or ""),
-            )
-            db.add(session)
-        else:
-            if status:
-                session.status = status
-            if transcript_snippet:
-                session.transcript_snippet = transcript_snippet
-        db.commit()
-    except Exception as exc:
-        logging.getLogger("calls").warning("call_session_upsert_failed: %s", exc)
-    finally:
-        db.close()
+    async with AsyncSessionLocal() as db:
+        try:
+            # Use select instead of query
+            result = await db.execute(select(CallSession).filter(CallSession.id == call_id))
+            session = result.scalar_one_or_none()
+            if not session:
+                session = CallSession(
+                    id=call_id,
+                    status=status or "Active",
+                    started_at=datetime.utcnow(),
+                    transcript_snippet=(transcript_snippet or ""),
+                )
+                db.add(session)
+            else:
+                if status:
+                    session.status = status
+                if transcript_snippet:
+                    session.transcript_snippet = transcript_snippet
+            await db.commit()
+        except Exception as exc:
+            logging.getLogger("calls").warning("call_session_upsert_failed: %s", exc)
 
 def _derive_severity(text_value: str | None) -> str:
     text_lower = (text_value or "").lower()
@@ -463,19 +463,21 @@ def _normalize_ticket_status(status_value: str | None) -> str:
         return "In Progress"
     return "Open"
 
+# --- STARTUP EVENT (async) ---
 @app.on_event("startup")
-def _ensure_dashboard_tables() -> None:
+async def startup_db_check():
+    # Create tables if they don't exist (using run_sync)
+    async with engine.begin() as conn:
+        await conn.run_sync(DbBase.metadata.create_all)
+    # Test connectivity
     try:
-        Base.metadata.create_all(
-            bind=engine,
-            tables=[
-                DashboardEvent.__table__,
-                CallSession.__table__,
-                StaffMember.__table__,
-            ],
-        )
-    except Exception as exc:
-        logging.getLogger("db").warning("dashboard_table_bootstrap_failed: %s", exc)
+        async with engine.connect() as conn:
+            await conn.execute(text("SELECT 1"))
+        print("✅ Database connection successful")
+    except Exception as e:
+        print(f"❌ Database connection failed: {e}")
+        # Optionally raise to stop the app
+        # raise e
 
 @app.get("/")
 async def read_root():
@@ -495,11 +497,11 @@ async def read_root():
     )
 
 @app.get("/health")
-def health_check():
+async def health_check():
     return {"status": "healthy", "service": "Grace Hotel AI"}
 
 @app.get("/admin/ping")
-def admin_ping(request: Request):
+async def admin_ping(request: Request):
     header = request.headers.get("X-Admin-Token")
     admin_token = _get_admin_token()
     if not admin_token:
@@ -508,77 +510,72 @@ def admin_ping(request: Request):
         return _auth_error("X-Admin-Token", "invalid_admin_token")
     return {"status": "ok"}
 
-# --- DASHBOARD API ---
+# --- DASHBOARD API (async) ---
 
 @app.get("/staff/recent-tickets")
-def get_recent_tickets():
-    db = SessionLocal()
-    try:
-        tickets = db.query(Escalation).order_by(Escalation.created_at.desc()).limit(20).all()
-        return [
-            {
-                "id": t.id,
-                "guest_name": t.guest_name,
-                "room_number": t.room_number,
-                "issue": t.issue,
-                "status": t.status,
-                "sentiment": t.sentiment,
-                "created_at": t.created_at.isoformat()
-            }
-            for t in tickets
-        ]
-    finally:
-        db.close()
+async def get_recent_tickets(db: AsyncSession = Depends(get_db)):
+    result = await db.execute(
+        select(Escalation).order_by(Escalation.created_at.desc()).limit(20)
+    )
+    tickets = result.scalars().all()
+    return [
+        {
+            "id": t.id,
+            "guest_name": t.guest_name,
+            "room_number": t.room_number,
+            "issue": t.issue,
+            "status": t.status,
+            "sentiment": t.sentiment,
+            "created_at": t.created_at.isoformat()
+        }
+        for t in tickets
+    ]
 
 @app.get("/staff/dashboard-stats")
-def get_stats():
-    db = SessionLocal()
-    try:
-        total = db.query(Escalation).count()
-        open_tickets = db.query(Escalation).filter(Escalation.status == "OPEN").count()
-        return {
-            "total_tickets": total,
-            "open_tickets": open_tickets,
-            "sentiment_score": 98 
-        }
-    finally:
-        db.close()
+async def get_stats(db: AsyncSession = Depends(get_db)):
+    total = await db.scalar(select(func.count()).select_from(Escalation))
+    open_tickets = await db.scalar(
+        select(func.count()).where(Escalation.status == "OPEN")
+    )
+    return {
+        "total_tickets": total or 0,
+        "open_tickets": open_tickets or 0,
+        "sentiment_score": 98  # placeholder
+    }
 
 @app.post("/staff/escalate")
-async def create_ticket(request: Request):
+async def create_ticket(request: Request, db: AsyncSession = Depends(get_db)):
     data = await request.json()
-    db = SessionLocal()
-    try:
-        new_ticket = Escalation(
-            guest_name=data.get("guest_name", "Test Guest"),
-            room_number=data.get("room_number", "101"),
-            issue=data.get("issue", "Test Issue"),
-            status="OPEN",
-            sentiment=data.get("sentiment", "Neutral")
-        )
-        db.add(new_ticket)
-        db.commit()
-        _record_dashboard_event("alert", "tickets", f"New ticket opened for room {new_ticket.room_number}: {new_ticket.issue}")
-        return {"status": "Ticket Created"}
-    finally:
-        db.close()
+    new_ticket = Escalation(
+        guest_name=data.get("guest_name", "Test Guest"),
+        room_number=data.get("room_number", "101"),
+        issue=data.get("issue", "Test Issue"),
+        status="OPEN",
+        sentiment=data.get("sentiment", "Neutral")
+    )
+    db.add(new_ticket)
+    await db.commit()
+    await _record_dashboard_event("alert", "tickets", f"New ticket opened for room {new_ticket.room_number}: {new_ticket.issue}")
+    return {"status": "Ticket Created"}
 
 @app.get("/api/tickets")
-def api_tickets(limit: int = Query(50, ge=1, le=200)):
-    db = SessionLocal()
+async def api_tickets(limit: int = Query(50, ge=1, le=200), db: AsyncSession = Depends(get_db)):
     try:
-        query_with_claim = text(
-            """
-            SELECT id, guest_name, room_number, issue, status, created_at, claimed_at
-            FROM escalations
-            ORDER BY created_at DESC
-            LIMIT :limit
-            """
-        )
+        # Try to query with claimed_at if column exists
         try:
-            rows = db.execute(query_with_claim, {"limit": limit}).mappings().all()
+            stmt = text(
+                """
+                SELECT id, guest_name, room_number, issue, status, created_at, claimed_at
+                FROM escalations
+                ORDER BY created_at DESC
+                LIMIT :limit
+                """
+            )
+            rows = await db.execute(stmt, {"limit": limit})
+            rows = rows.mappings().all()
         except Exception:
-            query_basic = text(
+            # Fallback if claimed_at doesn't exist
+            stmt = text(
                 """
                 SELECT id, guest_name, room_number, issue, status, created_at
                 FROM escalations
@@ -586,7 +583,8 @@ def api_tickets(limit: int = Query(50, ge=1, le=200)):
                 LIMIT :limit
                 """
             )
-            rows = db.execute(query_basic, {"limit": limit}).mappings().all()
+            rows = await db.execute(stmt, {"limit": limit})
+            rows = rows.mappings().all()
 
         results: list[dict[str, Any]] = []
         for row in rows:
@@ -616,14 +614,14 @@ def api_tickets(limit: int = Query(50, ge=1, le=200)):
     except Exception as exc:
         logging.getLogger("api").warning("api_tickets_failed: %s", exc)
         raise HTTPException(status_code=503, detail="Tickets unavailable")
-    finally:
-        db.close()
 
 @app.get("/api/events")
-def api_events(limit: int = Query(100, ge=1, le=500)):
-    db = SessionLocal()
+async def api_events(limit: int = Query(100, ge=1, le=500), db: AsyncSession = Depends(get_db)):
     try:
-        rows = db.query(DashboardEvent).order_by(DashboardEvent.at.desc()).limit(limit).all()
+        result = await db.execute(
+            select(DashboardEvent).order_by(DashboardEvent.at.desc()).limit(limit)
+        )
+        rows = result.scalars().all()
         return [
             {
                 "at": r.at.isoformat() if isinstance(r.at, datetime) else None,
@@ -636,14 +634,14 @@ def api_events(limit: int = Query(100, ge=1, le=500)):
     except Exception as exc:
         logging.getLogger("api").warning("api_events_failed: %s", exc)
         raise HTTPException(status_code=503, detail="Events unavailable")
-    finally:
-        db.close()
 
 @app.get("/api/calls")
-def api_calls(limit: int = Query(50, ge=1, le=200)):
-    db = SessionLocal()
+async def api_calls(limit: int = Query(50, ge=1, le=200), db: AsyncSession = Depends(get_db)):
     try:
-        rows = db.query(CallSession).order_by(CallSession.started_at.desc()).limit(limit).all()
+        result = await db.execute(
+            select(CallSession).order_by(CallSession.started_at.desc()).limit(limit)
+        )
+        rows = result.scalars().all()
         return [
             {
                 "id": r.id,
@@ -659,14 +657,14 @@ def api_calls(limit: int = Query(50, ge=1, le=200)):
     except Exception as exc:
         logging.getLogger("api").warning("api_calls_failed: %s", exc)
         raise HTTPException(status_code=503, detail="Calls unavailable")
-    finally:
-        db.close()
 
 @app.get("/api/staff")
-def api_staff(limit: int = Query(100, ge=1, le=500)):
-    db = SessionLocal()
+async def api_staff(limit: int = Query(100, ge=1, le=500), db: AsyncSession = Depends(get_db)):
     try:
-        rows = db.query(StaffMember).order_by(StaffMember.name.asc()).limit(limit).all()
+        result = await db.execute(
+            select(StaffMember).order_by(StaffMember.name.asc()).limit(limit)
+        )
+        rows = result.scalars().all()
         results: list[dict[str, Any]] = []
         for r in rows:
             languages = []
@@ -688,22 +686,16 @@ def api_staff(limit: int = Query(100, ge=1, le=500)):
     except Exception as exc:
         logging.getLogger("api").warning("api_staff_failed: %s", exc)
         raise HTTPException(status_code=503, detail="Staff unavailable")
-    finally:
-        db.close()
 
 @app.delete("/staff/tickets/{ticket_id}")
-def delete_ticket(ticket_id: int):
-    db = SessionLocal()
-    try:
-        ticket = db.query(Escalation).filter(Escalation.id == ticket_id).first()
-        if not ticket:
-            raise HTTPException(status_code=404, detail="Ticket not found")
-        _record_dashboard_event("warn", "tickets", f"Ticket deleted: TCK-{ticket.id}")
-        db.delete(ticket)
-        db.commit()
-        return {"status": "deleted", "id": ticket_id}
-    finally:
-        db.close()
+async def delete_ticket(ticket_id: int, db: AsyncSession = Depends(get_db)):
+    ticket = await db.get(Escalation, ticket_id)
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+    await _record_dashboard_event("warn", "tickets", f"Ticket deleted: TCK-{ticket.id}")
+    await db.delete(ticket)
+    await db.commit()
+    return {"status": "deleted", "id": ticket_id}
 
 @app.post("/integrations/make/trigger")
 async def make_trigger(request: Request):
@@ -762,8 +754,8 @@ async def _retell_ws_handler(websocket: WebSocket, call_id: str | None = None):
     logger.info("RETELL_WS_ACCEPT call_id=%s path=%s", call_id, path)
     response_counter = 0
     if call_id:
-        _upsert_call_session(call_id, status="Active")
-        _record_dashboard_event("info", "calls", f"Call connected: {call_id}")
+        await _upsert_call_session(call_id, status="Active")
+        await _record_dashboard_event("info", "calls", f"Call connected: {call_id}")
 
     try:
         await websocket.send_json(
@@ -801,7 +793,7 @@ async def _retell_ws_handler(websocket: WebSocket, call_id: str | None = None):
                 snippet = user_text.strip()
                 if len(snippet) > 280:
                     snippet = snippet[:280] + "…"
-                _upsert_call_session(call_id, status="Active", transcript_snippet=snippet)
+                await _upsert_call_session(call_id, status="Active", transcript_snippet=snippet)
 
             state = _retell_state_for(call_id or "unknown")
             context = state["context"]
@@ -840,7 +832,7 @@ async def _retell_ws_handler(websocket: WebSocket, call_id: str | None = None):
 
                         ai_reply = await asyncio.wait_for(asyncio.to_thread(_call_model), timeout=8.0)
                     except asyncio.TimeoutError:
-                        _open_staff_ticket("latency.llm_timeout", user_text, call_id)
+                        await _open_staff_ticket("latency.llm_timeout", user_text, call_id)
                         ai_reply = STILL_CHECKING_MESSAGE
                     except Exception:
                         ai_reply = ""
@@ -878,23 +870,21 @@ async def _retell_ws_handler(websocket: WebSocket, call_id: str | None = None):
                 duration_ms,
             )
 
-            # SAVE TO DB LOGIC
+            # Save to DB (async)
             if len(user_text) > 5:
-                db = SessionLocal()
-                try:
-                    new_ticket = Escalation(
-                        guest_name="Voice Call Guest",
-                        room_number="Unknown",
-                        issue=user_text,
-                        status="OPEN",
-                        sentiment="Neutral"
-                    )
-                    db.add(new_ticket)
-                    db.commit()
-                except Exception:
-                    pass
-                finally:
-                    db.close()
+                async with AsyncSessionLocal() as db:
+                    try:
+                        new_ticket = Escalation(
+                            guest_name="Voice Call Guest",
+                            room_number="Unknown",
+                            issue=user_text,
+                            status="OPEN",
+                            sentiment="Neutral"
+                        )
+                        db.add(new_ticket)
+                        await db.commit()
+                    except Exception:
+                        pass
 
             response_event = {
                 "response_id": response_id,
@@ -906,8 +896,8 @@ async def _retell_ws_handler(websocket: WebSocket, call_id: str | None = None):
 
     except WebSocketDisconnect as e:
         if call_id:
-            _upsert_call_session(call_id, status="Ended")
-            _record_dashboard_event("info", "calls", f"Call ended: {call_id}")
+            await _upsert_call_session(call_id, status="Ended")
+            await _record_dashboard_event("info", "calls", f"Call ended: {call_id}")
         if e.code == 1000:
             logger.info("RETELL_WS_DISCONNECT call_id=%s code=1000", call_id)
         else:
@@ -919,11 +909,9 @@ async def _retell_ws_handler(websocket: WebSocket, call_id: str | None = None):
         except Exception:
             pass
 
-
 @app.websocket("/llm-websocket")
 async def websocket_endpoint_root(websocket: WebSocket):
     await _retell_ws_handler(websocket)
-
 
 @app.websocket("/llm-websocket/{call_id}")
 async def websocket_endpoint_with_id(websocket: WebSocket, call_id: str):
