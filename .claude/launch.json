@@ -4,7 +4,7 @@
     {
       "name": "Grace API (FastAPI + Uvicorn)",
       "runtimeExecutable": "python3",
-      "runtimeArgs": ["-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"],
+      "runtimeArgs": ["-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--app-dir", "/Users/ahmedbacker/Grace/Grace"],
       "port": 8000
     },
     {
