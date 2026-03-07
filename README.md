@@ -1,3 +1,5 @@
+# Grace
+
 ```mermaid
 %%{init: {
   'theme': 'base',
@@ -75,20 +77,3 @@ flowchart LR
   style DATA fill:#f8fafc,stroke:#e2e8f0,rx:20,ry:20;
   style OPS fill:#f8fafc,stroke:#e2e8f0,rx:20,ry:20;
 ```
-## Retell Custom LLM
-
-**Handler:** `WebSocket /llm-websocket/{call_id}` in `app/main.py`
-
-**Where prompts live**
-- `SYSTEM_PROMPT` constant in `app/main.py`
-- Guardrails enforced in the websocket handler before calling the model
-
-**Guardrails**
-- If user message is empty/unclear, respond with a clarifying question
-- Prevent repeating the last assistant message
-- Dedupe repeated user utterances within 10 seconds
-
-**Debug marker (temporary)**
-- To verify Retell is using our Custom LLM, set `RETELL_DEBUG_MARKER=1` in Railway env vars and redeploy.
-- When enabled, every response will be prefixed with `GRACE_WS_OK: `.
-- Disable after verification by unsetting `RETELL_DEBUG_MARKER` or setting it to `0`.

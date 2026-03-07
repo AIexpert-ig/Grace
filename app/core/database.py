@@ -1,24 +1,25 @@
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-from sqlalchemy.orm import sessionmaker, declarative_base
-import os
+# app/core/database.py
+"""Re-exports for backward compatibility.
 
-raw_url = os.getenv("DATABASE_URL") or os.getenv("DATABASE_PUBLIC_URL")
+The sync engine was removed. All DB access now goes through the async engine
+and AsyncSessionLocal defined in app.db.
+"""
+import logging
 
-if not raw_url:
-    DATABASE_URL = "postgresql+asyncpg://user:pass@localhost/grace_db"
-else:
-    DATABASE_URL = raw_url.replace("postgresql://", "postgresql+asyncpg://")
+from app.db import (  # noqa: F401 – re-exported for external consumers
+    AsyncSessionLocal,
+    Base,
+    SessionLocal,
+    async_engine as engine,
+    get_db,
+)
 
-engine = create_async_engine(DATABASE_URL, echo=True)
-AsyncSessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
-Base = declarative_base()
+logger = logging.getLogger(__name__)
 
-def get_engine():
-    return engine
 
-async def get_db():
-    async with AsyncSessionLocal() as session:
-        yield session
-
-def get_pool_status():
-    return engine.pool.status()
+def get_pool_status() -> str:
+    """Return a human-readable pool status string."""
+    try:
+        return engine.pool.status()
+    except Exception:
+        return "Uninitialized"

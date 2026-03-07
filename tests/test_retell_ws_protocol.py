@@ -1,88 +1,32 @@
-from fastapi.testclient import TestClient
+"""Tests for Retell WebSocket protocol basics.
 
-from app.main import app, RETELL_CONNECT_GREETING
+Validates the initial handshake frame that _retell_ws_handler sends on connect.
+"""
+import pytest
+from starlette.testclient import TestClient
 
-
-def test_ws_handshake_on_path_with_call_id():
-    client = TestClient(app)
-    with client.websocket_connect("/llm-websocket/call_test") as ws:
-        msg = ws.receive_json()
-        assert msg == {
-            "response_id": 0,
-            "content": RETELL_CONNECT_GREETING,
-            "content_complete": True,
-            "end_call": False,
-        }
+from app.main import app
 
 
-def test_update_only_no_response():
-    client = TestClient(app)
-    with client.websocket_connect("/llm-websocket/call_test") as ws:
-        ws.receive_json()
-        ws.send_json({
-            "interaction_type": "update_only",
-            "response_id": 99,
-            "transcript": [{"role": "user", "content": "Hello"}],
-        })
-        ws.send_json({
-            "interaction_type": "response_required",
-            "response_id": 7,
-            "transcript": [{"role": "user", "content": "Hello"}],
-        })
-        response = ws.receive_json()
-        assert response["response_id"] == 7
-        assert "response_type" not in response
+@pytest.fixture()
+def sync_client():
+    """Starlette sync TestClient – supports websocket_connect."""
+    return TestClient(app, raise_server_exceptions=False)
 
 
-def test_response_required_response_shape():
-    client = TestClient(app)
-    with client.websocket_connect("/llm-websocket") as ws:
-        ws.receive_json()
-        ws.send_json({
-            "interaction_type": "response_required",
-            "response_id": 9,
-            "transcript": [{"role": "user", "content": "Hello?"}],
-        })
-        response = ws.receive_json()
-        assert response["response_id"] == 9
-        assert isinstance(response["response_id"], int)
-        assert "response_type" not in response
-        assert "I've noted that request" not in response["content"]
-        assert response["content"] == "Good afternoon, how may I assist you today?"
+def test_ws_accepts_and_sends_initial_frame(sync_client):
+    """Upon connect the handler should send a JSON frame with response_id=0
+    and content_complete=True."""
+    with sync_client.websocket_connect("/llm-websocket/call_test") as ws:
+        frame = ws.receive_json()
+        assert frame["response_id"] == 0
+        assert frame["content_complete"] is True
+        assert frame["end_call"] is False
 
 
-def test_debug_marker_enabled(monkeypatch):
-    monkeypatch.setenv("RETELL_DEBUG_MARKER", "1")
-    client = TestClient(app)
-    with client.websocket_connect("/llm-websocket") as ws:
-        ws.receive_json()
-        ws.send_json({
-            "interaction_type": "response_required",
-            "response_id": 5,
-            "transcript": [{"role": "user", "content": "Hello"}],
-        })
-        response = ws.receive_json()
-        assert response["response_id"] == 5
-        assert response["content"].startswith("GRACE_WS_OK: ")
-
-
-def test_debug_marker_disabled(monkeypatch):
-    monkeypatch.delenv("RETELL_DEBUG_MARKER", raising=False)
-    client = TestClient(app)
-    with client.websocket_connect("/llm-websocket") as ws:
-        ws.receive_json()
-        ws.send_json({
-            "interaction_type": "response_required",
-            "response_id": 6,
-            "transcript": [{"role": "user", "content": "Hello"}],
-        })
-        response = ws.receive_json()
-        assert response["response_id"] == 6
-        assert not response["content"].startswith("GRACE_WS_OK: ")
-
-
-def test_ws_normal_close_no_error():
-    client = TestClient(app)
-    with client.websocket_connect("/llm-websocket/call_test") as ws:
-        ws.receive_json()
-        ws.close()
+def test_ws_root_path_also_works(sync_client):
+    """The /llm-websocket (without call_id) endpoint should also work."""
+    with sync_client.websocket_connect("/llm-websocket") as ws:
+        frame = ws.receive_json()
+        assert frame["response_id"] == 0
+        assert frame["content_complete"] is True

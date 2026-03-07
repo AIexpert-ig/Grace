@@ -1,72 +1,89 @@
+"""Tests for Retell webhook ingestion (async version).
+
+Verifies call_started / call_ended / call_analyzed persistence and
+idempotent ticket creation against a throw-away SQLite database.
+"""
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from Grace.app import retell_ingest
-from Grace.app.api import routes as dashboard_routes
-from Grace.app.db import CallAnalysis, CallSession, Escalation, bootstrap_tables, get_engine, get_sessionmaker
+from app.api import routes as dashboard_routes
+from app.db import Base, CallAnalysis, CallSession, Escalation
+from app.retell_ingest import ingest_retell_webhook
 
 
-def _session_factory(tmp_path):
+@pytest.fixture
+async def retell_db(tmp_path):
+    """Create a throw-away async SQLite engine + session factory."""
     db_path = tmp_path / "grace_retell_test.db"
-    engine = get_engine(f"sqlite:///{db_path}")
-    bootstrap_tables(engine=engine)
-    return get_sessionmaker(engine=engine)
+    engine = create_async_engine(f"sqlite+aiosqlite:///{db_path}")
+
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
+    factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    yield factory
+    await engine.dispose()
 
 
-def test_retell_ingest_call_started_persists_call(tmp_path):
-    SessionLocal = _session_factory(tmp_path)
+# ── call_started ──────────────────────────────────────────────────────────
 
-    res = retell_ingest.ingest_retell_webhook(
+
+async def test_retell_ingest_call_started_persists_call(retell_db):
+    res = await ingest_retell_webhook(
         {"call_id": "call-start-1", "from": "+15550001111"},
         event_type="call_started",
         correlation_id="corr-1",
-        session_factory=SessionLocal,
+        session_factory=retell_db,
     )
     assert res["ok"] is True
 
-    db = SessionLocal()
-    try:
-        row = db.query(CallSession).filter(CallSession.id == "call-start-1").first()
+    async with retell_db() as db:
+        result = await db.execute(
+            select(CallSession).where(CallSession.id == "call-start-1")
+        )
+        row = result.scalars().first()
         assert row is not None
         assert row.status == "Active"
         assert row.from_contact == "+15550001111"
-    finally:
-        db.close()
 
 
-def test_retell_ingest_call_ended_updates_status(tmp_path):
-    SessionLocal = _session_factory(tmp_path)
+# ── call_ended ────────────────────────────────────────────────────────────
 
-    retell_ingest.ingest_retell_webhook(
+
+async def test_retell_ingest_call_ended_updates_status(retell_db):
+    await ingest_retell_webhook(
         {"call_id": "call-end-1"},
         event_type="call_started",
         correlation_id="corr-2",
-        session_factory=SessionLocal,
+        session_factory=retell_db,
     )
-    retell_ingest.ingest_retell_webhook(
+    await ingest_retell_webhook(
         {"call_id": "call-end-1"},
         event_type="call_ended",
         correlation_id="corr-3",
-        session_factory=SessionLocal,
+        session_factory=retell_db,
     )
 
-    db = SessionLocal()
-    try:
-        row = db.query(CallSession).filter(CallSession.id == "call-end-1").first()
+    async with retell_db() as db:
+        result = await db.execute(
+            select(CallSession).where(CallSession.id == "call-end-1")
+        )
+        row = result.scalars().first()
         assert row is not None
         assert row.status == "Ended"
-    finally:
-        db.close()
 
 
-def test_retell_ingest_call_analyzed_creates_ticket_idempotent(tmp_path):
-    SessionLocal = _session_factory(tmp_path)
+# ── call_analyzed (idempotent ticket) ─────────────────────────────────────
 
+
+async def test_retell_ingest_call_analyzed_creates_ticket_idempotent(retell_db):
     payload = {
         "call_id": "call-analyzed-1",
         "analysis": {
@@ -83,17 +100,17 @@ def test_retell_ingest_call_analyzed_creates_ticket_idempotent(tmp_path):
         ],
     }
 
-    first = retell_ingest.ingest_retell_webhook(
+    first = await ingest_retell_webhook(
         payload,
         event_type="call_analyzed",
         correlation_id="corr-a1",
-        session_factory=SessionLocal,
+        session_factory=retell_db,
     )
-    second = retell_ingest.ingest_retell_webhook(
+    second = await ingest_retell_webhook(
         payload,
         event_type="call_analyzed",
         correlation_id="corr-a2",
-        session_factory=SessionLocal,
+        session_factory=retell_db,
     )
 
     assert first["ok"] is True
@@ -101,27 +118,27 @@ def test_retell_ingest_call_analyzed_creates_ticket_idempotent(tmp_path):
     assert first["ticket_id"] is not None
     assert second["ticket_id"] == first["ticket_id"]
 
-    db = SessionLocal()
-    try:
-        tickets = db.query(Escalation).all()
+    async with retell_db() as db:
+        ticket_result = await db.execute(select(Escalation))
+        tickets = ticket_result.scalars().all()
         assert len(tickets) == 1
         assert "TRANSCRIPT" in (tickets[0].issue or "")
 
-        analysis = db.query(CallAnalysis).filter(CallAnalysis.call_id == "call-analyzed-1").first()
+        analysis_result = await db.execute(
+            select(CallAnalysis).where(CallAnalysis.call_id == "call-analyzed-1")
+        )
+        analysis = analysis_result.scalars().first()
         assert analysis is not None
         assert analysis.ticket_id == first["ticket_id"]
         assert analysis.summary
         assert analysis.transcript
-    finally:
-        db.close()
 
 
-@pytest.mark.asyncio
-async def test_api_calls_reads_db(monkeypatch, tmp_path):
-    SessionLocal = _session_factory(tmp_path)
+# ── API /api/calls integration ────────────────────────────────────────────
 
-    db = SessionLocal()
-    try:
+
+async def test_api_calls_reads_db(retell_db, monkeypatch):
+    async with retell_db() as db:
         db.add(
             CallSession(
                 id="call-api-1",
@@ -129,24 +146,23 @@ async def test_api_calls_reads_db(monkeypatch, tmp_path):
                 status="Active",
                 intent="",
                 latency_ms=None,
-                started_at=datetime.utcnow(),
+                started_at=datetime.now(timezone.utc),
                 transcript_snippet="Hello",
             )
         )
-        db.commit()
-    finally:
-        db.close()
+        await db.commit()
 
-    monkeypatch.setattr(dashboard_routes, "SessionLocal", SessionLocal, raising=True)
+    monkeypatch.setattr(dashboard_routes, "AsyncSessionLocal", retell_db)
 
     app = FastAPI()
     app.include_router(dashboard_routes.router, prefix="/api")
 
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as client:
         res = await client.get("/api/calls", params={"limit": 10})
 
     assert res.status_code == 200
     data = res.json()
     assert isinstance(data, list)
     assert any(item.get("id") == "call-api-1" for item in data)
-

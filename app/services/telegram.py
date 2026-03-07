@@ -61,9 +61,9 @@ class TelegramService:
     async def _get_live_rates(self) -> str:
         """Fetch real rates from the PostgreSQL database."""
         try:
-            async for db in get_db():
+            for db in get_db():
                 # Attempt to query your database
-                result = await db.execute(text("SELECT room_type, price FROM rates LIMIT 3"))
+                result = db.execute(text("SELECT room_type, price FROM rates LIMIT 3"))
                 rows = result.all()
 
                 if not rows:

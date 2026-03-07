@@ -4,5 +4,5 @@ __pycache__/
 .env
 venv/
 .test.db
-.env*.local
-client_script.py
+tailwindcss
+tailwindcss
