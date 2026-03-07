@@ -263,7 +263,7 @@ class StaffMember(Base):
     languages = Column(Text, default="")
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-engine = create_engine(DATABASE_URL, pool_pre_ping=True)
+from app.db import engine, AsyncSessionLocal, get_db  # adjust imports as needed
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 # --- FASTAPI APP ---
