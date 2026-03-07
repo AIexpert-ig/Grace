@@ -2,7 +2,7 @@
 # pylint: disable=no-member
 from typing import cast
 
-from pydantic import Field
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):  # pylint: disable=too-few-public-methods
@@ -37,16 +37,24 @@ class Settings(BaseSettings):  # pylint: disable=too-few-public-methods
     API_KEY: str = "grace_prod_key_99"
     HMAC_SECRET: str = "dubai_handshake_2026"  # Updated default to match our protocol
     
-    # DATABASE
+    # DATABASE — required; no hardcoded default.
     # On Render/Railway the platform injects DATABASE_URL automatically.
-    # Locally, set DATABASE_URL in your .env file.  The default below only
-    # works if a local PostgreSQL instance has a "postgres" superuser (the
-    # standard install default). If you see "role X does not exist", your
-    # DATABASE_URL env var contains a different username — check your .env.
+    # Locally, set it in your .env file.
     database_url_raw: str = Field(
-        default="postgresql+asyncpg://postgres:postgres@localhost:5432/grace",
+        default="",
         validation_alias="DATABASE_URL",
     )
+
+    @model_validator(mode="after")
+    def _require_database_url(self) -> "Settings":
+        if not self.database_url_raw:
+            raise ValueError(
+                "\n\n"
+                "  DATABASE_URL is not set.\n"
+                "  Set it in your .env file or environment.  Example:\n\n"
+                '    DATABASE_URL=postgresql+asyncpg://user:pass@host/dbname\n'
+            )
+        return self
     
     @property
     def DATABASE_URL(self) -> str:
