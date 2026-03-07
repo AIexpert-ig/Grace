@@ -164,7 +164,18 @@ async def bootstrap_tables() -> None:
                 ],
             )
     except Exception as exc:
-        logging.getLogger("db").warning("grace_table_bootstrap_failed: %s", exc)
+        # Render the URL with the password hidden so the log is actionable.
+        try:
+            from sqlalchemy.engine import make_url
+            masked = make_url(settings.DATABASE_URL).render_as_string(hide_password=True)
+        except Exception:
+            masked = "<unreadable url>"
+        logging.getLogger("db").warning(
+            "grace_table_bootstrap_failed (connecting to %s) — "
+            "check DATABASE_URL in your environment or .env file. Error: %s",
+            masked,
+            exc,
+        )
 
 
 # ---------------------------------------------------------------------------
