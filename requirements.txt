@@ -11,3 +11,4 @@ tenacity
 pytz
 openai
 google-genai
+python-telegram-bot==22.6

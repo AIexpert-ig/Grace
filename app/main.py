@@ -11,7 +11,30 @@ from contextlib import asynccontextmanager
 import re
 from datetime import datetime
 from pathlib import Path
+# At the top with other imports
+from app.telegram_bot import telegram_app, set_webhook
+import os
 
+# After creating the FastAPI app, add these:
+
+BASE_URL = os.getenv("RENDER_EXTERNAL_URL")  # Automatically set by Render
+WEBHOOK_PATH = "/telegram-webhook"
+WEBHOOK_URL = f"{BASE_URL}{WEBHOOK_PATH}"
+
+@app.on_event("startup")
+async def startup_telegram():
+    try:
+        await set_webhook(WEBHOOK_URL)
+        print(f"✅ Telegram webhook set to {WEBHOOK_URL}")
+    except Exception as e:
+        print(f"❌ Failed to set Telegram webhook: {e}")
+
+@app.post(WEBHOOK_PATH)
+async def telegram_webhook(request: Request):
+    json_data = await request.json()
+    update = Update.de_json(json_data, telegram_app.bot)
+    await telegram_app.process_update(update)
+    return {"ok": True}
 import httpx
 from sqlalchemy import text
 from fastapi import FastAPI, WebSocket, Request, HTTPException
