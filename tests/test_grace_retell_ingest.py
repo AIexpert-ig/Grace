@@ -14,7 +14,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.api import routes as dashboard_routes
-from app.db import Base, CallAnalysis, CallSession, Escalation
+from app.db import Base
+from app.models import CallSession, Escalation
 from app.retell_ingest import ingest_retell_webhook
 
 

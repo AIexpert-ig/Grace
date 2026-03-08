@@ -15,7 +15,8 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
-from .db import AsyncSessionLocal, CallAnalysis, CallSession, Escalation
+from .db import AsyncSessionLocal
+from app.models import CallSession, Escalation
 
 _log = logging.getLogger("retell.ingest")
 

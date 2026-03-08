@@ -9,7 +9,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.db import Escalation, get_db
+from app.db import get_db
+from app.models import Escalation
 
 router = APIRouter()
 logger = logging.getLogger(__name__)

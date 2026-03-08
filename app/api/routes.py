@@ -8,7 +8,8 @@ from typing import Any
 from fastapi import APIRouter, Query
 from sqlalchemy import select
 
-from ..db import AsyncSessionLocal, CallSession, Escalation, Event
+from ..db import AsyncSessionLocal
+from app.models import CallSession, Escalation, Event
 
 router = APIRouter()
 
