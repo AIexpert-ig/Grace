@@ -972,9 +972,14 @@ async def _retell_ws_handler(websocket: WebSocket, call_id: str | None = None) -
                         ai_reply = await asyncio.wait_for(asyncio.to_thread(_call_model), timeout=8.0)
                     except asyncio.TimeoutError:
                         _open_staff_ticket("latency.llm_timeout", user_text, call_id)
+                        logger.warning("Gemini AI API timeout")
                         ai_reply = STILL_CHECKING_MESSAGE
-                    except Exception:
+                    except Exception as e:
+                        logger.exception("Gemini AI API call failed: %s", e)
                         ai_reply = ""
+                else:
+                    logger.warning("GOOGLE_API_KEY is not set. Skipping AI generation.")
+                    ai_reply = ""
 
                 if not ai_reply:
                     ai_reply = "I'm experiencing a technical issue. How may I assist you today?"
