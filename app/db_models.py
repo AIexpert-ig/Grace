@@ -1,7 +1,7 @@
 # pylint: disable=not-callable
 from sqlalchemy import Column, Integer, String, DateTime, Float, Boolean
 from sqlalchemy.sql import func
-from app.core.database import Base
+from app.db import Base
 
 class Rate(Base):
     __tablename__ = "rates"

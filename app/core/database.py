@@ -9,7 +9,6 @@ import logging
 from app.db import (  # noqa: F401 – re-exported for external consumers
     AsyncSessionLocal,
     Base,
-    SessionLocal,
     async_engine as engine,
     get_db,
 )

@@ -32,7 +32,7 @@ from app.services import telegram_bot
 from app.services.openai_service import OpenAIService
 from app.services.make_integration import handle_make_trigger, send_make_webhook
 from .api.routes import router as dashboard_api_router
-from .db import AsyncSessionLocal, SessionLocal, bootstrap_tables
+from .db import AsyncSessionLocal, bootstrap_tables
 from app.models import Escalation, Event
 from .retell_ingest import ingest_retell_webhook
 
